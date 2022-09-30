@@ -1,45 +1,70 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import Counter from './lib/Counter.svelte'
+	import 'agnostic-svelte/css/common.min.css';
+	import { fly } from 'svelte/transition';
+	import { Button, ButtonGroup, Tabs } from 'agnostic-svelte';
+	import GitHubLogo from './assets/github-logo.svg';
+	import Separator from './lib/Separator.svelte';
 </script>
 
 <main>
-  <div>
-    <a href="https://vitejs.dev" target="_blank"> 
-      <img src="/vite.svg" class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank"> 
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>Vite + Svelte</h1>
+	<h3 transition:fly={{ y: 100, duration: 5_000 }}>Hey there, I'm</h3>
+	<h1 transition:fly={{ y: 100, duration: 5_000 }} class="gradient">
+		Matthew Polak
+	</h1>
 
-  <div class="card">
-    <Counter />
-  </div>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
+	<p>Something something science etc etc</p>
+	<Separator />
+	<ButtonGroup ariaLabel="Social connections">
+		<a href="https://github.com/matteopolak">
+			<Button isGrouped isCapsule mode="primary"
+				><img src={GitHubLogo} alt="GitHub Logo" class="button" />GitHub</Button
+			>
+		</a>
+		<a href="https://github.com/matteopolak" class="grouped">
+			<Button isGrouped isCapsule mode="primary"
+				><img
+					src={GitHubLogo}
+					alt="GitHub Logo"
+					class="button"
+				/>LinkedIn</Button
+			>
+		</a>
+	</ButtonGroup>
 </main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+	:root {
+		--github-modelight: ;
+	}
+
+	.button {
+		padding-right: 0.5em;
+	}
+
+	.grouped:not(:first-of-type) {
+		padding-left: 0.5em;
+	}
+
+	.gradient {
+		background: linear-gradient(90deg, #4248f5, #f54242);
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	h1 {
+		margin-bottom: 0;
+		margin-top: 0;
+		text-align: left;
+		font-size: 6em;
+	}
+
+	h3 {
+		margin-bottom: 0;
+		text-align: left;
+		font-size: 2em;
+	}
+
+	p {
+		text-align: left;
+	}
 </style>
