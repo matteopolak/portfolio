@@ -1,15 +1,20 @@
 <script lang="ts">
 	import 'agnostic-svelte/css/common.min.css';
 	import { fly } from 'svelte/transition';
-	import { ButtonGroup, Tabs } from 'agnostic-svelte';
+	import { ButtonGroup } from 'agnostic-svelte';
 	import GitHubLogo from './assets/github-logo.svg';
 	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import DownArrowSvg from './assets/down-arrow.svg';
 	import Separator from './lib/Separator.svelte';
 	import { onMount } from 'svelte';
 	import ButtonLink from './lib/ButtonLink.svelte';
-	import RustTab from './lib/tabs/RustTab.svelte';
+	import BaerScriptProject from './lib/projects/BaerScriptProject.svelte';
+	import StockPredictProject from './lib/projects/StockPredictProject.svelte';
+	import JukeboxProject from './lib/projects/JukeboxProject.svelte';
+	import TheArchonProject from './lib/projects/TheArchonProject.svelte';
+	import PasswordProject from './lib/projects/PasswordProject.svelte';
 
+	let hash = Math.floor(Date.now() / 86_400_000);
 	let ready = false;
 	onMount(() => (ready = true));
 </script>
@@ -39,7 +44,7 @@
 						href="https://github.com/matteopolak"
 						mode="github"
 					>
-						<img src={GitHubLogo} alt="GitHub Logo" class="button" />GitHub
+						<img src={GitHubLogo} alt="GitHub logo" class="button" />GitHub
 					</ButtonLink>
 					<ButtonLink
 						klass="grouped"
@@ -48,7 +53,7 @@
 					>
 						<img
 							src={LinkedInLogo}
-							alt="LinkedIn Logo"
+							alt="LinkedIn logo"
 							class="button"
 						/>LinkedIn
 					</ButtonLink>
@@ -57,7 +62,7 @@
 		</section>
 		<ButtonLink
 			style="position: absolute; bottom: 10vh;"
-			href="#languages"
+			href="#projects"
 			mode="blank"
 			target="_self"
 			><img
@@ -67,21 +72,17 @@
 			/></ButtonLink
 		>
 		<Separator --padding="100vh" />
-		<section id="languages" class="tabs horizontal">
-			<Tabs
-				tabs={[
-					{
-						title: 'Rust',
-						ariaControls: 'rust',
-						tabPanelComponent: RustTab,
-					},
-				]}
-			/>
+		<section id="projects">
+			<BaerScriptProject {hash} />
+			<StockPredictProject {hash} />
+			<JukeboxProject {hash} />
+			<PasswordProject {hash} />
+			<TheArchonProject {hash} />
 		</section>
 	{/if}
 	<section>
 		<div class="footer">
-			<p>© 2022 Matthew Polak</p>
+			<p>© Copyright 2022 Matthew Polak. All right reserved.</p>
 		</div>
 	</section>
 </main>
@@ -95,25 +96,24 @@
 		background-color: var(--linkedin-primary) !important;
 	}
 
-	:global(.tab) {
-		max-width: 50vw;
-		text-align: left;
-	}
-
 	.wrapper {
 		display: inline-block;
+		font-weight: 700;
+		letter-spacing: -0.2em;
+		line-height: 1em;
 	}
 
-	.button {
-		padding-right: 0.5em;
-	}
-
-	.tabs {
-		max-width: 50vw;
+	:global(.button) {
+		margin-right: 0.5em;
 	}
 
 	:global(.grouped:not(:first-of-type)) {
 		padding-left: 0.5em;
+	}
+
+	:global(.project) {
+		padding-bottom: 3em;
+		padding-top: 3em;
 	}
 
 	.move-hover {
@@ -131,7 +131,7 @@
 		width: 100vw;
 		padding: 2.5vh;
 		text-align: center;
-		font-size: 1.2em;
+		font-size: 1em;
 	}
 
 	.gradient {
@@ -143,10 +143,6 @@
 
 	.vertical {
 		transform: translateY(calc(50vh - 50%));
-	}
-
-	.horizontal {
-		transform: translateX(calc(50vw - 50%));
 	}
 
 	h1.text-center {
