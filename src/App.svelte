@@ -1,11 +1,12 @@
 <script lang="ts">
 	import 'agnostic-svelte/css/common.min.css';
 	import { fly } from 'svelte/transition';
-	import { Button, ButtonGroup } from 'agnostic-svelte';
+	import { ButtonGroup } from 'agnostic-svelte';
 	import GitHubLogo from './assets/github-logo.svg';
 	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import Separator from './lib/Separator.svelte';
 	import { onMount } from 'svelte';
+	import ButtonLink from './lib/ButtonLink.svelte';
 
 	let ready = false;
 	onMount(() => (ready = true));
@@ -25,38 +26,25 @@
 
 		<Separator />
 		<ButtonGroup ariaLabel="Social connections">
-			<a href="https://github.com/matteopolak" class="grouped" target="_blank">
-				<Button isGrouped isCapsule mode="github"
-					><img
-						src={GitHubLogo}
-						alt="GitHub Logo"
-						class="button"
-					/>GitHub</Button
-				>
-			</a>
-			<a
-				href="https://linkedin.com/in/matteo-polak"
-				class="grouped"
-				target="_blank"
+			<ButtonLink
+				klass="grouped"
+				href="https://github.com/matteopolak"
+				mode="github"
 			>
-				<Button isGrouped isCapsule mode="linkedin"
-					><img
-						src={LinkedInLogo}
-						alt="LinkedIn Logo"
-						class="button"
-					/>LinkedIn</Button
-				>
-			</a>
+				<img src={GitHubLogo} alt="GitHub Logo" class="button" />GitHub
+			</ButtonLink>
+			<ButtonLink
+				klass="grouped"
+				href="https://linkedin.com/in/matteo-polak"
+				mode="linkedin"
+			>
+				<img src={LinkedInLogo} alt="LinkedIn Logo" class="button" />LinkedIn
+			</ButtonLink>
 		</ButtonGroup>
 	{/if}
 </main>
 
 <style>
-	:root {
-		--github-primary: #1b1f23;
-		--linkedin-primary: #0077b5;
-	}
-
 	:global(.btn-github) {
 		background-color: var(--github-primary) !important;
 	}
@@ -69,7 +57,7 @@
 		padding-right: 0.5em;
 	}
 
-	.grouped:not(:first-of-type) {
+	:global(.grouped:not(:first-of-type)) {
 		padding-left: 0.5em;
 	}
 
@@ -77,6 +65,7 @@
 		background: linear-gradient(90deg, #34eba2, #ebe134, #ebb734);
 		background-clip: text;
 		-webkit-text-fill-color: transparent;
+		-webkit-background-clip: text;
 	}
 
 	h1 {
