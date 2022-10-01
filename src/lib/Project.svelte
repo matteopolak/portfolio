@@ -23,6 +23,6 @@
 		margin-right: auto;
 		overflow: auto;
 		background-color: var(--color-dark);
-		box-shadow: 0 0 10px 3px black;
+		box-shadow: 0 0 8px 4px #0f0f0f;
 	}
 </style>
