@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
+	import Tags from '../Tags.svelte';
 
 	export let hash = 0;
 </script>
@@ -10,16 +11,14 @@
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/jukebox"
 	alt="Preview of the GitHub repository matteopolak/jukebox"
 >
-	<section
-		style="float: right; width: 50%; display: flex; justify-content: flex-start; gap: 5px; padding-left: 10px; padding-top: 10px; padding-bottom: 10px;"
-	>
+	<Tags>
 		<Tag shape="pill" type="info" --agnostic-primary-light="#1f91de"
 			>TypeScript</Tag
 		>
 		<Tag shape="pill" type="info" --agnostic-primary-light="#5865f2"
 			>Discord</Tag
 		>
-	</section>
+	</Tags>
 	<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 		Jukebox is a Discord bot that streams audio directly to a voice channel. It
 		supports playlists, tracks, and queries from YouTube, YouTube Music,

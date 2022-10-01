@@ -64,15 +64,16 @@
 			style="position: absolute; bottom: 10vh;"
 			href="#projects"
 			mode="blank"
-			target="_self"
 			><img
 				src={DownArrowSvg}
 				alt="Down arrow"
 				class="move-hover"
 			/></ButtonLink
 		>
-		<Separator --padding="100vh" />
+		<Separator --padding="90vh" />
 		<section id="projects">
+			<Separator --padding="10vh" />
+			<h2>Projects</h2>
 			<BaerScriptProject {hash} />
 			<StockPredictProject {hash} />
 			<JukeboxProject {hash} />
@@ -112,8 +113,10 @@
 	}
 
 	:global(.project) {
-		padding-bottom: 3em;
-		padding-top: 3em;
+		padding: 1em;
+		margin-top: 2em;
+		margin-bottom: 2em;
+		border-radius: 1.5em;
 	}
 
 	.move-hover {
@@ -158,6 +161,10 @@
 		margin-top: 0;
 		text-align: left;
 		font-size: 8em;
+	}
+
+	h2 {
+		font-size: 4em;
 	}
 
 	h3 {

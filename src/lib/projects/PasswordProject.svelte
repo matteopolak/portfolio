@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
+	import Tags from '../Tags.svelte';
 
 	export let hash = 0;
 </script>
@@ -10,14 +11,12 @@
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/password"
 	alt="Preview of the GitHub repository matteopolak/stock-predict"
 >
-	<section
-		style="float: right; width: 50%; display: flex; justify-content: flex-start; gap: 5px; padding-left: 10px; padding-top: 10px; padding-bottom: 10px;"
-	>
+	<Tags>
 		<Tag shape="pill" type="info" --agnostic-primary-light="#ab5926">Rust</Tag>
 		<Tag shape="pill" type="info" --agnostic-primary-light="#ab57eb"
 			>Cryptography</Tag
 		>
-	</section>
+	</Tags>
 	<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 		This project is a cryptographically-secure password generator written in
 		Rust. It is highly configurable, with options for password length, the
