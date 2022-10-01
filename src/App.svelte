@@ -13,11 +13,11 @@
 
 <main>
 	{#if ready}
-		<h3 transition:fly={{ y: 10, duration: 1_000, delay: 750 }}>
+		<h3 transition:fly={{ y: 10, duration: 1_000, delay: 250 }}>
 			Hey there, I'm
 		</h3>
 		<h1
-			transition:fly={{ y: 10, duration: 1_000, delay: 750 }}
+			transition:fly={{ y: 10, duration: 1_000, delay: 300 }}
 			class="gradient"
 		>
 			Matthew Polak
