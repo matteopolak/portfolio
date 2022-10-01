@@ -1,40 +1,66 @@
 <script lang="ts">
 	import 'agnostic-svelte/css/common.min.css';
 	import { fly } from 'svelte/transition';
-	import { Button, ButtonGroup, Tabs } from 'agnostic-svelte';
+	import { Button, ButtonGroup } from 'agnostic-svelte';
 	import GitHubLogo from './assets/github-logo.svg';
+	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import Separator from './lib/Separator.svelte';
+	import { onMount } from 'svelte';
+
+	let ready = false;
+	onMount(() => (ready = true));
 </script>
 
 <main>
-	<h3 transition:fly={{ y: 100, duration: 5_000 }}>Hey there, I'm</h3>
-	<h1 transition:fly={{ y: 100, duration: 5_000 }} class="gradient">
-		Matthew Polak
-	</h1>
+	{#if ready}
+		<h3 transition:fly={{ y: 10, duration: 1_000 }}>Hey there, I'm</h3>
+		<h1
+			transition:fly={{ y: 10, duration: 1_000, delay: 300 }}
+			class="gradient"
+		>
+			Matthew Polak
+		</h1>
 
-	<p>Something something science etc etc</p>
-	<Separator />
-	<ButtonGroup ariaLabel="Social connections">
-		<a href="https://github.com/matteopolak">
-			<Button isGrouped isCapsule mode="primary"
-				><img src={GitHubLogo} alt="GitHub Logo" class="button" />GitHub</Button
+		<Separator />
+		<ButtonGroup ariaLabel="Social connections">
+			<a href="https://github.com/matteopolak" class="grouped" target="_blank">
+				<Button isGrouped isCapsule mode="github"
+					><img
+						src={GitHubLogo}
+						alt="GitHub Logo"
+						class="button"
+					/>GitHub</Button
+				>
+			</a>
+			<a
+				href="https://linkedin.com/in/matteo-polak"
+				class="grouped"
+				target="_blank"
 			>
-		</a>
-		<a href="https://github.com/matteopolak" class="grouped">
-			<Button isGrouped isCapsule mode="primary"
-				><img
-					src={GitHubLogo}
-					alt="GitHub Logo"
-					class="button"
-				/>LinkedIn</Button
-			>
-		</a>
-	</ButtonGroup>
+				<Button isGrouped isCapsule mode="linkedin"
+					><img
+						src={LinkedInLogo}
+						alt="LinkedIn Logo"
+						class="button"
+					/>LinkedIn</Button
+				>
+			</a>
+		</ButtonGroup>
+	{/if}
 </main>
 
 <style>
 	:root {
-		--github-modelight: ;
+		--github-primary: #1b1f23;
+		--linkedin-primary: #0077b5;
+	}
+
+	:global(.btn-github) {
+		background-color: var(--github-primary) !important;
+	}
+
+	:global(.btn-linkedin) {
+		background-color: var(--linkedin-primary) !important;
 	}
 
 	.button {
@@ -46,7 +72,7 @@
 	}
 
 	.gradient {
-		background: linear-gradient(90deg, #4248f5, #f54242);
+		background: linear-gradient(90deg, #34eba2, #ebe134, #ebb734);
 		background-clip: text;
 		-webkit-text-fill-color: transparent;
 	}
@@ -62,9 +88,5 @@
 		margin-bottom: 0;
 		text-align: left;
 		font-size: 2em;
-	}
-
-	p {
-		text-align: left;
 	}
 </style>
