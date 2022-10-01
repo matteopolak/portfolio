@@ -2,6 +2,9 @@
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
 	import Tags from '../Tags.svelte';
+	import FinanceTag from '../tags/FinanceTag.svelte';
+	import MachineLearningTag from '../tags/MachineLearningTag.svelte';
+	import TypeScriptTag from '../tags/TypeScriptTag.svelte';
 
 	export let hash = 0;
 </script>
@@ -12,15 +15,9 @@
 	alt="Preview of the GitHub repository matteopolak/stock-predict"
 >
 	<Tags>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#1f91de"
-			>TypeScript</Tag
-		>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#ff6f00"
-			>TensorFlow</Tag
-		>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#c9c544"
-			>Finance</Tag
-		>
+		<TypeScriptTag />
+		<MachineLearningTag />
+		<FinanceTag />
 	</Tags>
 	<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 		This stock prediction model was created with <a

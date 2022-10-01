@@ -2,6 +2,8 @@
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
 	import Tags from '../Tags.svelte';
+	import CryptographyTag from '../tags/CryptographyTag.svelte';
+	import RustTag from '../tags/RustTag.svelte';
 
 	export let hash = 0;
 </script>
@@ -12,10 +14,8 @@
 	alt="Preview of the GitHub repository matteopolak/stock-predict"
 >
 	<Tags>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#ab5926">Rust</Tag>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#ab57eb"
-			>Cryptography</Tag
-		>
+		<RustTag />
+		<CryptographyTag />
 	</Tags>
 	<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 		This project is a cryptographically-secure password generator written in

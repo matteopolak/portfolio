@@ -2,6 +2,9 @@
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
 	import Tags from '../Tags.svelte';
+	import DiscordTag from '../tags/DiscordTag.svelte';
+	import MinecraftTag from '../tags/MinecraftTag.svelte';
+	import TypeScriptTag from '../tags/TypeScriptTag.svelte';
 
 	export let hash = 0;
 </script>
@@ -12,15 +15,9 @@
 	alt="Preview of the GitHub repository matteopolak/thearchon"
 >
 	<Tags>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#1f91de"
-			>TypeScript</Tag
-		>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#54f088"
-			>Minecraft</Tag
-		>
-		<Tag shape="pill" type="info" --agnostic-primary-light="#5865f2"
-			>Discord</Tag
-		>
+		<TypeScriptTag />
+		<MinecraftTag />
+		<DiscordTag />
 	</Tags>
 	<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 		This project is a multi-functional Minecraft bot created to be used on

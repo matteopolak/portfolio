@@ -2,6 +2,8 @@
 	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
 	import Tags from '../Tags.svelte';
+	import InterpreterTag from '../tags/InterpreterTag.svelte';
+	import RustTag from '../tags/RustTag.svelte';
 
 	export let hash = 0;
 </script>
@@ -13,11 +15,8 @@
 >
 	<div style="background-color: red;">
 		<Tags>
-			<Tag shape="pill" type="info" --agnostic-primary-light="#ab5926">Rust</Tag
-			>
-			<Tag shape="pill" type="info" --agnostic-primary-light="#83e645"
-				>Interpreter</Tag
-			>
+			<RustTag />
+			<InterpreterTag />
 		</Tags>
 		<p style="float: left; text-align: left; padding-left: 0.5em; width: 50%;">
 			BaerScript is a interpreted programming language. It utilizes nine symbols
