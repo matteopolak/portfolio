@@ -5,7 +5,7 @@
 </script>
 
 <div style="max-width: 60em; margin: auto; overflow: auto;" class="project">
-	<a {href} target="_blank">
+	<a {href}>
 		<img {src} {alt} width="50%" class="preview" />
 	</a>
 	<slot />

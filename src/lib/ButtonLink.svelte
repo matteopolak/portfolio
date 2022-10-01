@@ -6,6 +6,6 @@
 	export let mode = '';
 </script>
 
-<a {href} class={klass} target="_blank" {...$$restProps}>
+<a {href} class={klass} {...$$restProps}>
 	<Button isGrouped isCapsule {mode}><slot /></Button>
 </a>
