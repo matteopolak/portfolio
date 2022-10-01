@@ -2,6 +2,6 @@
 
 <style>
 	div {
-		padding-top: 1em;
+		padding-top: var(--padding);
 	}
 </style>
