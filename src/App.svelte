@@ -4,6 +4,7 @@
 	import { ButtonGroup } from 'agnostic-svelte';
 	import GitHubLogo from './assets/github-logo.svg';
 	import LinkedInLogo from './assets/linkedin-logo.svg';
+	import InstagramLogo from './assets/instagram-logo.svg';
 	import DownArrowSvg from './assets/down-arrow.svg';
 	import Separator from './lib/Separator.svelte';
 	import { onMount } from 'svelte';

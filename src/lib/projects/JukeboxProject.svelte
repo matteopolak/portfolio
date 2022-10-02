@@ -26,6 +26,6 @@
 		stream received from Discord into a more friendly mp3 format.
 		<br /><br />
 		It also supports voice commands with the use of
-		<a href="https://wit.ai/">Wit.ai</a>
+		<a href="https://wit.ai/">Wit.ai</a>.
 	</p>
 </Project>
