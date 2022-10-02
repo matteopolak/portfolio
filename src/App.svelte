@@ -71,7 +71,13 @@
 						href="https://linkedin.com/in/matteo-polak"
 						mode="linkedin"
 					>
-						<img src={LinkedInLogo} alt="LinkedIn logo" class="button" />
+						<img
+							src={LinkedInLogo}
+							width="20"
+							height="20"
+							alt="LinkedIn logo"
+							class="button"
+						/>
 						<p style="color: white;">LinkedIn</p>
 					</ButtonLink>
 					<ButtonLink
@@ -97,6 +103,8 @@
 			mode="blank"
 			><img
 				src={DownArrowSvg}
+				width="30"
+				height="30"
 				alt="Down arrow"
 				class="move-hover"
 			/></ButtonLink
