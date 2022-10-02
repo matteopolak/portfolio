@@ -13,6 +13,7 @@
 	href="https://github.com/matteopolak/stock-predict"
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/stock-predict"
 	alt="Preview of the GitHub repository matteopolak/stock-predict"
+	index={1}
 >
 	<Tags>
 		<TypeScriptTag />

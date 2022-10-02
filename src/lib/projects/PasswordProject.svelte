@@ -12,6 +12,7 @@
 	href="https://github.com/matteopolak/password"
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/password"
 	alt="Preview of the GitHub repository matteopolak/stock-predict"
+	index={3}
 >
 	<Tags>
 		<RustTag />

@@ -20,6 +20,7 @@
 		"vite": "^3.1.0"
 	},
 	"dependencies": {
-		"agnostic-svelte": "^1.1.27"
+		"agnostic-svelte": "^1.1.27",
+		"svelte-inview": "^3.0.1"
 	}
 }

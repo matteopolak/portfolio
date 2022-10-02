@@ -13,6 +13,7 @@
 	href="https://github.com/matteopolak/thearchon"
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/thearchon"
 	alt="Preview of the GitHub repository matteopolak/thearchon"
+	index={4}
 >
 	<Tags>
 		<TypeScriptTag />

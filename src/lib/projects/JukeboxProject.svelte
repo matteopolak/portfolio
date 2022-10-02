@@ -12,6 +12,7 @@
 	href="https://github.com/matteopolak/jukebox"
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/jukebox"
 	alt="Preview of the GitHub repository matteopolak/jukebox"
+	index={2}
 >
 	<Tags>
 		<TypeScriptTag />

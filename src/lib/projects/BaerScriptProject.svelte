@@ -12,6 +12,7 @@
 	href="https://github.com/matteopolak/baerscript"
 	src="https://opengraph.githubassets.com/{hash}/matteopolak/baerscript"
 	alt="Preview of the GitHub repository matteopolak/baerscript"
+	index={0}
 >
 	<div style="background-color: red;">
 		<Tags>

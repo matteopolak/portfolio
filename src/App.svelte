@@ -2,7 +2,6 @@
 	import 'agnostic-svelte/css/common.min.css';
 	import { fly } from 'svelte/transition';
 	import { ButtonGroup } from 'agnostic-svelte';
-	import GitHubLogo from './assets/github-logo.svg';
 	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import MailIcon from './assets/mail-icon.svg';
 	import DownArrowSvg from './assets/down-arrow.svg';
