@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700&display=swap');
 
 :root {
-	font-family: 'Open Sans', Inter, Avenir, Helvetica, Arial, sans-serif;
+	font-family: 'Inter Tight', Inter, Avenir, Helvetica, Arial, sans-serif;
 	font-size: 16px;
 	line-height: 24px;
 	font-weight: 400;
@@ -16,10 +16,13 @@
 	-moz-osx-font-smoothing: grayscale;
 	-webkit-text-size-adjust: 100%;
 
-	--github-primary: #1b1f23;
+	--github-primary: #ffffff;
+	--github-secondary: #1b1f23;
 	--linkedin-primary: #0077b5;
-	--color-secondary: #1c1c1c;
-	--color-dark: #1a1a1a;
+	--mail-primary: #c2481b;
+	--font-colour-light: #ffffff;
+	--font-colour-dark: #000000;
+	--colour-secondary: #1c1c1c;
 }
 
 a {
@@ -84,7 +87,11 @@ button:focus-visible {
 		color: #213547;
 		background-color: #ffffff;
 
-		--color-secondary: #b5b3b3;
+		--colour-secondary: #b5b3b3;
+		--github-primary: #1b1f23;
+		--github-secondary: #ffffff;
+		--font-colour-dark: #ffffff;
+		--font-colour-light: #000000;
 	}
 
 	a:hover {

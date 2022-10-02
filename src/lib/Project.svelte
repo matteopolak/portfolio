@@ -22,6 +22,6 @@
 		margin-left: auto;
 		margin-right: auto;
 		overflow: auto;
-		background-color: var(--color-dark);
+		background-color: var(--colour-secondary);
 	}
 </style>
