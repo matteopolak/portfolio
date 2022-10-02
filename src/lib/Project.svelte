@@ -6,7 +6,7 @@
 
 <div class="project wrapper">
 	<a {href}>
-		<img {src} {alt} width="50%" class="preview" />
+		<img {src} {alt} width="50%" class="preview" loading="lazy" />
 	</a>
 	<slot />
 </div>
