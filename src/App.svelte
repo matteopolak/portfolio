@@ -23,14 +23,15 @@
 	{#if ready}
 		<section class="vertical">
 			<div class="wrapper">
-				<h3
-					transition:fly={{ y: 10, duration: 500, delay: 250 }}
-					class="text-left"
-				>
-					Hey there, I'm
+				<h3 class="text-left">
+					<span transition:fly={{ y: 10, duration: 500, delay: 250 }}
+						>Hey there,
+					</span><span transition:fly={{ y: 10, duration: 500, delay: 1_500 }}
+						>I'm</span
+					>
 				</h3>
 				<h1
-					transition:fly={{ y: 10, duration: 1_000, delay: 500 }}
+					transition:fly={{ y: 10, duration: 1_000, delay: 2_000 }}
 					class="gradient text-center"
 				>
 					Matthew Polak
@@ -38,7 +39,7 @@
 			</div>
 
 			<Separator --padding="1em" />
-			<div transition:fly={{ y: 10, duration: 1_000, delay: 1_000 }}>
+			<div transition:fly={{ y: 10, duration: 1_000, delay: 2_500 }}>
 				<ButtonGroup ariaLabel="Social connections">
 					<ButtonLink
 						klass="grouped"
