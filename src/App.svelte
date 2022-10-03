@@ -26,12 +26,12 @@
 				<h3 class="text-left">
 					<span transition:fly={{ y: 10, duration: 500, delay: 250 }}
 						>Hey there,
-					</span><span transition:fly={{ y: 10, duration: 500, delay: 1_500 }}
+					</span><span transition:fly={{ y: 10, duration: 500, delay: 1_250 }}
 						>I'm</span
 					>
 				</h3>
 				<h1
-					transition:fly={{ y: 10, duration: 1_000, delay: 2_000 }}
+					transition:fly={{ y: 10, duration: 1_000, delay: 1_850 }}
 					class="gradient text-center"
 				>
 					Matthew Polak
