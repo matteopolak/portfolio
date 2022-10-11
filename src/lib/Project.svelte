@@ -38,7 +38,7 @@
 >
 	{#if inView}
 		<a {href}>
-			<img {src} {alt} width="50%" class="preview" loading="lazy" />
+			<img {src} {alt} width="50%" class="preview" />
 		</a>
 		<slot />
 	{/if}

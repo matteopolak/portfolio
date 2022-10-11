@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"agnostic-svelte": "^1.1.27",
-		"svelte-inview": "^3.0.1"
+		"svelte-inview": "^3.0.1",
+		"svelte-routing": "^1.6.0"
 	}
 }
