@@ -13,6 +13,12 @@
 <li><a href="../modules.html">@matteopolak/framecord</a></li>
 <li><a href="Client.html">Client</a></li></ul>
 <h1>Class Client</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>The main client.</p>
+
+<h3>Example</h3><pre><code class="language-typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">client</span><span class="hl-1"> = </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">Client</span><span class="hl-1">({</span><br/><span class="hl-1">    </span><span class="hl-2">intents:</span><span class="hl-1"> [</span><span class="hl-2">IntentsBitField</span><span class="hl-1">.</span><span class="hl-2">Flags</span><span class="hl-1">.</span><span class="hl-2">Guilds</span><span class="hl-1">],</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">compileCommandDirectory</span><span class="hl-1">(</span><span class="hl-6">join</span><span class="hl-1">(</span><span class="hl-2">__dirname</span><span class="hl-1">, </span><span class="hl-3">&#39;commands&#39;</span><span class="hl-1">));</span><br/><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">compileHandlerDirectory</span><span class="hl-1">(</span><span class="hl-6">join</span><span class="hl-1">(</span><span class="hl-2">__dirname</span><span class="hl-1">, </span><span class="hl-3">&#39;handlers&#39;</span><span class="hl-1">));</span><br/><br/><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">init</span><span class="hl-1">();</span><br/><br/><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">login</span><span class="hl-1">(</span><span class="hl-2">process</span><span class="hl-1">.</span><span class="hl-2">env</span><span class="hl-1">.</span><span class="hl-5">TOKEN</span><span class="hl-1">);</span>
+</code></pre>
+</div></section>
 <section class="tsd-panel tsd-hierarchy">
 <h4>Hierarchy</h4>
 <ul class="tsd-hierarchy">
@@ -20,7 +26,7 @@
 <ul class="tsd-hierarchy">
 <li><span class="target">Client</span></li></ul></li></ul></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L23">src/structures/BaseClient.ts:23</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L40">src/structures/BaseClient.ts:40</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-index-accordion" open><summary class="tsd-accordion-summary tsd-index-summary">
@@ -119,7 +125,7 @@
 <h4 class="tsd-returns-title">Returns <a href="Client.html" class="tsd-signature-type" data-tsd-kind="Class">Client</a></h4><aside class="tsd-sources">
 <p>Overrides Client.constructor</p>
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L36">src/structures/BaseClient.ts:36</a></li></ul></aside></li></ul></section></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L53">src/structures/BaseClient.ts:53</a></li></ul></aside></li></ul></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Properties</h2>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="application" class="tsd-anchor"></a>
@@ -140,14 +146,14 @@
 <div class="tsd-comment tsd-typography"><p>A <code>Collection</code> of all commands</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L25">src/structures/BaseClient.ts:25</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L42">src/structures/BaseClient.ts:42</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private"><a id="flags" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagPrivate">Private</code> <span>flags</span><a href="#flags" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">flags<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Partial</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Flags</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = {}</span></div>
 <div class="tsd-comment tsd-typography"><p>Internal flags to ensure certain methods aren&#39;t run multiple times</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L34">src/structures/BaseClient.ts:34</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L51">src/structures/BaseClient.ts:51</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="guilds" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>guilds</span><a href="#guilds" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">guilds<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">GuildManager</span></div><aside class="tsd-sources">
@@ -160,7 +166,7 @@
 <div class="tsd-comment tsd-typography"><p>Whether the client has been initialized</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L31">src/structures/BaseClient.ts:31</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L48">src/structures/BaseClient.ts:48</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="options" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>options</span><a href="#options" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">options<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Omit</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">ClientOptions</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">&quot;intents&quot;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span>intents<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">IntentsBitField</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
@@ -185,7 +191,7 @@
 <div class="tsd-comment tsd-typography"><p>The settings provided to the client</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L28">src/structures/BaseClient.ts:28</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L45">src/structures/BaseClient.ts:45</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="shard" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>shard</span><a href="#shard" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <div class="tsd-signature">shard<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">ShardClientUtil</span></div><aside class="tsd-sources">
@@ -341,7 +347,7 @@ regular <code>&#39;error&#39;</code> listener is installed.</p>
 <h5>parent: <span class="tsd-signature-type">Collection</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><a href="Command.html" class="tsd-signature-type" data-tsd-kind="Class">Command</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L70">src/structures/BaseClient.ts:70</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L87">src/structures/BaseClient.ts:87</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class"><a id="compileCommandDirectory" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>compile<wbr/>Command<wbr/>Directory</span><a href="#compileCommandDirectory" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -361,7 +367,7 @@ number of commands that were registered</p>
 <h5>parent: <span class="tsd-signature-type">Collection</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><a href="Command.html" class="tsd-signature-type" data-tsd-kind="Class">Command</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L117">src/structures/BaseClient.ts:117</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L134">src/structures/BaseClient.ts:134</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private"><a id="compileCommandEvents" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagPrivate">Private</code> <span>compile<wbr/>Command<wbr/>Events</span><a href="#compileCommandEvents" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
@@ -381,7 +387,7 @@ number of commands that were registered</p>
 <h5>object: <span class="tsd-signature-type" data-tsd-kind="Type parameter">T</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L43">src/structures/BaseClient.ts:43</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L60">src/structures/BaseClient.ts:60</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class"><a id="compileHandlerDirectory" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>compile<wbr/>Handler<wbr/>Directory</span><a href="#compileHandlerDirectory" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -396,7 +402,7 @@ number of commands that were registered</p>
 <h5>path: <span class="tsd-signature-type">string</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L166">src/structures/BaseClient.ts:166</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L183">src/structures/BaseClient.ts:183</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="destroy" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>destroy</span><a href="#destroy" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
@@ -604,7 +610,7 @@ set by <code>emitter.setMaxListeners(n)</code> or defaults to <a href="Client.ht
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L218">src/structures/BaseClient.ts:218</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L235">src/structures/BaseClient.ts:235</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="isReady" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>is<wbr/>Ready</span><a href="#isReady" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
@@ -940,7 +946,7 @@ listener is removed, and then invoked.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L192">src/structures/BaseClient.ts:192</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L209">src/structures/BaseClient.ts:209</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="rawListeners" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>raw<wbr/>Listeners</span><a href="#rawListeners" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
@@ -978,7 +984,7 @@ including any wrappers (such as those created by <code>.once()</code>).</p>
 <h5>parent: <span class="tsd-signature-type">Collection</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><a href="Command.html" class="tsd-signature-type" data-tsd-kind="Class">Command</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L87">src/structures/BaseClient.ts:87</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L104">src/structures/BaseClient.ts:104</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class"><a id="registerHandler" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>register<wbr/>Handler</span><a href="#registerHandler" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -993,7 +999,7 @@ including any wrappers (such as those created by <code>.once()</code>).</p>
 <h5>handler: <a href="Handler.html" class="tsd-signature-type" data-tsd-kind="Class">Handler</a></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/29590e2/src/structures/BaseClient.ts#L65">src/structures/BaseClient.ts:65</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/matteopolak/framecord/blob/1243493/src/structures/BaseClient.ts#L82">src/structures/BaseClient.ts:82</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a id="removeAllListeners" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>remove<wbr/>All<wbr/>Listeners</span><a href="#removeAllListeners" aria-label="Permalink" class="tsd-anchor-icon"><svg class="icon icon-tabler icon-tabler-link" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-anchor-a"></use><use href="#icon-anchor-b"></use><use href="#icon-anchor-c"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
