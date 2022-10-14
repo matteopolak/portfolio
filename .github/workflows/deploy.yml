@@ -1,16 +1,12 @@
 name: deploy
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         node-version: [16.x]
@@ -28,8 +24,9 @@ jobs:
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }} 
       with:
-        source_file: './dist'
+        source_file: './dist/*'
         destination_repo: 'matteopolak/website'
         destination_branch: 'gh-pages'
+        destination_folder: '/'
         user_email: 'matteopolak@hotmail.com'
         user_name: 'matteopolak'
