@@ -28,5 +28,6 @@ jobs:
         destination_repo: 'matteopolak/website'
         destination_branch: 'gh-pages'
         destination_folder: '/'
+        rename: '/'
         user_email: 'matteopolak@hotmail.com'
         user_name: 'matteopolak'
