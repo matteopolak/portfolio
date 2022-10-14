@@ -1,12 +1,7 @@
 <script lang="ts">
 	import 'agnostic-svelte/css/common.min.css';
 	import { fly } from 'svelte/transition';
-	import {
-		ButtonGroup,
-		Header,
-		HeaderNav,
-		HeaderNavItem,
-	} from 'agnostic-svelte';
+	import { ButtonGroup } from 'agnostic-svelte';
 	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import MailIcon from './assets/mail-icon.svg';
 	import DownArrowSvg from './assets/down-arrow.svg';
@@ -18,7 +13,6 @@
 	import JukeboxProject from './lib/projects/JukeboxProject.svelte';
 	import TheArchonProject from './lib/projects/TheArchonProject.svelte';
 	import PasswordProject from './lib/projects/PasswordProject.svelte';
-	import Logo from './assets/logo.png';
 
 	const hash = Math.floor(Date.now() / 86_400_000);
 	let ready = false;
@@ -27,20 +21,6 @@
 
 <main>
 	{#if ready}
-		<Header css="secondary-background">
-			<HeaderNav css="nav-overrides">
-				<HeaderNavItem><a href="/blog">Blog</a></HeaderNavItem>
-				<HeaderNavItem><a href="/about">About</a></HeaderNavItem>
-			</HeaderNav>
-			<div slot="logoright">
-				<img
-					src={Logo}
-					alt="Header logo"
-					width="35%"
-					style="border-radius: 50%;"
-				/>
-			</div>
-		</Header>
 		<section class="vertical">
 			<div class="wrapper">
 				<h3 class="text-left">
