@@ -27,6 +27,5 @@ jobs:
         source_file: './dist'
         destination_repo: 'matteopolak/website'
         destination_branch: 'gh-pages'
-        destination_folder: ''
         user_email: 'matteopolak@hotmail.com'
         user_name: 'matteopolak'
