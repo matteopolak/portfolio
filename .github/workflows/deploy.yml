@@ -19,13 +19,12 @@ jobs:
         cache: 'npm'
     - run: yarn
     - run: yarn run build
-    - run: ls -la
     - name: Deploy
       uses: dmnemec/copy_file_to_another_repo_action@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }} 
       with:
-        source_file: './dist/*'
+        source_file: './dist'
         destination_repo: 'matteopolak/website'
         destination_branch: 'gh-pages'
         destination_folder: '/'
