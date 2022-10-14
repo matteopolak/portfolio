@@ -7,9 +7,9 @@
 		HeaderNav,
 		HeaderNavItem,
 	} from 'agnostic-svelte';
-	import LinkedInLogo from '../assets/linkedin-logo.svg';
-	import MailIcon from '../assets/mail-icon.svg';
-	import DownArrowSvg from '../assets/down-arrow.svg';
+	import LinkedInLogo from './assets/linkedin-logo.svg';
+	import MailIcon from './assets/mail-icon.svg';
+	import DownArrowSvg from './assets/down-arrow.svg';
 	import Separator from './lib/Separator.svelte';
 	import { onMount } from 'svelte';
 	import ButtonLink from './lib/ButtonLink.svelte';
@@ -18,7 +18,7 @@
 	import JukeboxProject from './lib/projects/JukeboxProject.svelte';
 	import TheArchonProject from './lib/projects/TheArchonProject.svelte';
 	import PasswordProject from './lib/projects/PasswordProject.svelte';
-	import Logo from '../assets/logo.png';
+	import Logo from './assets/logo.png';
 
 	const hash = Math.floor(Date.now() / 86_400_000);
 	let ready = false;
