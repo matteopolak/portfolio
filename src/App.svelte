@@ -5,14 +5,15 @@
 	import LinkedInLogo from './assets/linkedin-logo.svg';
 	import MailIcon from './assets/mail-icon.svg';
 	import DownArrowSvg from './assets/down-arrow.svg';
-	import Separator from './lib/Separator.svelte';
+	import Separator from './components/Separator.svelte';
 	import { onMount } from 'svelte';
-	import ButtonLink from './lib/ButtonLink.svelte';
-	import BaerScriptProject from './lib/projects/BaerScriptProject.svelte';
-	import StockPredictProject from './lib/projects/StockPredictProject.svelte';
-	import JukeboxProject from './lib/projects/JukeboxProject.svelte';
-	import TheArchonProject from './lib/projects/TheArchonProject.svelte';
-	import PasswordProject from './lib/projects/PasswordProject.svelte';
+	import ButtonLink from './components/ButtonLink.svelte';
+	import BaerScriptProject from './components/projects/BaerScriptProject.svelte';
+	import StockPredictProject from './components/projects/StockPredictProject.svelte';
+	import JukeboxProject from './components/projects/JukeboxProject.svelte';
+	import TheArchonProject from './components/projects/TheArchonProject.svelte';
+	import PasswordProject from './components/projects/PasswordProject.svelte';
+	import TwitchChatDownloaderProject from './components/projects/TwitchChatDownloaderProject.svelte';
 
 	const hash = Math.floor(Date.now() / 86_400_000);
 	let ready = false;
@@ -115,6 +116,7 @@
 			<Separator --padding="10vh" />
 			<h2>Projects</h2>
 			<BaerScriptProject {hash} />
+			<TwitchChatDownloaderProject {hash} />
 			<StockPredictProject {hash} />
 			<JukeboxProject {hash} />
 			<PasswordProject {hash} />

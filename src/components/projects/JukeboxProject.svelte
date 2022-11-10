@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Tag } from 'agnostic-svelte';
 	import Project from '../Project.svelte';
 	import Tags from '../Tags.svelte';
 	import DiscordTag from '../tags/DiscordTag.svelte';

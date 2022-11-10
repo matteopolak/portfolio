@@ -13,11 +13,6 @@
 	let inView: boolean = false;
 	let element;
 
-	const options: Options = {
-		rootMargin: '-50px',
-		unobserveOnEnter: true,
-	};
-
 	const handleChange = ({ detail }: CustomEvent<ObserverEventDetails>) => {
 		if (detail.inView) {
 			inView = true;
@@ -30,21 +25,11 @@
 	};
 </script>
 
-<div
-	bind:this={element}
-	class="project wrapper"
-	use:inview={options}
-	on:change={handleChange}
->
-	{#if inView}
-		<a {href}>
-			<img {src} {alt} width="50%" class="preview" />
-		</a>
-		<slot />
-	{/if}
-	{#if !inView}
-		<Separator --padding="100em" />
-	{/if}
+<div bind:this={element} class="project wrapper" on:change={handleChange}>
+	<a {href}>
+		<img {src} {alt} width="50%" class="preview" />
+	</a>
+	<slot />
 </div>
 
 <style>
