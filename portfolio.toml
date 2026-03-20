@@ -92,9 +92,6 @@ location = "Ottawa, ON, Canada"
 start = 2021-01-01
 achievements = []
 
-# hot-swap out projects based on the job description
-# exactly 3 should be enabled at a time
-
 [[project]]
 github = "matteopolak/ira"
 title = "3D Game Engine"
@@ -121,52 +118,3 @@ achievements = [
   "Built the *Owl* compiled language with an LLVM backend supporting static single assignment (SSA), constant folding, dead code elimination (DCE), inlining, and loop unrolling, compiling 150k LoC/sec.",
   "Implemented control flow structures, structs, arrays, pointers, functions, and a static type system for multi-architecture targets.",
 ]
-
-[[project]]
-github = "matteopolak/grill"
-enabled = false
-title = "Grill"
-tags = []
-achievements = []
-
-[[project]]
-github = "matteopolak/quasi"
-enabled = false
-title = "Quasi"
-tags = []
-achievements = []
-
-[[project]]
-github = "matteopolak/basket"
-enabled = false
-title = "Basket"
-tags = []
-achievements = []
-
-[[project]]
-github = "matteopolak/miner"
-enabled = false
-title = "Miner"
-tags = []
-achievements = []
-
-[[project]]
-github = "matteopolak/jukebox"
-enabled = false
-title = "Jukebox"
-tags = []
-achievements = []
-
-[[project]]
-github = "statpixel-rs/statpixel"
-enabled = false
-title = "StatPixel"
-tags = []
-achievements = []
-
-[[project]]
-github = "matteopolak/noteboard"
-enabled = false
-title = "Noteboard"
-tags = []
-achievements = []
