@@ -1,5 +1,5 @@
 ---
-import { Download } from '@lucide/astro';
+import { ArrowBigDown } from '@lucide/astro';
 const { pathname } = Astro.url;
 const isHome = pathname === '/';
 const isBlog = pathname.startsWith('/blog');
@@ -10,17 +10,17 @@ const isProjects = pathname.startsWith('/projects');
   <a
     href="/"
     class:list={["font-semibold no-underline hover:no-underline", isHome ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
-  >Portfolio</a>
+  >portfolio</a>
   <a
     href="/blog"
     class:list={["font-semibold no-underline hover:no-underline", isBlog ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
-  >Blog</a>
+  >blog</a>
   <a
     href="/projects"
     class:list={["font-semibold no-underline hover:no-underline", isProjects ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
-  >Projects</a>
+  >projects</a>
   <a
     href="https://github.com/matteopolak/portfolio/releases/download/resume/resume.pdf"
     class="ml-auto flex items-center gap-1 font-semibold no-underline hover:no-underline text-base-content/60 hover:text-base-content transition-colors"
-  >Resume <Download class="w-3.5 h-3.5" /></a>
+  >resume <ArrowBigDown class="w-3.5 h-3.5 fill-current" /></a>
 </nav>
