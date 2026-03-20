@@ -1,0 +1,12 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { projects } from '../lib/projects';
+---
+
+<Layout title="Projects">
+  <h2>Projects</h2>
+  {projects.map(project => (
+    <ProjectCard project={project} />
+  ))}
+</Layout>

@@ -1,0 +1,31 @@
+---
+import type { Project } from '../lib/projects';
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+---
+
+<div class="mb-6">
+  <div class="flex justify-between items-baseline flex-wrap gap-1 mb-1.5">
+    <div class="flex flex-col">
+      <a
+        class="font-semibold text-base-content hover:text-primary hover:underline"
+        href={project.website ?? project.repository}
+      >{project.title}</a>
+      {project.tags.length > 0 && (
+        <span class="text-sm text-base-content/70">{project.tags.join(', ')}</span>
+      )}
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      {project.website && (
+        <a href={project.website}>website</a>
+      )}
+      <a href={project.repository}>github</a>
+      <span class="text-base-content/70">{project.date}</span>
+    </div>
+  </div>
+  <p class="text-sm m-0">{project.description}</p>
+</div>

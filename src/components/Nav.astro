@@ -3,6 +3,7 @@ import { Download } from '@lucide/astro';
 const { pathname } = Astro.url;
 const isHome = pathname === '/';
 const isBlog = pathname.startsWith('/blog');
+const isProjects = pathname.startsWith('/projects');
 ---
 
 <nav class="flex items-center gap-6 mb-8 text-sm">
@@ -14,6 +15,10 @@ const isBlog = pathname.startsWith('/blog');
     href="/blog"
     class:list={["font-semibold no-underline hover:no-underline", isBlog ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
   >Blog</a>
+  <a
+    href="/projects"
+    class:list={["font-semibold no-underline hover:no-underline", isProjects ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
+  >Projects</a>
   <a
     href="https://github.com/matteopolak/portfolio/releases/download/resume/resume.pdf"
     class="ml-auto flex items-center gap-1 font-semibold no-underline hover:no-underline text-base-content/60 hover:text-base-content transition-colors"
