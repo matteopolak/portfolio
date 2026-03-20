@@ -7,7 +7,7 @@ import { bold } from '../lib/bold';
   <h2>Experience</h2>
   {
     jobs.map((job) => (
-      <div class="mb-5">
+      <article class="mb-5">
         <div class="flex justify-between items-baseline flex-wrap gap-1 mb-1.5">
           <div class="flex flex-col">
             <span class="font-semibold">{job.title}</span>
@@ -16,8 +16,11 @@ import { bold } from '../lib/bold';
           <div class="flex flex-col items-end text-sm text-base-content/70">
             <span>{job.location}</span>
             <span>
-              {formatDate(job.start)} &ndash;{' '}
-              {job.end ? formatDate(job.end) : 'Present'}
+              <time datetime={job.start.toISOString().slice(0, 7)}>{formatDate(job.start)}</time>
+              {' '}&ndash;{' '}
+              {job.end
+                ? <time datetime={job.end.toISOString().slice(0, 7)}>{formatDate(job.end)}</time>
+                : 'Present'}
             </span>
           </div>
         </div>
@@ -30,7 +33,7 @@ import { bold } from '../lib/bold';
             ))}
           </ul>
         )}
-      </div>
+      </article>
     ))
   }
 </section>
