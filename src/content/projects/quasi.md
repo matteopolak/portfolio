@@ -1,5 +1,5 @@
 ---
-title: Programming Language
+title: quasi
 date: 2023-11-01
 tags: [rust, programming language, web assembly]
 repository: https://github.com/matteopolak/quasi

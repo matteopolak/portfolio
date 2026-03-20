@@ -1,5 +1,5 @@
 ---
-title: Game Engine
+title: ira
 date: 2024-06-01
 tags: [rust, game engine, wgpu, wgsl]
 repository: https://github.com/matteopolak/ira

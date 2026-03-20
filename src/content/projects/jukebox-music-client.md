@@ -1,5 +1,5 @@
 ---
-title: Jukebox Music Client
+title: jukebox
 date: 2022-06-01
 tags: [discord, ffmpeg, node.js, typescript]
 repository: https://github.com/matteopolak/jukebox

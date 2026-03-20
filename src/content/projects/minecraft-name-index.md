@@ -1,5 +1,5 @@
 ---
-title: Minecraft Name Index
+title: minecraft name index
 date: 2023-01-01
 tags: [diesel, rust, svelte, typescript]
 repository: https://github.com/matteopolak/minecraft
