@@ -1,11 +1,14 @@
 ---
-import type { Project } from '../lib/projects';
+import { render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
 
 interface Props {
-  project: Project;
+  project: CollectionEntry<'projects'>;
 }
 
 const { project } = Astro.props;
+const { Content } = await render(project);
+const date = project.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
 ---
 
 <div class="mb-6">
@@ -13,19 +16,19 @@ const { project } = Astro.props;
     <div class="flex flex-col">
       <a
         class="font-semibold text-base-content hover:text-primary hover:underline"
-        href={project.website ?? project.repository}
-      >{project.title}</a>
-      {project.tags.length > 0 && (
-        <span class="text-sm text-base-content/70">{project.tags.join(', ')}</span>
+        href={project.data.website ?? project.data.repository}
+      >{project.data.title}</a>
+      {project.data.tags.length > 0 && (
+        <span class="text-sm text-base-content/70">{project.data.tags.join(', ')}</span>
       )}
     </div>
     <div class="flex items-center gap-3 text-sm">
-      {project.website && (
-        <a href={project.website}>website</a>
+      {project.data.website && (
+        <a href={project.data.website}>website</a>
       )}
-      <a href={project.repository}>github</a>
-      <span class="text-base-content/70">{project.date}</span>
+      <a href={project.data.repository}>github</a>
+      <span class="text-base-content/70">{date}</span>
     </div>
   </div>
-  <p class="text-sm m-0">{project.description}</p>
+  <div class="text-sm"><Content /></div>
 </div>
