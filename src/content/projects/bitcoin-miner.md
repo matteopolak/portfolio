@@ -1,5 +1,5 @@
 ---
-title: Bitcoin Miner
+title: bitcoin miner
 date: 2024-04-01
 tags: [rust, blockchain, hashing, wgsl, wgpu]
 repository: https://github.com/matteopolak/miner

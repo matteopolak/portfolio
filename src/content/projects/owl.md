@@ -1,5 +1,5 @@
 ---
-title: Compiled Programming Language
+title: owl
 date: 2025-02-01
 tags: [c++, llvm, programming language, compiler]
 repository: https://github.com/matteopolak/owl

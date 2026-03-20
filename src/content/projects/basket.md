@@ -1,5 +1,5 @@
 ---
-title: HTTP Client and Server
+title: basket
 date: 2024-01-01
 tags: [rust, http, serde]
 repository: https://github.com/matteopolak/basket
