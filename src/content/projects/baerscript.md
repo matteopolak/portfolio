@@ -1,5 +1,5 @@
 ---
-title: BaerScript
+title: baerscript
 date: 2022-09-01
 tags: [rust]
 repository: https://github.com/matteopolak/baerscript

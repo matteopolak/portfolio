@@ -1,5 +1,5 @@
 ---
-title: Recipe Website
+title: crave
 date: 2023-12-01
 tags: [svelte, typescript, drizzle, postgresql, pytorch, trpc]
 repository: https://github.com/matteopolak/crave

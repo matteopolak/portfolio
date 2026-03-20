@@ -1,5 +1,5 @@
 ---
-title: Discord Bot
+title: statpixel
 date: 2023-08-01
 tags: [rust, skia, postgresql, discord, redis, axum, svelte, typescript]
 repository: https://github.com/statpixel-rs/statpixel

@@ -1,5 +1,5 @@
 ---
-title: Collaborative Drawing Tool
+title: noteboard
 date: 2023-09-01
 tags: [svelte, typescript]
 repository: https://github.com/matteopolak/noteboard
