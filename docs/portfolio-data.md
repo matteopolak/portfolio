@@ -19,6 +19,7 @@ portfolio.toml
 ```
 
 `src/lib/config.ts` exports:
+
 - `default` — the full parsed config object
 - `jobs` — `config.job` filtered to `enabled !== false`
 - `projects` — `config.project` filtered to `enabled !== false`

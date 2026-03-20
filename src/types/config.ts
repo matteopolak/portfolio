@@ -1,5 +1,6 @@
 export interface Config {
   name: string;
+  description: string;
   phone: string;
   location: string;
   email: string;

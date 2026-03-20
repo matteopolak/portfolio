@@ -8,15 +8,22 @@ import config from '../lib/config';
 interface Props {
   title: string;
   description?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, type, publishedTime } = Astro.props;
 ---
 
 <!doctype html>
 <html lang="en" data-theme="black">
   <head>
-    <Head title={`${config.name} — ${title}`} description={description} />
+    <Head
+      title={`${config.name} — ${title}`}
+      description={description}
+      type={type}
+      publishedTime={publishedTime}
+    />
   </head>
   <body class="max-w-3xl mx-auto px-6 py-8">
     <Nav />

@@ -1,10 +1,17 @@
 ---
+import config from '../lib/config';
+
 interface Props {
   title: string;
   description?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, type = 'website', publishedTime } = Astro.props;
+const canonicalUrl = Astro.site
+  ? new URL(Astro.url.pathname, Astro.site).href
+  : undefined;
 ---
 
 <meta charset="utf-8" />
@@ -13,3 +20,24 @@ const { title, description } = Astro.props;
 {description && <meta name="description" content={description} />}
 <link rel="icon" type="image/webp" href="/favicon.webp" />
 <title>{title}</title>
+
+{canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+<!-- Open Graph -->
+<meta property="og:title" content={title} />
+{description && <meta property="og:description" content={description} />}
+<meta property="og:type" content={type} />
+{canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+<meta property="og:site_name" content={config.name} />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content={title} />
+{description && <meta name="twitter:description" content={description} />}
+
+<!-- Article-specific -->
+{
+  type === 'article' && publishedTime && (
+    <meta property="article:published_time" content={publishedTime} />
+  )
+}
