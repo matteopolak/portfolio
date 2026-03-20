@@ -6,6 +6,7 @@ on:
     paths:
       - 'resume/**'
       - 'portfolio.toml'
+      - '.github/workflows/resume.yml'
 
 jobs:
   compile:
