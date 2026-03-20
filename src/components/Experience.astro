@@ -1,0 +1,31 @@
+---
+import { jobs, formatDate } from '../lib/config';
+import { bold } from '../lib/bold';
+---
+
+<section>
+  <h2>Experience</h2>
+  {jobs.map(job => (
+    <div class="mb-5">
+      <div class="flex justify-between items-baseline flex-wrap gap-1 mb-1.5">
+        <div class="flex flex-col">
+          <span class="font-semibold">{job.title}</span>
+          <span class="text-sm text-base-content/70">{job.company}</span>
+        </div>
+        <div class="flex flex-col items-end text-sm text-base-content/70">
+          <span>{job.location}</span>
+          <span>
+            {formatDate(job.start)} &ndash; {job.end ? formatDate(job.end) : 'Present'}
+          </span>
+        </div>
+      </div>
+      {job.achievements.length > 0 && (
+        <ul class="text-sm">
+          {job.achievements.map(a => (
+            <li><Fragment set:html={bold(a)} /></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  ))}
+</section>

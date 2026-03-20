@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: black --default;
+}
+
+@theme {
+  --font-sans: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, monospace;
+}
+
+/* Outside any layer so it wins over DaisyUI's unlayered :root rule */
+:root {
+  scrollbar-gutter: stable;
+}
+
+@layer base {
+  h2 {
+    @apply text-sm font-bold uppercase tracking-[0.08em] text-base-content/70 border-b border-base-300 pb-1 mb-4 mt-8;
+  }
+
+  a {
+    @apply text-primary no-underline;
+  }
+
+  a:hover {
+    @apply underline;
+  }
+
+  ul {
+    @apply list-disc pl-5;
+  }
+
+  li {
+    @apply mb-1;
+  }
+
+  strong {
+    @apply font-semibold;
+  }
+}

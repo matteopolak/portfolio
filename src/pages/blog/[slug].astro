@@ -1,0 +1,62 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map(post => ({
+    params: { slug: post.id.replace(/\.md$/, '') },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={post.data.title} description={post.data.description}>
+  <article>
+    <header class="mb-8">
+      <h1 class="text-[1.75rem] font-bold mb-1.5">{post.data.title}</h1>
+      <time class="text-sm text-base-content/70" datetime={post.data.date.toISOString()}>
+        {post.data.date.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
+      </time>
+    </header>
+    <div class="content">
+      <Content />
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .content :global(p) {
+    margin-bottom: 1rem;
+  }
+
+  .content :global(h2),
+  .content :global(h3) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .content :global(pre) {
+    background: oklch(var(--b2));
+    padding: 1rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+  }
+
+  .content :global(code) {
+    background: oklch(var(--b2));
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
+
+  .content :global(pre code) {
+    background: transparent;
+    padding: 0;
+  }
+</style>

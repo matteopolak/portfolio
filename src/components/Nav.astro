@@ -1,0 +1,21 @@
+---
+import { Download } from '@lucide/astro';
+const { pathname } = Astro.url;
+const isHome = pathname === '/';
+const isBlog = pathname.startsWith('/blog');
+---
+
+<nav class="flex items-center gap-6 mb-8 text-sm">
+  <a
+    href="/"
+    class:list={["font-semibold no-underline hover:no-underline", isHome ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
+  >Portfolio</a>
+  <a
+    href="/blog"
+    class:list={["font-semibold no-underline hover:no-underline", isBlog ? "text-base-content" : "text-base-content/60 hover:text-base-content"]}
+  >Blog</a>
+  <a
+    href="https://github.com/matteopolak/portfolio/releases/download/resume/resume.pdf"
+    class="ml-auto flex items-center gap-1 font-semibold no-underline hover:no-underline text-base-content/60 hover:text-base-content transition-colors"
+  >Resume <Download class="w-3.5 h-3.5" /></a>
+</nav>

@@ -1,0 +1,30 @@
+name: Compile Resume
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'resume/**'
+      - 'portfolio.toml'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: typst-community/setup-typst@v4
+
+      - name: Compile resume
+        run: typst compile --root . resume/resume.typ resume.pdf
+
+      - name: Publish to GitHub Releases
+        run: |
+          gh release delete resume --yes 2>/dev/null || true
+          gh release create resume resume.pdf \
+            --title "Resume" \
+            --notes "Latest compiled resume"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
