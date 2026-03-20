@@ -19,7 +19,7 @@
   "dependencies": {
     "@lucide/astro": "^0.577.0",
     "@tailwindcss/vite": "^4.2.2",
-    "astro": "^6.0.5",
+    "astro": "^6.0.7",
     "daisyui": "^5.5.19",
     "smol-toml": "^1.6.0",
     "tailwindcss": "^4.2.2"
