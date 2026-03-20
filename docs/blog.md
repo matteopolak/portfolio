@@ -20,11 +20,11 @@ The filename becomes the URL slug (with `.md` stripped). For example, `hello-wor
 
 ## Frontmatter fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | yes | Post title |
-| `date` | date (`YYYY-MM-DD`) | yes | Publication date, used for sorting |
-| `description` | string | no | Short summary shown on the listing page |
+| Field         | Type                | Required | Description                             |
+| ------------- | ------------------- | -------- | --------------------------------------- |
+| `title`       | string              | yes      | Post title                              |
+| `date`        | date (`YYYY-MM-DD`) | yes      | Publication date, used for sorting      |
+| `description` | string              | no       | Short summary shown on the listing page |
 
 ## How it works
 

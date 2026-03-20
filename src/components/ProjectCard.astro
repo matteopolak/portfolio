@@ -8,7 +8,10 @@ interface Props {
 
 const { project } = Astro.props;
 const { Content } = await render(project);
-const date = project.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+const date = project.data.date.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+});
 ---
 
 <div class="mb-6">
@@ -17,16 +20,27 @@ const date = project.data.date.toLocaleDateString('en-US', { year: 'numeric', mo
       <a
         class="font-semibold text-base-content hover:text-primary hover:underline"
         href={project.data.website ?? project.data.repository}
-      >{project.data.title}</a>
-      {project.data.tags.length > 0 && (
-        <span class="text-sm text-base-content/70 truncate">{project.data.tags.join(', ')}</span>
-      )}
+        >{project.data.title}</a
+      >
+      {
+        project.data.tags.length > 0 && (
+          <span class="text-sm text-base-content/70 truncate">
+            {project.data.tags.join(', ')}
+          </span>
+        )
+      }
     </div>
     <div class="flex items-center gap-3 text-sm shrink-0">
-      {project.data.website && (
-        <a href={project.data.website} class="text-white hover:underline">website</a>
-      )}
-      <a href={project.data.repository} class="text-white hover:underline">github</a>
+      {
+        project.data.website && (
+          <a href={project.data.website} class="text-white hover:underline">
+            website
+          </a>
+        )
+      }
+      <a href={project.data.repository} class="text-white hover:underline"
+        >github</a
+      >
       <span class="text-base-content/70">{date}</span>
     </div>
   </div>
