@@ -18,7 +18,7 @@ jobs:
       - uses: typst-community/setup-typst@v4
 
       - name: Compile resume
-        run: typst compile --root . resume/resume.typ resume.pdf
+        run: typst compile --root . resume/resume.typ --font-path resume/fonts resume.pdf
 
       - name: Publish to GitHub Releases
         run: |
