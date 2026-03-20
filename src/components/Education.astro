@@ -5,7 +5,7 @@ const { education } = config;
 
 <section>
   <h2>Education</h2>
-  <div class="flex justify-between items-baseline flex-wrap gap-1">
+  <article class="flex justify-between items-baseline flex-wrap gap-1">
     <div class="flex flex-col">
       <span class="font-semibold">{education.degree}</span>
       <span class="text-sm text-base-content/70">{education.school}</span>
@@ -13,8 +13,10 @@ const { education } = config;
     <div class="flex flex-col items-end text-sm text-base-content/70">
       <span>GPA: {education.gpa}</span>
       <span>
-        {formatDate(education.start)} &ndash; {formatDate(education.end)}
+        <time datetime={education.start.toISOString().slice(0, 7)}>{formatDate(education.start)}</time>
+        {' '}&ndash;{' '}
+        <time datetime={education.end.toISOString().slice(0, 7)}>{formatDate(education.end)}</time>
       </span>
     </div>
-  </div>
+  </article>
 </section>

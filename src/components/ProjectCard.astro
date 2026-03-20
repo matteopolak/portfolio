@@ -14,7 +14,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
 });
 ---
 
-<div class="mb-6">
+<article class="mb-6">
   <div class="flex justify-between items-baseline gap-2 mb-1.5">
     <div class="flex flex-col min-w-0">
       <a
@@ -41,8 +41,8 @@ const date = project.data.date.toLocaleDateString('en-US', {
       <a href={project.data.repository} class="text-white hover:underline"
         >github</a
       >
-      <span class="text-base-content/70">{date}</span>
+      <time datetime={project.data.date.toISOString().slice(0, 7)} class="text-base-content/70">{date}</time>
     </div>
   </div>
   <div class="text-sm"><Content /></div>
-</div>
+</article>
