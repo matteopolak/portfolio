@@ -4,7 +4,7 @@ import config from '../lib/config';
 
 <header class="mb-6">
   <h1 class="text-[1.75rem] font-bold mb-1.5">{config.name}</h1>
-  <div class="flex flex-wrap gap-1.5 text-sm text-base-content/70">
+  <address class="flex flex-wrap gap-1.5 text-sm text-base-content/70 not-italic">
     <span>{config.phone}</span>
     <span>&middot;</span>
     <span>{config.location}</span>
@@ -29,5 +29,5 @@ import config from '../lib/config';
       href={`https://linkedin.com/in/${config.linkedin}`}
       >linkedin.com/in/{config.linkedin}</a
     >
-  </div>
+  </address>
 </header>

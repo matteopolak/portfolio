@@ -5,18 +5,18 @@ const { skills } = config;
 
 <section>
   <h2>Skills</h2>
-  <div class="text-sm flex flex-col gap-1.5">
+  <dl class="text-sm flex flex-col gap-1.5">
     <div class="flex gap-3">
-      <span class="font-semibold min-w-24 text-base-content/70">Languages</span>
-      <span>{skills.languages.join(', ')}</span>
+      <dt class="font-semibold min-w-24 text-base-content/70">Languages</dt>
+      <dd class="m-0">{skills.languages.join(', ')}</dd>
     </div>
     <div class="flex gap-3">
-      <span class="font-semibold min-w-24 text-base-content/70">Libraries</span>
-      <span>{skills.libraries.join(', ')}</span>
+      <dt class="font-semibold min-w-24 text-base-content/70">Libraries</dt>
+      <dd class="m-0">{skills.libraries.join(', ')}</dd>
     </div>
     <div class="flex gap-3">
-      <span class="font-semibold min-w-24 text-base-content/70">Tools</span>
-      <span>{skills.tools.join(', ')}</span>
+      <dt class="font-semibold min-w-24 text-base-content/70">Tools</dt>
+      <dd class="m-0">{skills.tools.join(', ')}</dd>
     </div>
-  </div>
+  </dl>
 </section>
