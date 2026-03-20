@@ -1,0 +1,20 @@
+---
+import config from '../lib/config';
+---
+
+<header class="mb-6">
+  <h1 class="text-[1.75rem] font-bold mb-1.5">{config.name}</h1>
+  <div class="flex flex-wrap gap-1.5 text-sm text-base-content/70">
+    <span>{config.phone}</span>
+    <span>&middot;</span>
+    <span>{config.location}</span>
+    <span>&middot;</span>
+    <a class="text-base-content/70 hover:text-primary hover:underline" href={`mailto:${config.email}`}>{config.email}</a>
+    <span>&middot;</span>
+    <a class="text-base-content/70 hover:text-primary hover:underline" href={`https://${config.website}`}>{config.website}</a>
+    <span>&middot;</span>
+    <a class="text-base-content/70 hover:text-primary hover:underline" href={`https://github.com/${config.github}`}>github.com/{config.github}</a>
+    <span>&middot;</span>
+    <a class="text-base-content/70 hover:text-primary hover:underline" href={`https://linkedin.com/in/${config.linkedin}`}>linkedin.com/in/{config.linkedin}</a>
+  </div>
+</header>

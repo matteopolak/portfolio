@@ -1,0 +1,172 @@
+name = "Matthew Polak"
+phone = "+1 (519) 362-9413"
+location = "Ontario, Canada"
+email = "me@matteopolak.com"
+website = "matteopolak.com"
+github = "matteopolak"
+linkedin = "matteo-polak"
+
+[education]
+degree = "Bachelor of Science in Computer Science"
+school = "University of Ottawa"
+gpa = "3.9"
+start = 2022-09-01
+end = 2026-12-01
+
+[achievements]
+items = [
+  "Open Source Contributor to Svelte, SvelteKit, Lucia, Bitcode, Plotters",
+  "1st place: 2025 uOttaHack 7 (850), 2024 NASA Space Apps Ottawa (300), 2024 Hack the Hill II (1200), 2023 Hack the Hill (600), 2023 MLH x {all in} (1000), 2023 MapHacks 2 (100)",
+  "Built and designed a decentralized file-sharing system with a custom wire protocol (Hack the Hill II)",
+]
+
+[skills]
+languages = ["Rust", "TypeScript", "Go", "Python", "C++", "C", "Java", "JavaScript", "Svelte", "Vue"]
+libraries = ["React", "SvelteKit", "Express.js", "Django", "Flask", "OpenAPI", "Swagger", "Protobuf", "PyTorch"]
+tools = ["PostgreSQL", "MySQL", "MongoDB", "Redis", "InfluxDB", "Ansible", "AWS", "GCP", "OpenStack", "Docker", "Observe", "OpenTelemetry"]
+
+[[job]]
+id = "mai-swe"
+title = "Software Engineer Intern"
+company = "Microsoft AI"
+location = "Redmond, WA"
+start = 2026-05-04
+end = 2026-08-01
+achievements = []
+
+[[job]]
+id = "shopify-swe"
+title = "Software Engineer Intern"
+company = "Shopify"
+location = "Ottawa, ON, Canada"
+start = 2025-09-02
+end = 2025-12-19
+achievements = [
+  "Integrated location management and purchase-order capabilities into Shopify's AI assistant, expanding the assistant's tool-calling workflows used by thousands of merchants.",
+  "Implemented an async preview mechanism for Shopify's AI assistant platform, powering complex preview workflows and serving as a widely adopted foundational component across teams.",
+  "Created multiple GraphQL mutations and resolvers with *Ruby* for the new Purchase Orders experience.",
+  "Fixed a bug in the Shopify mobile app affecting 30% of merchant workflows and presented findings to 50 engineers.",
+]
+
+[[job]]
+id = "solace-swe"
+title = "Software Engineer Intern"
+company = "Solace"
+location = "Ottawa, ON, Canada"
+start = 2025-01-06
+end = 2025-04-26
+achievements = [
+  "Integrated *Storybook* and *Cypress*, improving component correctness and reducing flaky tests by 20%.",
+  "Added concurrency-based rate limiting (Java, Spring Boot) to a customer-facing API, eliminating noisy-neighbor degradation and stabilizing cluster latency.",
+  "Created a GitHub Action to diff *OpenAPI* specifications, catching breaking changes automatically and improving documentation accuracy.",
+]
+
+[[job]]
+id = "ciena-swe"
+title = "Software Engineer Intern"
+company = "Ciena"
+location = "Ottawa, ON, Canada"
+start = 2023-05-01
+end = 2024-12-30
+achievements = [
+  "Built a code ownership system with *Express.js*, *MongoDB*, and *InfluxDB*, reducing review turnaround time by 40% and increasing test coverage from 20% to 36%.",
+  "Developed an on-demand compute booking platform with *Nuxt*, *PostgreSQL*, and *tRPC*, reducing provisioning time from days or weeks to minutes (over 99% faster).",
+  "Implemented a high-throughput error-classification microservice in *Rust* processing millions of log lines daily, reducing MTTR by 30%.",
+]
+
+[[job]]
+id = "ignite-freelance"
+enabled = false
+title = "Freelance Developer"
+company = "Ignite"
+location = "Ottawa, ON, Canada"
+start = 2022-01-01
+achievements = []
+
+[[job]]
+id = "roboedu-instructor"
+enabled = false
+title = "Robotics Instructor"
+company = "RoboEDU"
+location = "Ottawa, ON, Canada"
+start = 2021-01-01
+achievements = []
+
+# hot-swap out projects based on the job description
+# exactly 3 should be enabled at a time
+
+[[project]]
+github = "matteopolak/ira"
+title = "3D Game Engine"
+tags = ["Rust", "WGSL", "wgpu", "TCP"]
+achievements = [
+  "Built a *3D game engine* with a custom wgpu-based rendering pipeline and shaders, maintaining 200+ FPS on typical Blender-scale scenes.",
+  "Implemented instancing, batching, and culling to simulate 100k+ objects with real-time physics.",
+]
+
+[[project]]
+github = "matteopolak/crave"
+title = "Recipe-sharing Platform"
+tags = ["Svelte", "TypeScript", "PostgreSQL", "tRPC", "Drizzle", "PyTorch"]
+achievements = [
+  "Launched a *recipe-sharing* platform with 100+ users and personalized recommendations from a 1M-recipe embedding dataset.",
+  "Built a PyTorch + Flask vector-ranking pipeline using inner-product similarity.",
+]
+
+[[project]]
+github = "matteopolak/owl"
+title = "Compiled Programming Language"
+tags = ["C++", "LLVM", "Bazel"]
+achievements = [
+  "Built the *Owl* compiled language with an LLVM backend supporting static single assignment (SSA), constant folding, dead code elimination (DCE), inlining, and loop unrolling, compiling 150k LoC/sec.",
+  "Implemented control flow structures, structs, arrays, pointers, functions, and a static type system for multi-architecture targets.",
+]
+
+[[project]]
+github = "matteopolak/grill"
+enabled = false
+title = "Grill"
+tags = []
+achievements = []
+
+[[project]]
+github = "matteopolak/quasi"
+enabled = false
+title = "Quasi"
+tags = []
+achievements = []
+
+[[project]]
+github = "matteopolak/basket"
+enabled = false
+title = "Basket"
+tags = []
+achievements = []
+
+[[project]]
+github = "matteopolak/miner"
+enabled = false
+title = "Miner"
+tags = []
+achievements = []
+
+[[project]]
+github = "matteopolak/jukebox"
+enabled = false
+title = "Jukebox"
+tags = []
+achievements = []
+
+[[project]]
+github = "statpixel-rs/statpixel"
+enabled = false
+title = "StatPixel"
+tags = []
+achievements = []
+
+[[project]]
+github = "matteopolak/noteboard"
+enabled = false
+title = "Noteboard"
+tags = []
+achievements = []
