@@ -5,8 +5,8 @@ import Layout from '../../layouts/Layout.astro';
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
   return posts
-    .filter(post => post.data.published !== false)
-    .map(post => ({
+    .filter((post) => post.data.published !== false)
+    .map((post) => ({
       params: { slug: post.id.replace(/\.md$/, '') },
       props: { post },
     }));
@@ -16,12 +16,26 @@ const { post } = Astro.props;
 const { Content } = await render(post);
 ---
 
-<Layout title={post.data.title} description={post.data.description}>
+<Layout
+  title={post.data.title}
+  description={post.data.description}
+  type="article"
+  publishedTime={post.data.date.toISOString()}
+>
   <article>
     <header class="mb-8">
       <h1 class="text-[1.75rem] font-bold mb-1.5">{post.data.title}</h1>
-      <time class="text-sm text-base-content/70" datetime={post.data.date.toISOString()}>
-        {post.data.date.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
+      <time
+        class="text-sm text-base-content/70"
+        datetime={post.data.date.toISOString()}
+      >
+        {
+          post.data.date.toLocaleDateString('en-CA', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        }
       </time>
     </header>
     <div class="content">

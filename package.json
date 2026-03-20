@@ -10,7 +10,11 @@
     "build": "astro build",
     "resume": "typst compile --root . resume/resume.typ public/resume.pdf",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@lucide/astro": "^0.577.0",
@@ -19,5 +23,14 @@
     "daisyui": "^5.5.19",
     "smol-toml": "^1.6.0",
     "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-astro": "^1.6.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript-eslint": "^8.57.1"
   }
 }

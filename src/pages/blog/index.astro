@@ -3,7 +3,7 @@ import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 
 const posts = (await getCollection('blog'))
-  .filter(post => post.data.published !== false)
+  .filter((post) => post.data.published !== false)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 function slug(id: string) {
@@ -13,14 +13,32 @@ function slug(id: string) {
 
 <Layout title="Blog">
   <ul class="list-none p-0 flex flex-col gap-5">
-    {posts.map(post => (
-      <li class="flex flex-col gap-0.5 m-0">
-        <a class="font-semibold text-[1.05rem] text-base-content no-underline hover:text-primary hover:underline" href={`/blog/${slug(post.id)}`}>{post.data.title}</a>
-        <time class="text-sm text-base-content/70" datetime={post.data.date.toISOString()}>
-          {post.data.date.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
-        </time>
-        {post.data.description && <p class="text-sm text-base-content/70 m-0">{post.data.description}</p>}
-      </li>
-    ))}
+    {
+      posts.map((post) => (
+        <li class="flex flex-col gap-0.5 m-0">
+          <a
+            class="font-semibold text-[1.05rem] text-base-content no-underline hover:text-primary hover:underline"
+            href={`/blog/${slug(post.id)}`}
+          >
+            {post.data.title}
+          </a>
+          <time
+            class="text-sm text-base-content/70"
+            datetime={post.data.date.toISOString()}
+          >
+            {post.data.date.toLocaleDateString('en-CA', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </time>
+          {post.data.description && (
+            <p class="text-sm text-base-content/70 m-0">
+              {post.data.description}
+            </p>
+          )}
+        </li>
+      ))
+    }
   </ul>
 </Layout>
