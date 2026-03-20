@@ -1,0 +1,14 @@
+---
+import config from '../lib/config';
+import { bold } from '../lib/bold';
+const { achievements } = config;
+---
+
+<section>
+  <h2>Achievements</h2>
+  <ul class="text-sm">
+    {achievements.items.map(item => (
+      <li><Fragment set:html={bold(item)} /></li>
+    ))}
+  </ul>
+</section>
