@@ -1,0 +1,94 @@
+---
+interface Props {
+  headings: { depth: number; slug: string; text: string }[];
+}
+
+const { headings } = Astro.props;
+const filtered = headings.filter((h) => h.depth <= 3);
+---
+
+<nav
+  id="toc"
+  class="hidden xl:block text-sm w-48 self-start"
+  style="position: sticky; top: 5rem;"
+  aria-label="Table of contents"
+>
+  <div class="relative pl-3">
+    <div
+      id="toc-bar"
+      class="absolute left-0 top-0 bottom-0 w-px bg-base-300"
+    >
+      <div
+        id="toc-progress"
+        class="absolute left-0 w-full top-0 h-0"
+        style={`background: var(--color-primary)`}
+      ></div>
+    </div>
+    <ul class="space-y-2 list-none pl-0">
+      {
+        filtered.map((h) => (
+          <li style={`padding-left: ${(h.depth - 2) * 0.75}rem`}>
+            <a
+              href={`#${h.slug}`}
+              data-toc-id={h.slug}
+              class="text-base-content/40 hover:text-base-content/70 transition-colors leading-tight block no-underline hover:no-underline truncate"
+            >
+              {h.text}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</nav>
+
+<script>
+  const article = document.querySelector('article');
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-toc-id]');
+  const progress = document.getElementById('toc-progress');
+
+  function getHeadingEls(): HTMLElement[] {
+    return Array.from(document.querySelectorAll('article h2, article h3'));
+  }
+
+  function updateActive() {
+    const headingEls = getHeadingEls();
+    const scrollPos = window.scrollY + 120;
+    let activeId = headingEls[0]?.id ?? '';
+    for (const h of headingEls) {
+      if (h.getBoundingClientRect().top + window.scrollY <= scrollPos) {
+        activeId = h.id;
+      } else {
+        break;
+      }
+    }
+    links.forEach((link) => {
+      const isActive = link.dataset.tocId === activeId;
+      link.classList.toggle('text-primary', isActive);
+      link.classList.toggle('font-bold', isActive);
+      link.classList.toggle('text-base-content/40', !isActive);
+      link.classList.toggle('hover:text-base-content/70', !isActive);
+    });
+  }
+
+  function updateProgress() {
+    if (!progress) return;
+    const activeLink = document.querySelector<HTMLElement>('[data-toc-id].text-primary');
+    if (!activeLink) return;
+    const li = activeLink.closest('li') as HTMLElement | null;
+    const container = document.getElementById('toc-bar')?.parentElement;
+    if (!li || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    progress.style.top = `${liRect.top - containerRect.top}px`;
+    progress.style.height = `${liRect.height}px`;
+  }
+
+  function onScroll() {
+    updateActive();
+    updateProgress();
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+</script>
