@@ -1,3 +1,7 @@
+export type AchievementText = { text: string };
+export type AchievementLinked = { prefix: string; item: { name: string; url: string; pop?: number }[] };
+export type AchievementEntry = AchievementText | AchievementLinked;
+
 export interface Config {
   name: string;
   description: string;
@@ -8,7 +12,7 @@ export interface Config {
   github: string;
   linkedin: string;
   education: Education;
-  achievements: { items: string[] };
+  achievement: Record<string, AchievementEntry>;
   skills: { languages: string[]; libraries: string[]; tools: string[] };
   job: Job[];
   project: Project[];

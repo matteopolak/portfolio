@@ -67,7 +67,26 @@
 
 
 #section(title: "Achievements")
-#list(..config.achievements.items)
+#list(
+  ..config.achievement.values().map(entry => {
+    if "text" in entry {
+      entry.text
+    } else {
+      let linked = entry.item.map(i => {
+        let label = if "pop" in i { i.name + " (" + str(i.pop) + ")" } else { i.name }
+        link(i.url, label)
+      })
+      let joined = if linked.len() == 1 {
+        linked.at(0)
+      } else if linked.len() == 2 {
+        linked.at(0) + [ and ] + linked.at(1)
+      } else {
+        linked.slice(0, -1).join(", ") + [, and ] + linked.last()
+      }
+      entry.prefix + joined
+    }
+  })
+)
 
 #space(h: 1em)
 
