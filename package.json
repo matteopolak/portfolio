@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "resume": "typst compile --root . resume/resume.typ public/resume.pdf",
+    "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
