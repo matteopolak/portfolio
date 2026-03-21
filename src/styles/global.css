@@ -14,13 +14,43 @@
   scrollbar-gutter: stable;
 }
 
+/* Override DaisyUI black theme primary to emerald-400 */
+[data-theme="black"] {
+  --color-primary: oklch(76.5% 0.177 163.223);
+}
+
+::selection {
+  background: oklch(76.5% 0.177 163.223 / 0.35);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main {
+  animation: fade-up 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main {
+    animation: none;
+  }
+}
+
 @layer base {
   h2 {
     @apply text-sm font-bold uppercase tracking-[0.08em] text-base-content/70 border-b border-base-300 pb-1 mb-4 mt-8;
   }
 
   a {
-    @apply text-primary no-underline;
+    @apply text-primary no-underline transition-colors duration-150;
   }
 
   a:hover {
