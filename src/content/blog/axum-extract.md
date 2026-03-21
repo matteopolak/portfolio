@@ -13,9 +13,11 @@ Axum is a web framework built on top of Tokio and Tower. It is designed to be
 ergonomic and easy to use, while still being fast and scalable. One of the
 features that makes Axum so easy to use is its extract-as-argument pattern.
 
+## The pattern at a glance
+
 Before we get started, here's what the pattern looks like in action:
 
-```rust
+```rust {2-3}
 fn handler(
   State(state): State<u8>,
   Json(json): Json<Data>,
@@ -30,6 +32,8 @@ manner from anything at all, not just requests.
 There are two different things going on here: the first is the `State` extractor, which clones the state
 passed into the handler, but does not consume the request. On the other hand, the `Json` extractor
 consumes the request and deserializes the body into the `Data` struct.
+
+## The request types
 
 Let's start by implementing some basic request & response structs and a simple trait for our non-consuming extractors:
 
@@ -54,26 +58,29 @@ struct Response {
 }
 
 /// A trait for extractors that do not consume the request.
-/// Note that we always pass in a mutable reference to the request parts,
-/// and a state object.
 trait FromRequestParts<S> {
   fn from_request_parts(parts: &mut RequestParts, state: S) -> Self;
 }
 ```
 
+## Non-consuming extractors
+
 Now that we have our structs and trait, let's implement the easiest extractor: `State`.
 
-```rust
+```rust {6}
 /// The state extractor clones the state passed into the handler.
 struct State<S>(S);
 
 impl<S> FromRequestParts<S> for State<S> {
-  /// We just ignore the request entirely, extracting the state only.
   fn from_request_parts(_: &mut RequestParts, state: S) -> Self {
     Self(state)
   }
 }
 ```
+
+We ignore the request entirely — we only care about the state.
+
+## Consuming extractors
 
 Okay, great! Now we need a trait that allows an extractor to consume the incoming request.
 
@@ -92,7 +99,7 @@ This trait is pretty similar to the previous one, but it takes an owned `Request
 We also have a second generic parameter, `X`, which allows us to implement a blanket trait for all types that implement `FromRequestParts`
 without worrying about Rust complaining that someone else could do it downstream.
 
-```rust
+```rust {1-3}
 impl<T, S> FromRequest<S, private::WithParts> for T
 where
   T: FromRequestParts<S>,
@@ -103,7 +110,7 @@ where
 }
 ```
 
-This blanket trait is pretty simple: if `T` implements `FromRequestParts`, then we can implement `FromRequest` for it,
+This blanket implementation is pretty simple: if `T` implements `FromRequestParts`, then we can implement `FromRequest` for it,
 since `FromRequestParts` only needs a mutable reference to a part of the owned `Request` that we're given.
 
 With that done, let's implement an extractor that returns the expensive `Vec<u8>` from the request.
@@ -118,9 +125,9 @@ impl<S> FromRequest<S> for Expensive {
 }
 ```
 
-Nothing too special, now let's try the `Json` extractor.
+Nothing too special. Now let's try the `Json` extractor.
 
-```rust
+```rust {8}
 struct Json<T>(T);
 
 impl<S, T> FromRequest<S> for Json<T>
@@ -138,6 +145,8 @@ that conforms to the data required by `T`.
 
 This extractor is where it gets interesting. We can now use the `Json` extractor to easily deserialize the request body
 into any JSON that we want!
+
+## The Handler trait
 
 We still need to actually complete the handler portion, which looks almost magical when you see it for the first time.
 In order to do this, we need another trait: `Handler`.
@@ -209,7 +218,7 @@ since it consumes the request.
 
 The actual body of our implementation does exactly that:
 
-```rust
+```rust {3,5}
 fn call(self, mut req: Request, state: S) -> Response {
   // T1 implements FromRequestParts<S>, so we can lend a mutable reference to the request parts.
   let t1 = T1::from_request_parts(&mut req.parts, state.clone());
@@ -238,6 +247,8 @@ where
 }
 ```
 
+## Putting it together
+
 Now that that's done, let's implement one more extractor to remove the `count` field from the request parts.
 
 ```rust
@@ -250,46 +261,7 @@ impl<S> FromRequestParts<S> for Count {
 }
 ```
 
-Let's make a few routes:
-
-```rust
-/// A simple route that returns "Hello, world!".
-fn simple() -> Response {
-  Response {
-    content: "Hello, world!".to_string(),
-  }
-}
-
-/// A route that returns the count and state from the request parts.
-fn with_count_and_state(State(state): State<u8>, Count(count): Count) -> Response {
-  Response {
-    content: format!("state: {state}, count: {count}"),
-  }
-}
-
-/// A route that returns the count from the request parts and the expensive data from the request.
-fn with_state_and_expensive(State(state): State<u8>, Expensive(expensive): Expensive) -> Response {
-  Response {
-    content: format!("state: {state}, expensive: {}", expensive.len()),
-  }
-}
-
-#[derive(serde::Deserialize)]
-struct Body {
-  repeat: usize,
-  text: String,
-}
-
-/// A route that extracts the request body as JSON and does something with it.
-fn with_json(Json(body): Json<Body>) -> Response {
-  Response {
-    content: body.text.repeat(body.repeat),
-  }
-}
-```
-
-Before we can actually use these, we need a function that takes in any handler and returns a function that
-can process a request into a response.
+And a `get` function that wraps any handler into something that can process a request:
 
 ```rust
 fn get<S, H, T>(handler: H) -> impl Fn(Request, S) -> Response
@@ -300,50 +272,30 @@ where
 }
 ```
 
-For any state `S`, handler `H`, and arguments `T`, this function returns a function that takes in a request
-and state and returns a response. This is the function that we will use to actually process requests.
+Note the `Copy` bound — since we return an `Fn` (not `FnOnce`), the handler must be callable multiple times.
 
-Note that we need to add an additional bound to `H` to make sure that it implements `Copy`, because we want to
-be able to call it multiple times (since we're returning an `Fn`, not `FnOnce`).
-
-The final step is testing it out. Let's first make a fake request and state object:
-
-```rust
-let state = 42;
-let request = Request {
-  parts: RequestParts { count: 10 },
-  expensive: br#"{
-    "repeat": 6,
-    "text": "hi"
-  }"#
-  .to_vec(),
-};
-```
-
-Now we can test out our routes:
+Let's make a few routes and test them out:
 
 ```rust
 let route = get(simple);
-let response = route(request.clone(), state);
-
-assert_eq!(response.content, "Hello, world!");
+assert_eq!(route(request.clone(), state).content, "Hello, world!");
 
 let route = get(with_count_and_state);
-let response = route(request.clone(), state);
-
-assert_eq!(response.content, "state: 42, count: 10");
+assert_eq!(
+  route(request.clone(), state).content,
+  "state: 42, count: 10"
+);
 
 let route = get(with_state_and_expensive);
-let response = route(request.clone(), state);
-
-assert_eq!(response.content, "state: 42, expensive: 37");
+assert_eq!(
+  route(request.clone(), state).content,
+  "state: 42, expensive: 37"
+);
 
 let route = get(with_json);
-let response = route(request.clone(), state);
-
-assert_eq!(response.content, "hihihihihihi");
+assert_eq!(route(request.clone(), state).content, "hihihihihihi");
 ```
 
 And that's it! We've implemented Axum's extract-as-argument pattern in just 100 lines of code.
 
-You can find the code in the [extract-as-argument](https://github.com/matteopolak/extract-as-argument) repository on my GitHub.
+You can find the full code in the [extract-as-argument](https://github.com/matteopolak/extract-as-argument) repository on my GitHub.
