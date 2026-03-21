@@ -1,16 +1,38 @@
 ---
 import config from '../lib/config';
 import { bold } from '../lib/bold';
-const { achievements } = config;
+import type { AchievementLinked } from '../types/config';
+
+function joinLinks(entry: AchievementLinked): string {
+  const links = entry.item.map((i) => {
+    if (i.pop !== undefined) {
+      return `<a href="${i.url}" target="_blank" rel="noopener noreferrer" class="group text-base-content no-underline hover:no-underline hover:text-primary"><span class="group-hover:underline">${i.name}</span> <span class="badge badge-sm group-hover:bg-primary/20 group-hover:border-primary/50 group-hover:text-primary">${i.pop}</span></a>`;
+    }
+    return `<a href="${i.url}" target="_blank" rel="noopener noreferrer" class="text-base-content hover:text-primary">${i.name}</a>`;
+  });
+  let joined: string;
+  if (links.length === 1) {
+    joined = links[0];
+  } else if (links.length === 2) {
+    joined = `${links[0]} and ${links[1]}`;
+  } else {
+    joined = `${links.slice(0, -1).join(', ')}, and ${links[links.length - 1]}`;
+  }
+  return entry.prefix + joined;
+}
 ---
 
 <section>
   <h2>Achievements</h2>
   <ul class="text-sm">
     {
-      achievements.items.map((item) => (
+      Object.values(config.achievement).map((entry) => (
         <li>
-          <Fragment set:html={bold(item)} />
+          {'text' in entry ? (
+            <Fragment set:html={bold(entry.text)} />
+          ) : (
+            <Fragment set:html={joinLinks(entry)} />
+          )}
         </li>
       ))
     }

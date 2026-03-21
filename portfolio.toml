@@ -14,12 +14,64 @@ gpa = "3.9"
 start = 2022-09-01
 end = 2026-12-01
 
-[achievements]
-items = [
-  "Open Source Contributor to Svelte, SvelteKit, Lucia, Bitcode, Plotters",
-  "1st place: 2025 uOttaHack 7 (850), 2024 NASA Space Apps Ottawa (300), 2024 Hack the Hill II (1200), 2023 Hack the Hill (600), 2023 MLH x {all in} (1000), 2023 MapHacks 2 (100)",
-  "Built and designed a decentralized file-sharing system with a custom wire protocol (Hack the Hill II)",
-]
+[achievement.contributions]
+prefix = "Open Source Contributor to "
+
+  [[achievement.contributions.item]]
+  name = "Svelte"
+  url = "https://github.com/sveltejs/svelte"
+
+  [[achievement.contributions.item]]
+  name = "SvelteKit"
+  url = "https://github.com/sveltejs/kit"
+
+  [[achievement.contributions.item]]
+  name = "Lucia"
+  url = "https://github.com/lucia-auth/lucia"
+
+  [[achievement.contributions.item]]
+  name = "Bitcode"
+  url = "https://github.com/SoftbearStudios/bitcode"
+
+  [[achievement.contributions.item]]
+  name = "Plotters"
+  url = "https://github.com/plotters-rs/plotters"
+
+[achievement.hackathon]
+prefix = "1st place: "
+
+  [[achievement.hackathon.item]]
+  name = "2025 uOttaHack 7"
+  url = "https://dorahacks.io/buidl/21638/milestones"
+  pop = 850
+
+  [[achievement.hackathon.item]]
+  name = "2024 NASA Space Apps Ottawa"
+  url = "https://www.spaceappschallenge.org/nasa-space-apps-2024/2024-local-events/ottawa/"
+  pop = 300
+
+  [[achievement.hackathon.item]]
+  name = "2024 Hack the Hill II"
+  url = "https://devpost.com/software/mound"
+  pop = 1200
+
+  [[achievement.hackathon.item]]
+  name = "2023 Hack the Hill"
+  url = "https://devpost.com/software/hackthefeed"
+  pop = 600
+
+  [[achievement.hackathon.item]]
+  name = "2023 MLH x {all in}"
+  url = "https://devpost.com/software/cyberguardian-hbeouf"
+  pop = 1000
+
+  [[achievement.hackathon.item]]
+  name = "2023 MapHacks 2"
+  url = "https://devpost.com/software/tbd-p9xqhv"
+  pop = 100
+
+[achievement.other]
+text = "Built and designed a decentralized file-sharing system with a custom wire protocol (Hack the Hill II)"
 
 [skills]
 languages = ["Rust", "TypeScript", "Go", "Python", "C++", "C", "Java", "JavaScript", "Svelte", "Vue"]
