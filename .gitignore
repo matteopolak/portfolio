@@ -31,4 +31,4 @@ public/resume.pdf
 
 website/
 
-resume/resume.pdf
+resume/*.pdf
