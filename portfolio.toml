@@ -84,11 +84,24 @@ title = "Software Engineer Intern"
 company = "Microsoft AI"
 location = "Redmond, WA"
 start = 2026-05-04
-end = 2026-08-01
+end = 2026-07-24
 achievements = [
-  "Doubled GDPval-AA task completion scores from 40% to 80% for *Copilot Cowork* and *Copilot Tasks* by diagnosing eval quality gaps and improving prompt and workflow coverage.",
-  "Diagnosed intermittent failures in the eval infrastructure and reduced run failure rate by 70% by distributing execution across time windows to eliminate resource contention.",
-  "Built an internal leaderboard to surface *Copilot* eval score trends across model versions, system prompts, and skills, enabling the team to catch capability regressions before they reach production.",
+#  "Re-architected an 8,000-line legacy dashboard into a modular *React* app now used company-wide to drive critical model and Auto-mode decisions.",
+#  "Corrected scoring flaws across a ~24-model evaluation suite, doubling measured task success from 40% to 80% and restoring trust in the metrics.",
+#  "Drove adoption of the Office team's document-generation agent in *Cowork* — preferred in 90%+ of head-to-head comparisons — after presenting the case to distinguished engineers.",
+#  "Diagnosed and resolved a production defect crashing live *Copilot* servers ~once daily, restoring reliability for end users.",
+#  "Root-caused and eliminated a recurring *Cowork* production crash affecting ~9% of health checks, restoring service stability.",
+#  "Engineered automatic recovery for stalled *Copilot* agent runs (up to 26% of steps), converting silent hangs into reliable completions.",
+#  "Rebuilt the evaluation suite for *Copilot*'s web-browsing agent on isolated mock sites, raising pass rate from 0 to 9 of 12.",
+#  "Right-sized the cadence of a few-thousand-case daily evaluation suite with an automated scheduler, eliminating ~10 hours of compute waste per day.",
+#  "Uncovered that ~25% of evaluation failures were silently dropped and corrected the scoring to reflect true model quality on dashboards.",
+#  "Repaired the automated grader to parse 800+ previously unreadable responses, eliminating false ungradable verdicts and restoring score accuracy.",
+#  "Expanded third-party integration test coverage from 41 to 94 cases, catching partner-facing regressions before they reached customers.",
+#  "Extended the evaluation pipeline to grade image and video outputs, doubling scored media cases from 2 to 4 of 11 and closing a coverage gap.",
+  "Integrated a headless browser into the evaluation pipeline, enabling automated browser-use testing for *Cowork*'s web agent.",
+  "Root-caused and fixed two production segfaults in the *Cowork* agent loop causing dozens of container crashes per day.",
+  "Proposed and shipped core evaluation-pipeline improvements — a standardized judge, unified case format, and dashboard — adopted as team standards.",
+  "Ran side-by-side evaluations of a major new product extension, delivering the data that drove the go/no-go release decision."
 ]
 
 [[job]]
@@ -99,10 +112,10 @@ location = "Ottawa, ON, Canada"
 start = 2025-09-02
 end = 2025-12-19
 achievements = [
-  "Unlocked location management and purchase-order capabilities for thousands of merchants by integrating new tool-calling workflows into Shopify's AI assistant.",
-  "Designed and implemented an async preview mechanism for Shopify's AI assistant platform, unblocking complex multi-step preview workflows that were previously unsupported and adopted as a foundational primitive across teams.",
+  "Shipped new tool-calling workflows in Shopify's AI assistant, enabling thousands of merchants to manage inventory locations and purchase orders conversationally.",
+  "Designed an asynchronous preview primitive for Shopify's AI assistant platform, unblocking multi-step preview flows and now used platform-wide across Shopify.",
 #  "Built the *Ruby* and *GraphQL* backend powering Shopify's new Purchase Orders experience, implementing the mutations and resolvers that enabled merchants to manage orders end-to-end through the platform.",
-  "Identified and fixed a critical bug silently breaking 30% of merchant workflows in the Shopify mobile app, then presented the root cause analysis to 50 engineers to prevent similar regressions.",
+  "Diagnosed and fixed a silent defect breaking 30% of merchant workflows in the Shopify mobile app, then presented the root-cause analysis to 50 engineers to prevent recurrence.",
 ]
 
 [[job]]
@@ -114,8 +127,8 @@ start = 2025-01-06
 end = 2025-04-26
 achievements = [
 #  "Integrated *Storybook* and *Cypress*, improving component correctness and reducing flaky tests by 20%.",
-  "Designed and implemented concurrency-based rate limiting in *Java* and *Spring Boot* for a customer-facing API, eliminating noisy-neighbor interference that was causing unpredictable latency spikes across the cluster.",
-  "Automated breaking-change detection for *OpenAPI* specifications with a GitHub Action, preventing undocumented API regressions from reaching production by gating merges on spec diffs.",
+  "Built concurrency-based rate limiting in *Java* and *Spring Boot* for a customer-facing API, eliminating noisy-neighbor contention and delivering predictable latency across the cluster.",
+  "Automated *OpenAPI* breaking-change detection in CI, preventing regressions from reaching downstream consumers by gating merges on schema diffs.",
 ]
 
 [[job]]
@@ -128,7 +141,7 @@ end = 2024-12-30
 achievements = [
 #  "Built a code ownership system with *Express.js*, *MongoDB*, and *InfluxDB*, reducing review turnaround time by 40% and increasing test coverage from 20% to 36%.",
 #  "Developed an on-demand compute booking platform with *Nuxt*, *PostgreSQL*, and *tRPC*, reducing provisioning time from days to minutes.",
-  "Built a *Rust* error-classification microservice processing millions of log lines daily, reducing MTTR by 30%.",
+  "Built a *Rust* log error-classification service processing several TB of production logs daily, reducing mean time to resolution by 30% for on-call engineers.",
 ]
 
 [[job]]
@@ -154,8 +167,8 @@ github = "matteopolak/ira"
 title = "3D Game Engine"
 tags = ["Rust", "WGSL", "wgpu", "TCP"]
 achievements = [
-  "Built a *3D game engine* with a custom wgpu-based rendering pipeline and shaders, maintaining 200+ FPS on typical Blender-scale scenes.",
-  "Implemented instancing, batching, and culling to simulate 100k+ objects with real-time physics.",
+  "Built a *3D game engine* with a custom wgpu rendering pipeline and shaders, sustaining 200+ FPS on Blender-scale scenes.",
+  "Implemented instancing, batching, and frustum culling to render 100k+ objects with real-time physics.",
 ]
 
 [[project]]
@@ -163,8 +176,8 @@ github = "matteopolak/crave"
 title = "Recipe-sharing Platform"
 tags = ["Svelte", "TypeScript", "PostgreSQL", "tRPC", "Drizzle", "PyTorch"]
 achievements = [
-  "Launched a *recipe-sharing* platform with 100+ users and personalized recommendations from a 1M-recipe embedding dataset.",
-  "Built a PyTorch + Flask vector-ranking pipeline using inner-product similarity.",
+  "Launched a *recipe-sharing* platform serving 100+ users with personalized recommendations over a 1M-recipe embedding dataset.",
+  "Built a *PyTorch* and *Flask* vector-ranking pipeline using inner-product similarity search.",
 ]
 
 [[project]]
