@@ -29,6 +29,39 @@ portfolio.toml
 
 Individual items in `portfolio.toml` can be hidden without deletion by adding `enabled = false`.
 
+### Toggling individual bullet points
+
+Keep a large library of bullets per job and comment out the ones you don't want
+for a given job description by prefixing the line with `#` inside the
+`achievements` array:
+
+```toml
+achievements = [
+  "Shown bullet.",
+#  "Hidden bullet — commented out with a leading #.",
+]
+```
+
+Nothing is deleted, so bullets can be switched on/off per job description. This
+works for both the website and the resume since both read the same array.
+
+### Keeping the resume to one page
+
+The PDF resume (`pnpm resume`) must fit on a **single page**. When editing
+`portfolio.toml`:
+
+- Keep each bullet to **roughly one full line** — long enough to be substantive,
+  short enough not to wrap to a second line at the resume's width.
+- Enable only as many bullets as fit. Prefer commenting bullets **out** (leading
+  `#`) over shortening strong ones. A good default is ~3 bullets for
+  recent/major roles and 1–2 for older ones.
+- After any content change, run `pnpm resume` and confirm the output is still one
+  page. The PDF overflowing to a second page means too many bullets are active —
+  comment some out rather than cramming.
+- Bullets support `*word*` markup for **bold** (tech, metrics, product names);
+  use it to emphasize impact, not to add length.
+
+
 ### Key Files
 
 - `portfolio.toml` — all portfolio data (name, contact, jobs, projects, education, skills)
