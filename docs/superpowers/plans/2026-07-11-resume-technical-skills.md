@@ -32,7 +32,7 @@ Expected: pnpm completes successfully without changing `pnpm-lock.yaml`.
 Run:
 
 ```bash
-rg -n 'agents|protocols|Model Context Protocol|Agent2Agent' portfolio.toml src/types/config.ts
+rg -n 'agents|protocols|MCP|A2A' portfolio.toml src/types/config.ts
 ```
 
 Expected: no matches and exit status 1.
@@ -44,8 +44,8 @@ Change the skills block in `portfolio.toml` to:
 ```toml
 [skills]
 languages = ["Rust", "TypeScript", "Go", "Python", "C++ (20/23/26)", "Zig", "Java", "JavaScript"]
-agents = ["Model Context Protocol (MCP)", "Agent2Agent (A2A)", "Tool Calling", "Agent Evaluation", "Browser Automation", "Cursor", "Claude Code", "GitHub Copilot"]
-protocols = ["OpenAPI", "Protocol Buffers (Protobuf)", "GraphQL", "WebSockets"]
+agents = ["MCP", "A2A", "Tool Calling", "Agent Evals", "Browser Agents", "Cursor", "Claude Code", "GitHub Copilot"]
+protocols = ["OpenAPI", "Protobuf", "GraphQL", "WebSockets"]
 tools = ["PostgreSQL", "Redis", "Docker", "AWS", "GCP", "OpenTelemetry", "LLVM", "Bazel"]
 ```
 
@@ -62,7 +62,7 @@ skills: { languages: string[]; agents: string[]; protocols: string[]; tools: str
 Run:
 
 ```bash
-rg -n 'agents|protocols|Model Context Protocol|Agent2Agent|C\+\+ \(20/23/26\)' portfolio.toml src/types/config.ts
+rg -n 'agents|protocols|MCP|A2A|C\+\+ \(20/23/26\)' portfolio.toml src/types/config.ts
 ```
 
 Expected: the new `agents` and `protocols` fields appear in both files, and the new content appears in `portfolio.toml`.
@@ -154,7 +154,7 @@ Expected: all three commands exit successfully.
 Run:
 
 ```bash
-rg -n 'AI &amp; Agent Systems|Model Context Protocol|APIs &amp; Protocols|Platforms &amp; Tooling' dist/index.html
+rg -n 'AI &amp; Agent Systems|MCP|APIs &amp; Protocols|Platforms &amp; Tooling' dist/index.html
 ```
 
 Expected: all four strings appear in the generated home page.
@@ -184,7 +184,7 @@ Expected: `Pages: 1`.
 Run:
 
 ```bash
-pdftotext public/resume.pdf - | rg 'AI & Agent Systems|Model Context Protocol|APIs & Protocols|Platforms & Tooling'
+pdftotext public/resume.pdf - | rg 'AI & Agent Systems|MCP|APIs & Protocols|Platforms & Tooling'
 ```
 
 Expected: the four new strings appear in extracted PDF text.
