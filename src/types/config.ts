@@ -1,5 +1,8 @@
 export type AchievementText = { text: string };
-export type AchievementLinked = { prefix: string; item: { name: string; url: string; pop?: number }[] };
+export type AchievementLinked = {
+  prefix: string;
+  item: { name: string; url: string; pop?: number }[];
+};
 export type AchievementEntry = AchievementText | AchievementLinked;
 
 export interface Config {
@@ -13,7 +16,12 @@ export interface Config {
   linkedin: string;
   education: Education;
   achievement: Record<string, AchievementEntry>;
-  skills: { languages: string[]; libraries: string[]; tools: string[] };
+  skills: {
+    languages: string[];
+    agents: string[];
+    protocols: string[];
+    tools: string[];
+  };
   job: Job[];
   project: Project[];
 }
