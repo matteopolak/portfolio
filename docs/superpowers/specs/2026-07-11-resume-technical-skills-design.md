@@ -12,10 +12,9 @@ generated resume, and use the same source data on the website.
 Use four rows:
 
 - **Languages:** Rust, TypeScript, Go, Python, C++ (20/23/26), Zig, Java, JavaScript
-- **AI & Agent Systems:** Model Context Protocol (MCP), Agent2Agent (A2A), Tool
-  Calling, Agent Evaluation, Browser Automation, Cursor, Claude Code, GitHub
-  Copilot
-- **APIs & Protocols:** OpenAPI, Protocol Buffers (Protobuf), GraphQL, WebSockets
+- **AI & Agent Systems:** MCP, A2A, Tool Calling, Agent Evals, Browser Agents,
+  Cursor, Claude Code, GitHub Copilot
+- **APIs & Protocols:** OpenAPI, Protobuf, GraphQL, WebSockets
 - **Platforms & Tooling:** PostgreSQL, Redis, Docker, AWS, GCP, OpenTelemetry, LLVM,
   Bazel
 
@@ -36,8 +35,9 @@ The list uses a substantial-project-or-production-use evidence bar.
 - Remove Svelte and Vue from Languages because they are frameworks.
 - Replace Swagger with OpenAPI to avoid listing a specification and one of its
   tool ecosystems as separate skills.
-- Use full protocol names with abbreviations so recruiters and keyword searches
-  can recognize MCP, A2A, and Protobuf.
+- Use the standard MCP, A2A, and Protobuf names. Expanded names caused the final
+  tooling row to overflow to a second PDF page, while the conventional acronyms
+  preserve both scanability and keyword recognition.
 - Include Tool Calling, Agent Evaluation, and Browser Automation because the
   recent Microsoft AI and Shopify experience directly demonstrates them.
 - Include Cursor, Claude Code, and GitHub Copilot to signal an AI-native

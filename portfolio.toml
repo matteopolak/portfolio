@@ -74,9 +74,10 @@ prefix = "1st place: "
 text = "Built and designed a decentralized file-sharing system with a custom wire protocol (Hack the Hill II)"
 
 [skills]
-languages = ["Rust", "TypeScript", "Go", "Python", "C++", "C", "Java", "JavaScript", "Svelte", "Vue"]
-libraries = ["React", "SvelteKit", "Express.js", "Django", "Flask", "OpenAPI", "Swagger", "Protobuf", "PyTorch"]
-tools = ["PostgreSQL", "MySQL", "MongoDB", "Redis", "InfluxDB", "Ansible", "AWS", "GCP", "OpenStack", "Docker", "Observe", "OpenTelemetry"]
+languages = ["Rust", "TypeScript", "Go", "Python", "C++ (20/23/26)", "Zig", "Java", "JavaScript"]
+agents = ["MCP", "A2A", "Tool Calling", "Agent Evals", "Browser Agents", "Cursor", "Claude Code", "GitHub Copilot"]
+protocols = ["OpenAPI", "Protobuf", "GraphQL", "WebSockets"]
+tools = ["PostgreSQL", "Redis", "Docker", "AWS", "GCP", "OpenTelemetry", "LLVM", "Bazel"]
 
 [[job]]
 id = "mai-swe"
