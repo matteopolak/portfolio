@@ -128,7 +128,8 @@ end = 2025-04-26
 achievements = [
 #  "Integrated *Storybook* and *Cypress*, improving component correctness and reducing flaky tests by 20%.",
   "Built concurrency-based rate limiting in *Java* and *Spring Boot* for a customer-facing API, eliminating noisy-neighbor contention and delivering predictable latency across the cluster.",
-  "Automated *OpenAPI* breaking-change detection in CI, preventing regressions from reaching downstream consumers by gating merges on schema diffs.",
+#  "Automated *OpenAPI* breaking-change detection in CI, preventing regressions from reaching downstream consumers by gating merges on schema diffs.",
+  "Improved throughput of the event broker auditing system by 400%, direectly resulting in new customers for their event-driven architecture."
 ]
 
 [[job]]
