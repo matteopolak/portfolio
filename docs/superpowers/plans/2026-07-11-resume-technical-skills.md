@@ -13,6 +13,7 @@
 ### Task 1: Update the shared skills model and content
 
 **Files:**
+
 - Modify: `portfolio.toml:76-79`
 - Modify: `src/types/config.ts:5-18`
 
@@ -69,6 +70,7 @@ Expected: the new `agents` and `protocols` fields appear in both files, and the 
 ### Task 2: Render the new categories on the site and resume
 
 **Files:**
+
 - Modify: `src/components/Skills.astro:6-22`
 - Modify: `resume/resume.typ:108-118`
 
@@ -88,7 +90,9 @@ Replace the libraries row in `src/components/Skills.astro` with these two rows:
 
 ```astro
 <div class="flex gap-3">
-  <dt class="font-semibold min-w-24 text-base-content/70">AI & Agent Systems</dt>
+  <dt class="font-semibold min-w-24 text-base-content/70">
+    AI & Agent Systems
+  </dt>
   <dd class="m-0">{skills.agents.join(', ')}</dd>
 </div>
 <div class="flex gap-3">
@@ -130,6 +134,7 @@ Expected: no matches and exit status 0.
 ### Task 3: Validate both rendered outputs
 
 **Files:**
+
 - Modify: `public/resume.pdf`
 
 - [ ] **Step 1: Run repository quality checks**
