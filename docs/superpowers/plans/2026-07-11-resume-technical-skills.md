@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the resume's dated library inventory with evidence-backed language, protocol, and platform skills while keeping the PDF to one page.
+**Goal:** Replace the resume's dated library inventory with evidence-backed language, AI agent, protocol, and platform skills while keeping the PDF to one page.
 
-**Architecture:** Keep `portfolio.toml` as the shared data source for the Astro site and Typst resume. Rename only the `libraries` skill array to `protocols`; retain the existing fixed three-row model and render more accurate labels in both outputs.
+**Architecture:** Keep `portfolio.toml` as the shared data source for the Astro site and Typst resume. Replace the `libraries` array with explicit `agents` and `protocols` arrays; retain a fixed four-row model and render the same accurate labels in both outputs.
 
 **Tech Stack:** TOML, TypeScript, Astro, Typst, pnpm
 
@@ -31,7 +31,7 @@ Expected: pnpm completes successfully without changing `pnpm-lock.yaml`.
 Run:
 
 ```bash
-rg -n 'protocols|Model Context Protocol|Agent2Agent' portfolio.toml src/types/config.ts
+rg -n 'agents|protocols|Model Context Protocol|Agent2Agent' portfolio.toml src/types/config.ts
 ```
 
 Expected: no matches and exit status 1.
@@ -43,7 +43,8 @@ Change the skills block in `portfolio.toml` to:
 ```toml
 [skills]
 languages = ["Rust", "TypeScript", "Go", "Python", "C++ (20/23/26)", "Zig", "Java", "JavaScript"]
-protocols = ["Model Context Protocol (MCP)", "Agent2Agent (A2A)", "OpenAPI", "Protocol Buffers (Protobuf)", "GraphQL", "WebSockets"]
+agents = ["Model Context Protocol (MCP)", "Agent2Agent (A2A)", "Tool Calling", "Agent Evaluation", "Browser Automation", "Cursor", "Claude Code", "GitHub Copilot"]
+protocols = ["OpenAPI", "Protocol Buffers (Protobuf)", "GraphQL", "WebSockets"]
 tools = ["PostgreSQL", "Redis", "Docker", "AWS", "GCP", "OpenTelemetry", "LLVM", "Bazel"]
 ```
 
@@ -52,7 +53,7 @@ tools = ["PostgreSQL", "Redis", "Docker", "AWS", "GCP", "OpenTelemetry", "LLVM",
 Change the `skills` member in `src/types/config.ts` to:
 
 ```ts
-skills: { languages: string[]; protocols: string[]; tools: string[] };
+skills: { languages: string[]; agents: string[]; protocols: string[]; tools: string[] };
 ```
 
 - [ ] **Step 5: Verify the shared data contract**
@@ -60,10 +61,10 @@ skills: { languages: string[]; protocols: string[]; tools: string[] };
 Run:
 
 ```bash
-rg -n 'protocols|Model Context Protocol|Agent2Agent|C\+\+ \(20/23/26\)' portfolio.toml src/types/config.ts
+rg -n 'agents|protocols|Model Context Protocol|Agent2Agent|C\+\+ \(20/23/26\)' portfolio.toml src/types/config.ts
 ```
 
-Expected: the new `protocols` field appears in both files, and the new content appears in `portfolio.toml`.
+Expected: the new `agents` and `protocols` fields appear in both files, and the new content appears in `portfolio.toml`.
 
 ### Task 2: Render the new categories on the site and resume
 
@@ -83,11 +84,15 @@ Expected: matches in both renderers.
 
 - [ ] **Step 2: Update the Astro renderer**
 
-Replace the libraries row in `src/components/Skills.astro` with:
+Replace the libraries row in `src/components/Skills.astro` with these two rows:
 
 ```astro
 <div class="flex gap-3">
-  <dt class="font-semibold min-w-24 text-base-content/70">Protocols & Standards</dt>
+  <dt class="font-semibold min-w-24 text-base-content/70">AI & Agent Systems</dt>
+  <dd class="m-0">{skills.agents.join(', ')}</dd>
+</div>
+<div class="flex gap-3">
+  <dt class="font-semibold min-w-24 text-base-content/70">APIs & Protocols</dt>
   <dd class="m-0">{skills.protocols.join(', ')}</dd>
 </div>
 ```
@@ -103,7 +108,9 @@ Replace the Tools label with:
 Replace the two old skill labels and the libraries field in `resume/resume.typ` with:
 
 ```typst
-*Protocols & Standards*: #config.skills.protocols.join(", ")
+*AI & Agent Systems*: #config.skills.agents.join(", ")
+#space(h: .8em)
+*APIs & Protocols*: #config.skills.protocols.join(", ")
 #space(h: .8em)
 *Platforms & Tooling*: #config.skills.tools.join(", ")
 ```
@@ -142,10 +149,10 @@ Expected: all three commands exit successfully.
 Run:
 
 ```bash
-rg -n 'Protocols &amp; Standards|Model Context Protocol|Platforms &amp; Tooling' dist/index.html
+rg -n 'AI &amp; Agent Systems|Model Context Protocol|APIs &amp; Protocols|Platforms &amp; Tooling' dist/index.html
 ```
 
-Expected: all three strings appear in the generated home page.
+Expected: all four strings appear in the generated home page.
 
 - [ ] **Step 3: Compile the resume**
 
@@ -172,10 +179,10 @@ Expected: `Pages: 1`.
 Run:
 
 ```bash
-pdftotext public/resume.pdf - | rg 'Protocols & Standards|Model Context Protocol|Platforms & Tooling'
+pdftotext public/resume.pdf - | rg 'AI & Agent Systems|Model Context Protocol|APIs & Protocols|Platforms & Tooling'
 ```
 
-Expected: the three new strings appear in extracted PDF text.
+Expected: the four new strings appear in extracted PDF text.
 
 - [ ] **Step 6: Commit the implementation**
 
@@ -187,4 +194,3 @@ git commit -m "feat: modernize resume technical skills"
 ```
 
 Expected: one implementation commit containing the shared data, both renderers, and generated PDF.
-
