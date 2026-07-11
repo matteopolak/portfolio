@@ -111,8 +111,10 @@
   [
     *Languages*: #config.skills.languages.join(", ")
     #space(h: .8em)
-    *Libraries*: #config.skills.libraries.join(", ")
+    *AI & Agent Systems*: #config.skills.agents.join(", ")
     #space(h: .8em)
-    *Tools*: #config.skills.tools.join(", ")
+    *APIs & Protocols*: #config.skills.protocols.join(", ")
+    #space(h: .8em)
+    *Platforms & Tooling*: #config.skills.tools.join(", ")
   ],
 )
