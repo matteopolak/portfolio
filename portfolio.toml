@@ -10,7 +10,7 @@ linkedin = "matteo-polak"
 [education]
 degree = "Bachelor of Science in Computer Science"
 school = "University of Ottawa"
-gpa = "3.9"
+gpa = "4.0"
 start = 2022-09-01
 end = 2026-12-01
 
@@ -99,10 +99,11 @@ achievements = [
 #  "Repaired the automated grader to parse 800+ previously unreadable responses, eliminating false ungradable verdicts and restoring score accuracy.",
 #  "Expanded third-party integration test coverage from 41 to 94 cases, catching partner-facing regressions before they reached customers.",
 #  "Extended the evaluation pipeline to grade image and video outputs, doubling scored media cases from 2 to 4 of 11 and closing a coverage gap.",
-  "Integrated a headless browser into the evaluation pipeline, enabling automated browser-use testing for *Cowork*'s web agent.",
-  "Root-caused and fixed two production segfaults in the *Cowork* agent loop causing dozens of container crashes per day.",
+#  "Integrated a headless browser into the evaluation pipeline, enabling automated browser-use testing for *Cowork*'s web agent.",
+  "Root-caused and fixed *2* production segfaults in the *Cowork* agent loop, eliminating dozens of daily container crashes and restoring runtime stability.",
   "Proposed and shipped core evaluation-pipeline improvements — a standardized judge, unified case format, and dashboard — adopted as team standards.",
-  "Ran side-by-side evaluations of a major new product extension, delivering the data that drove the go/no-go release decision."
+  "Solely owned *Cowork*'s *gRPC/MCP* integration and *215-task* paired evaluation of a new document backend behind a feature flag; repaired *~10* cases and cut false-negative failures from *~80%* to *1–2%* of failing cases.",
+  "Built and iterated a *React/Vite* evaluation dashboard used by *~20* engineers; presented *189*-vs-*174* results twice to *~12* Distinguished/Principal Engineers, driving backend selection for a new product feature."
 ]
 
 [[job]]
@@ -130,7 +131,7 @@ achievements = [
 #  "Integrated *Storybook* and *Cypress*, improving component correctness and reducing flaky tests by 20%.",
   "Built concurrency-based rate limiting in *Java* and *Spring Boot* for a customer-facing API, eliminating noisy-neighbor contention and delivering predictable latency across the cluster.",
 #  "Automated *OpenAPI* breaking-change detection in CI, preventing regressions from reaching downstream consumers by gating merges on schema diffs.",
-  "Improved throughput of the event broker auditing system by 400%, direectly resulting in new customers for their event-driven architecture."
+  "Improved throughput of the event broker auditing system by 400%, directly resulting in new customers for their event-driven architecture."
 ]
 
 [[job]]
