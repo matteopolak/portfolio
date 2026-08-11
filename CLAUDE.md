@@ -61,7 +61,6 @@ The PDF resume (`pnpm resume`) must fit on a **single page**. When editing
 - Bullets support `*word*` markup for **bold** (tech, metrics, product names);
   use it to emphasize impact, not to add length.
 
-
 ### Key Files
 
 - `portfolio.toml` — all portfolio data (name, contact, jobs, projects, education, skills)
