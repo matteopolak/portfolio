@@ -1,8 +1,11 @@
 // Create a consistent vertical spacing
-#let space(h: 0.6em) = v(h, weak: true)
+#let space(h: 0.5em) = v(h, weak: true)
 
-// Shortcut for evaluating a string as markup
-#let markup(str) = eval(str, mode: "markup")
+// Shortcut for evaluating a string as markup.
+// Source data stores raw, human-readable "~" (e.g. "~12", "~10-hour"), but
+// Typst's markup mode treats a bare "~" as a non-breaking space rather than a
+// literal character. Convert it to the centered mathematical tilde before eval.
+#let markup(str) = eval(str.replace("~", "∼"), mode: "markup")
 
 // Format a job entry
 #let job(
@@ -25,9 +28,11 @@
     align(alignment.end, [#start.display(format) --- #end \ #emph(location)]),
   )
 
-  space(h: 0.4em)
-  list(..achievements.map(markup))
-  v(-0.7em)
+  if achievements.len() > 0 {
+    space(h: 0.35em)
+    list(..achievements.map(markup))
+    v(-0.6em)
+  }
 }
 
 #let to-string(content) = {
@@ -59,9 +64,11 @@
       #tags.join(", ")], weight: "regular"))
   ]
 
-  space(h: 0.7em)
-  list(..achievements.map(markup))
-  space(h: 0.9em)
+  if achievements.len() > 0 {
+    space(h: 0.55em)
+    list(..achievements.map(markup))
+    space(h: 0.7em)
+  }
 }
 
 // Create a section heading
@@ -76,13 +83,18 @@
 }
 
 // Create a coloured header with some centered content
-#let header(content, padding: 0.3in, alignment: center + horizon) = box(
+#let header(
+  content,
+  padding: 0.22in,
+  outset: (x: 0.3in, top: 0.28in),
+  alignment: center + horizon,
+) = box(
   width: 100%,
   fill: rgb(38, 38, 38),
   // we want to push the content below it down
   inset: (bottom: padding - 0.1in),
   // but since this is at the top, we want to fill
   // the margin with the background of the box
-  outset: (x: padding, top: padding),
+  outset: outset,
   align(alignment, content),
 )

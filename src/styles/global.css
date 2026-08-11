@@ -15,7 +15,7 @@
 }
 
 /* Override DaisyUI black theme primary to emerald-400 */
-[data-theme="black"] {
+[data-theme='black'] {
   --color-primary: oklch(76.5% 0.177 163.223);
 }
 
