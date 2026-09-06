@@ -10,7 +10,7 @@ export default defineConfig({
     builtin: true,
     browser: true,
   },
-  ignorePatterns: ['dist/', '.astro/', 'website/'],
+  ignorePatterns: ['dist/', '.build/', '.astro/', 'website/'],
   rules: {
     'constructor-super': 'error',
     'for-direction': 'error',
