@@ -52,8 +52,9 @@ jobs:
           token: ${{ secrets.LODESTONE_REPOSITORY_TOKEN || github.token }}
 
       - name: Install Rust and the WebAssembly target
-        uses: dtolnay/rust-toolchain@nightly-2026-08-07
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2026-08-07
           targets: wasm32-unknown-unknown
 
       - name: Cache Rust builds and Minecraft downloads
