@@ -96,15 +96,16 @@ jobs:
       - name: Enforce Cloudflare and multiplayer confinement
         run: |
           node scripts/prepare-lodestone-release.mjs .build/lodestone-dist
-          cargo tree --manifest-path .build/lodestone/web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e features > .build/lodestone-features.txt
-          grep -Fq 'lodestone-shell feature "live"' .build/lodestone-features.txt
-          if grep -Fq 'lodestone-shell feature "multiplayer"' .build/lodestone-features.txt; then
+          cd .build/lodestone
+          cargo tree --manifest-path web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e features > ../lodestone-features.txt
+          grep -Fq 'lodestone-shell feature "live"' ../lodestone-features.txt
+          if grep -Fq 'lodestone-shell feature "multiplayer"' ../lodestone-features.txt; then
             echo 'error: the multiplayer feature was enabled in the website build' >&2
             exit 1
           fi
-          cargo tree --manifest-path .build/lodestone/web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e normal --prefix none > .build/lodestone-packages.txt
-          grep -Eq '^lodestone-shell ' .build/lodestone-packages.txt
-          if grep -Eq '^lodestone-relay( |$)' .build/lodestone-packages.txt; then
+          cargo tree --manifest-path web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e normal --prefix none > ../lodestone-packages.txt
+          grep -Eq '^lodestone-shell ' ../lodestone-packages.txt
+          if grep -Eq '^lodestone-relay( |$)' ../lodestone-packages.txt; then
             echo 'error: lodestone-relay is reachable from the singleplayer website build' >&2
             exit 1
           fi
