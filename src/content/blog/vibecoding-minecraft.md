@@ -5,7 +5,7 @@ date: 2026-08-11
 tags:
   - rust
   - vibecoding
-published: true
+published: false
 ---
 
 *This blog post was written entirely by me, a human.*
