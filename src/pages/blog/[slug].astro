@@ -48,6 +48,12 @@ const { Content, headings } = await render(post);
   </div>
 </Layout>
 
+<script>
+  if (document.querySelector('lodestone-game')) {
+    void import('../../lib/lodestone-game');
+  }
+</script>
+
 <style>
   .blog-layout {
     display: flex;

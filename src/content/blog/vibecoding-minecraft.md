@@ -32,7 +32,10 @@ Coming into this, my goal was to write the entire game (every single feature and
 
 In fact, if you don't really care to read the rest of this blog, you should just play the game since it's right here anyways:
 
-<game />
+<lodestone-game>
+  The playable browser build needs JavaScript and WebGPU. You can still read the
+  rest of the article if your browser does not support them.
+</lodestone-game>
 
 ## Putting down the first stake
 
