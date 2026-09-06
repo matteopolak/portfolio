@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node scripts/sync-lodestone-web.mjs",
     "build": "astro build",
     "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
     "resume:job": "node scripts/build-job-resume.mjs",
