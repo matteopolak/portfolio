@@ -28,6 +28,8 @@ The workflow normally commits only `lodestone-web-release.json`. The package
 `prebuild` hook runs `scripts/sync-lodestone-web.mjs`, verifies the tarball's
 SHA-256 and paths, then materializes it under the ignored
 `public/lodestone/` directory before Astro copies it into `dist/`. The release
+pointer update uses a one-line conventional `chore:` commit so automated
+deployments follow the same history format as hand-authored changes. The release
 uses client-jar parts smaller than Cloudflare Pages' 25 MiB per-file limit; the
 unpartitioned `client.jar` is deliberately removed after the multipart manifest
 has been validated. Each part is limited to 20 MiB and named with its ordered

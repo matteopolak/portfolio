@@ -185,7 +185,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'Repository already points to this Lodestone build.'
           else
-            git commit -m "Update Lodestone web build to ${{ steps.bundle.outputs.revision }}"
+            git commit -m "chore: update Lodestone web build to ${{ steps.bundle.outputs.revision }}"
             git push origin "HEAD:${{ github.event.repository.default_branch }}"
           fi
 
