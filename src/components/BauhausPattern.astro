@@ -380,9 +380,19 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
     const x = Number(region.dataset.x);
     const y = Number(region.dataset.y);
     const currentKind = region.dataset.kind ?? 'stripes';
-    const candidates = ['empty', 'dots', 'curve-ring', 'curve-open', 'stripes'].filter(
-      (kind) => kind !== currentKind,
-    );
+    const candidates = [
+      'empty',
+      'dots',
+      'curve-ring',
+      'curve-ring',
+      'curve-open',
+      'curve-open',
+      'stripes',
+      'stripes',
+      'solid',
+      'solid',
+      'solid',
+    ].filter((kind) => kind !== currentKind);
     let nextKind = candidates[Math.floor(random() * candidates.length)];
 
     region.replaceChildren();
@@ -399,6 +409,18 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
           fill: 'transparent',
           'pointer-events': 'all',
         }),
+      );
+      return;
+    }
+
+    if (nextKind === 'solid') {
+      const color = chooseColor();
+      region.append(
+        svgElement(
+          'rect',
+          { x, y, width: 160, height: 160, stroke: `var(--${color})`, 'stroke-width': 1.25 },
+          color,
+        ),
       );
       return;
     }
@@ -615,6 +637,23 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
       window.setTimeout(finish, 340);
     };
 
+    let specialExitSequence = 0;
+    const animateSpecialRegionOut = (region: SVGElement) => {
+      specialExitSequence += 1;
+      const exitToken = String(specialExitSequence);
+      region.dataset.specialExit = exitToken;
+      region.classList.remove('is-entering');
+      region.classList.add('is-leaving');
+
+      const finish = () => {
+        if (region.dataset.specialExit !== exitToken) return;
+        delete region.dataset.specialExit;
+        region.classList.remove('is-special', 'is-visible', 'is-leaving');
+      };
+      region.addEventListener('animationend', finish, { once: true });
+      window.setTimeout(finish, 340);
+    };
+
     const resizePatternToField = () => {
       if (pattern.dataset.ambient !== 'true') return;
       const field = pattern.closest<HTMLElement>('.bauhaus-field');
@@ -645,7 +684,10 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
 
     const markSpecialRegions = () => {
       if (pattern.dataset.ambient !== 'true') return;
-      regions.forEach((region) => region.classList.remove('is-special'));
+      const previousSpecialRegions = new Set(
+        regions.filter((region) => region.classList.contains('is-special')),
+      );
+      const nextSpecialRegions = new Set<SVGElement>();
       const patternBounds = pattern.getBoundingClientRect();
       const viewBox = pattern.viewBox.baseVal;
       const columnCount = Number(pattern.dataset.columns);
@@ -747,6 +789,9 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
               `${pattern.dataset.bauhausPattern}:boundary:${column}:${row}`,
             );
             const region = ensureRegion(column, row);
+            nextSpecialRegions.add(region);
+            delete region.dataset.specialExit;
+            region.classList.remove('is-leaving');
             region.classList.add('is-special');
             if (boundaryRandom() >= keepChance) continue;
             if (
@@ -766,6 +811,10 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
             }
           }
         }
+      });
+
+      previousSpecialRegions.forEach((region) => {
+        if (!nextSpecialRegions.has(region)) animateSpecialRegionOut(region);
       });
     };
     let observedField: HTMLElement | null = null;

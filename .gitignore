@@ -2,6 +2,7 @@ jobs/
 docs/*
 !docs/bauhaus-grid-state.md
 !docs/logo-assets.md
+!docs/palette-generator.md
 !docs/site-design.md
 scripts/
 tests/
