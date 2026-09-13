@@ -23,28 +23,23 @@ const { Content, headings } = await render(post);
   type="article"
   publishedTime={post.data.date.toISOString()}
 >
-  <div class="blog-layout">
-    <article>
-    <header class="mb-8">
-      <h1 class="text-[1.75rem] font-bold mb-1.5">{post.data.title}</h1>
-      <time
-        class="text-sm text-base-content/70"
-        datetime={post.data.date.toISOString()}
-      >
-        {
-          post.data.date.toLocaleDateString('en-CA', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })
-        }
-      </time>
-    </header>
-    <div class="content">
+  <header class="article-header">
+    <h1>{post.data.title}</h1>
+    <time class="article-date" datetime={post.data.date.toISOString()}>
+      {
+        post.data.date.toLocaleDateString('en-CA', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      }
+    </time>
+  </header>
+  <div class="article-layout">
+    <article class="prose">
       <Content />
-    </div>
-  </article>
-  <BlogToc headings={headings} />
+    </article>
+    <BlogToc headings={headings} />
   </div>
 </Layout>
 
@@ -53,112 +48,3 @@ const { Content, headings } = await render(post);
     void import('../../lib/lodestone-game');
   }
 </script>
-
-<style>
-  .blog-layout {
-    display: flex;
-    align-items: flex-start;
-    gap: 2rem;
-  }
-
-  .blog-layout > article {
-    flex: 0 0 auto;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .content {
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-      'Segoe UI', Roboto, sans-serif;
-    line-height: 1.75;
-  }
-
-  .content :global(p) {
-    margin-bottom: 1.25rem;
-  }
-
-  .content :global(h2) {
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.25;
-    color: oklch(var(--bc));
-    text-transform: none;
-    letter-spacing: normal;
-    border-bottom: none;
-    padding-bottom: 0;
-    margin-top: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .content :global(h3) {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: oklch(var(--bc));
-    margin-top: 2rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .content :global(h4) {
-    font-size: 1.0625rem;
-    font-weight: 600;
-    line-height: 1.4;
-    color: oklch(var(--bc));
-    margin-top: 1.5rem;
-    margin-bottom: 0.375rem;
-  }
-
-  .content :global(pre) {
-    border-radius: 0;
-    overflow-x: auto;
-    margin-top: 0.5rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.8125rem;
-    line-height: 1.6;
-    border: 1px solid rgb(255 255 255 / 0.08);
-    padding: 0.625rem 0;
-    counter-reset: line;
-  }
-
-  /* Line numbers */
-  .content :global(pre .line::before) {
-    counter-increment: line;
-    content: counter(line);
-    display: inline-block;
-    width: 1rem;
-    margin-right: 0.75rem;
-    text-align: right;
-    color: oklch(var(--bc) / 0.2);
-    user-select: none;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Make code a grid so each .line fills full width and inter-line whitespace is ignored */
-  .content :global(pre code) {
-    display: grid;
-  }
-
-  /* Move horizontal padding to lines so highlights reach the edges */
-  .content :global(pre .line) {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-  }
-
-  /* Highlighted lines */
-  .content :global(pre .line.highlighted) {
-    background: color-mix(in oklch, var(--color-primary) 12%, transparent);
-  }
-
-  .content :global(code) {
-    background: oklch(var(--b2));
-    padding: 0.1em 0.3em;
-    border-radius: 0.25rem;
-    font-size: 0.875em;
-  }
-
-  .content :global(pre code) {
-    background: transparent;
-    padding: 0;
-    font-size: inherit;
-  }
-</style>

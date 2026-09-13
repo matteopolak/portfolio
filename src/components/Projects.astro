@@ -3,42 +3,41 @@ import { projects } from '../lib/config';
 import { bold } from '../lib/bold';
 ---
 
-<section>
-  <h2>Projects</h2>
-  {
-    projects.map((project) => (
-      <article class="mb-5">
-        <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-2 mb-1.5">
-          <div class="flex flex-col">
+<section class="resume-section">
+  <h2 class="section-title">Selected work</h2>
+  <div class="resume-list">
+    {
+      projects.map((project) => (
+        <article class="resume-entry">
+          <div class="resume-entry__heading">
+            <div>
+              <h3 class="resume-entry__title">
+                <a href={`https://github.com/${project.github}`}>
+                  {project.title}
+                </a>
+              </h3>
+              {project.tags.length > 0 && (
+                <div class="tag-line">{project.tags.join(' · ')}</div>
+              )}
+            </div>
             <a
-              class="font-semibold text-base-content hover:text-primary hover:underline"
+              class="resume-entry__aside"
               href={`https://github.com/${project.github}`}
             >
-              {project.title}
+              {project.github} ↗
             </a>
-            {project.tags.length > 0 && (
-              <span class="text-sm text-base-content/70">
-                {project.tags.join(', ')}
-              </span>
-            )}
           </div>
-          <a
-            class="text-sm text-base-content/70 hover:text-primary"
-            href={`https://github.com/${project.github}`}
-          >
-            {project.github}
-          </a>
-        </div>
-        {project.achievements.length > 0 && (
-          <ul class="text-sm">
-            {project.achievements.map((a) => (
-              <li>
-                <Fragment set:html={bold(a)} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </article>
-    ))
-  }
+          {project.achievements.length > 0 && (
+            <ul>
+              {project.achievements.map((achievement) => (
+                <li>
+                  <Fragment set:html={bold(achievement)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      ))
+    }
+  </div>
 </section>

@@ -11,34 +11,40 @@ function slug(id: string) {
 }
 ---
 
-<Layout title="Blog">
-  <ul class="list-none p-0 flex flex-col gap-5">
+<Layout title="Blog" description="Writing about systems, software, and things learned while building.">
+  <header class="page-intro">
+    <span class="page-intro__index">02</span>
+    <h1>Stuff I wrote</h1>
+  </header>
+  <ol class="editorial-list">
     {
-      posts.map((post) => (
-        <li class="flex flex-col gap-0.5 m-0">
-          <a
-            class="font-semibold text-[1.05rem] text-base-content no-underline hover:text-primary hover:underline"
-            href={`/blog/${slug(post.id)}`}
-          >
-            {post.data.title}
-          </a>
+      posts.map((post, index) => (
+        <li class="editorial-item">
+          <span class="editorial-item__number">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <div>
+            <h2 class="editorial-item__heading">
+              <a class="editorial-item__title" href={`/blog/${slug(post.id)}`}>
+                {post.data.title}
+              </a>
+            </h2>
+            {post.data.description && (
+              <p class="editorial-item__description">{post.data.description}</p>
+            )}
+          </div>
           <time
-            class="text-sm text-base-content/70"
+            class="editorial-item__aside"
             datetime={post.data.date.toISOString()}
           >
             {post.data.date.toLocaleDateString('en-CA', {
               year: 'numeric',
-              month: 'long',
-              day: 'numeric',
+              month: 'short',
+              day: '2-digit',
             })}
           </time>
-          {post.data.description && (
-            <p class="text-sm text-base-content/70 m-0">
-              {post.data.description}
-            </p>
-          )}
         </li>
       ))
     }
-  </ul>
+  </ol>
 </Layout>

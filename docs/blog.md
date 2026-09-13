@@ -34,9 +34,12 @@ The filename becomes the URL slug (with `.md` stripped). For example, `hello-wor
 
 ## Changing the layout
 
-Blog post styles are scoped inside `src/pages/blog/[slug].astro`. The `:global()` selector is used to style rendered markdown content (`.content :global(p)`, etc.).
+The article structure lives in `src/pages/blog/[slug].astro`. Shared rendered-Markdown typography is defined by the global `.prose` rules in `src/styles/global.css`, including headings, lists, quotes, tables, inline code, and borderless highlighted code blocks. Level-two headings cycle through a fixed square, circle, triangle, and quarter-round marker sequence using the Bauhaus palette. `BlogToc.astro` owns the desktop sticky table of contents: its rule measures progress through the article body, and every section intersecting the viewport changes to ink without changing weight. It reinitializes after Astro client-side navigation and remains hidden at the existing small-screen breakpoint. The index and article reuse the site-wide editorial patterns documented in [site-design.md](./site-design.md).
+
+The desktop table of contents is rendered by `src/components/BlogToc.astro`. It sticks to the viewport while the article scrolls and is hidden when the article switches to its single-column layout. It does not create an independent scrolling container.
 
 ## Dependencies
 
 - Astro content collections (`astro:content`)
 - `src/layouts/Layout.astro` for the page shell
+- Shiki's `github-light` theme for syntax highlighting

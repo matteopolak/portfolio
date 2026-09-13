@@ -1,0 +1,43 @@
+---
+interface Props {
+  company: string;
+}
+
+const { company } = Astro.props;
+
+const logos: Record<string, string> = {
+  'Microsoft AI': '/logos/microsoft-ai.svg',
+  Shopify: '/logos/shopify.svg',
+  Solace: '/logos/solace.svg',
+  Ciena: '/logos/ciena.svg',
+};
+
+const logo = logos[company];
+---
+
+{
+  logo ? (
+    <img class="company-logo" src={logo} alt="" data-company={company} />
+  ) : (
+    <span>{company}</span>
+  )
+}
+
+<style>
+  .company-logo {
+    display: block;
+    width: 1.15rem;
+    height: 1.15rem;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .company-logo[data-company='Ciena'] {
+    width: 1.2rem;
+  }
+
+  .company-logo[data-company='Microsoft AI'] {
+    width: 1.15rem;
+    aspect-ratio: 1;
+  }
+</style>

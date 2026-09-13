@@ -14,20 +14,19 @@ class LodestoneGameElement extends HTMLElement {
         :host {
           display: block;
           margin: 2rem 0;
-          color: #d1fae5;
-          font-family: ui-monospace, 'Cascadia Code', Menlo, monospace;
+          color: #151515;
+          font-family: 'Open Sans Local', 'Helvetica Neue', Arial, sans-serif;
         }
         .shell {
           position: relative;
           overflow: hidden;
           aspect-ratio: 16 / 9;
           min-height: 18rem;
-          border: 1px solid rgb(52 211 153 / 0.45);
-          border-radius: 0.5rem;
+          border: 1px solid #151515;
+          border-left: 0.7rem solid #1758c7;
           background:
-            radial-gradient(circle at 50% 35%, rgb(16 185 129 / 0.13), transparent 45%),
-            #080c0b;
-          box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.35);
+            linear-gradient(135deg, transparent 65%, rgb(242 189 36 / 0.55) 65%),
+            #fffdf7;
         }
         .prompt {
           position: absolute;
@@ -40,20 +39,19 @@ class LodestoneGameElement extends HTMLElement {
           padding: 1.5rem;
           text-align: center;
         }
-        .title { margin: 0; color: white; font-size: 1.1rem; font-weight: 700; }
-        .status { margin: 0; max-width: 40rem; color: rgb(209 250 229 / 0.72); font-size: 0.82rem; }
+        .title { margin: 0; color: #151515; font-size: 1.1rem; font-weight: 800; }
+        .status { margin: 0; max-width: 40rem; color: #625f58; font-size: 0.82rem; }
         button {
-          border: 1px solid rgb(52 211 153 / 0.8);
-          border-radius: 0.25rem;
+          border: 1px solid #151515;
           padding: 0.6rem 1rem;
-          color: #d1fae5;
-          background: rgb(6 78 59 / 0.72);
+          color: #fffdf7;
+          background: #e5372f;
           font: inherit;
-          font-weight: 700;
+          font-weight: 800;
           cursor: pointer;
         }
-        button:hover { background: rgb(6 95 70 / 0.9); }
-        button:focus-visible { outline: 2px solid #34d399; outline-offset: 3px; }
+        button:hover { background: #1758c7; }
+        button:focus-visible { outline: 3px solid #1758c7; outline-offset: 3px; }
         iframe {
           display: block;
           width: 100%;
@@ -66,13 +64,13 @@ class LodestoneGameElement extends HTMLElement {
           justify-content: space-between;
           gap: 1rem;
           margin-top: 0.5rem;
-          color: rgb(209 250 229 / 0.55);
+          color: #625f58;
           font-size: 0.72rem;
         }
         .help button {
           border: 0;
           padding: 0;
-          color: #6ee7b7;
+          color: #1758c7;
           background: transparent;
           font-size: inherit;
           font-weight: 400;

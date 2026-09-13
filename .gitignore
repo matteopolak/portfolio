@@ -1,5 +1,8 @@
 jobs/
-docs/
+docs/*
+!docs/bauhaus-grid-state.md
+!docs/logo-assets.md
+!docs/site-design.md
 scripts/
 tests/
 

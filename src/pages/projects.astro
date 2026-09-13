@@ -8,6 +8,12 @@ const projects = (await getCollection('projects')).sort(
 );
 ---
 
-<Layout title="Projects">
-  {projects.map((project) => <ProjectCard project={project} />)}
+<Layout title="Projects" description="Selected software projects by Matthew Polak.">
+  <header class="page-intro">
+    <span class="page-intro__index">03</span>
+    <h1>Stuff I built</h1>
+  </header>
+  <div class="editorial-list">
+    {projects.map((project, index) => <ProjectCard project={project} index={index} />)}
+  </div>
 </Layout>

@@ -4,45 +4,80 @@ import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   project: CollectionEntry<'projects'>;
+  index: number;
 }
 
-const { project } = Astro.props;
+const { project, index } = Astro.props;
 const { Content } = await render(project);
 const date = project.data.date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
 });
+const number = String(index + 1).padStart(2, '0');
 ---
 
-<article class="mb-6">
-  <div class="flex justify-between items-baseline gap-2 mb-1.5">
-    <div class="flex flex-col min-w-0">
+<article class="editorial-item">
+  <span class="editorial-item__number">{number}</span>
+  <div>
+    <h2 class="editorial-item__heading">
       <a
-        class="font-semibold text-base-content hover:text-primary hover:underline"
+        class="editorial-item__title"
         href={project.data.website ?? project.data.repository}
-        >{project.data.title}</a
       >
-      {
-        project.data.tags.length > 0 && (
-          <span class="text-sm text-base-content/70 truncate">
-            {project.data.tags.join(', ')}
-          </span>
-        )
-      }
-    </div>
-    <div class="flex items-center gap-3 text-sm shrink-0">
-      {
-        project.data.website && (
-          <a href={project.data.website} class="text-white hover:underline">
-            website
-          </a>
-        )
-      }
-      <a href={project.data.repository} class="text-white hover:underline"
-        >github</a
-      >
-      <time datetime={project.data.date.toISOString().slice(0, 7)} class="text-base-content/70">{date}</time>
+        {project.data.title}
+      </a>
+    </h2>
+    <div class="tag-line">{project.data.tags.join(' · ')}</div>
+    <div class="project-body"><Content /></div>
+  </div>
+  <div class="editorial-item__aside">
+    <time datetime={project.data.date.toISOString().slice(0, 7)}>{date}</time>
+    <div class="project-links">
+      {project.data.website && <a href={project.data.website}>Website ↗</a>}
+      <a href={project.data.repository}>GitHub ↗</a>
     </div>
   </div>
-  <div class="text-sm"><Content /></div>
 </article>
+
+<style>
+  .project-links {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    font-weight: 700;
+  }
+
+  .project-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0.35rem 0.55rem;
+    border: 0;
+    color: var(--paper);
+    background: var(--blue);
+    font-size: 0.72rem;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .project-links a:last-child {
+    color: var(--paper);
+    background: var(--ink);
+  }
+
+  .project-links a:hover {
+    color: var(--paper);
+    border-color: var(--red);
+    background: var(--red);
+  }
+
+  @media (max-width: 44rem) {
+    .project-links {
+      justify-content: flex-start;
+    }
+  }
+</style>
