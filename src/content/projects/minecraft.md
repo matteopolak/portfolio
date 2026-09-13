@@ -6,4 +6,4 @@ repository: https://github.com/matteopolak/lodestone
 website: https://lodestone.matteopolak.com
 ---
 
-I rewrote the entirety of *Minecraft, Java Edition* (yes, every single feature) in a month with the help of agents (okay, "help" is an understatement).
+I rewrote the entirety of _Minecraft: Java Edition_ (yes, every single feature) in a month with the help of agents (okay, "help" is an understatement).

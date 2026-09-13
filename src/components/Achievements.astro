@@ -4,11 +4,11 @@ import { bold } from '../lib/bold';
 import type { AchievementLinked } from '../types/config';
 
 function joinLinks(entry: AchievementLinked): string {
-  const links = entry.item.map((i) => {
-    if (i.pop !== undefined) {
-      return `<a href="${i.url}" target="_blank" rel="noopener noreferrer" class="group text-base-content no-underline hover:no-underline hover:text-primary"><span class="group-hover:underline">${i.name}</span> <span class="badge badge-sm group-hover:bg-primary/20 group-hover:border-primary/50 group-hover:text-primary">${i.pop}</span></a>`;
+  const links = entry.item.map((item) => {
+    if (item.pop !== undefined) {
+      return `<a href="${item.url}" target="_blank" rel="noopener noreferrer"><span>${item.name}</span> <strong>${item.pop}</strong></a>`;
     }
-    return `<a href="${i.url}" target="_blank" rel="noopener noreferrer" class="text-base-content hover:text-primary">${i.name}</a>`;
+    return `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.name}</a>`;
   });
   let joined: string;
   if (links.length === 1) {
@@ -22,9 +22,9 @@ function joinLinks(entry: AchievementLinked): string {
 }
 ---
 
-<section>
-  <h2>Achievements</h2>
-  <ul class="text-sm">
+<section class="resume-section">
+  <h2 class="section-title">Achievements</h2>
+  <ul class="achievement-list">
     {
       Object.values(config.achievement).map((entry) => (
         <li>

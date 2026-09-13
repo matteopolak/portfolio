@@ -1,33 +1,137 @@
 ---
 import config from '../lib/config';
+import GeometricMark from './GeometricMark.astro';
 ---
 
-<header class="mb-6">
-  <h1 class="text-[1.75rem] font-bold mb-1.5">{config.name}</h1>
-  <address class="flex flex-wrap gap-1.5 text-sm text-base-content/70 not-italic">
-    <span>{config.phone}</span>
-    <span>&middot;</span>
-    <span>{config.location}</span>
-    <span>&middot;</span>
-    <a
-      class="text-base-content/70 hover:text-primary hover:underline"
-      href={`mailto:${config.email}`}>{config.email}</a
-    >
-    <span>&middot;</span>
-    <a
-      class="text-base-content/70 hover:text-primary hover:underline"
-      href={`https://${config.website}`}>{config.website}</a
-    >
-    <span>&middot;</span>
-    <a
-      class="text-base-content/70 hover:text-primary hover:underline"
-      href={`https://github.com/${config.github}`}>github.com/{config.github}</a
-    >
-    <span>&middot;</span>
-    <a
-      class="text-base-content/70 hover:text-primary hover:underline"
-      href={`https://www.linkedin.com/in/${config.linkedin}`}
-      >linkedin.com/in/{config.linkedin}</a
-    >
-  </address>
+<header class="home-hero">
+  <div class="home-hero__copy">
+    <span class="page-intro__index home-hero__index">01</span>
+    <h1 data-optically-align>{config.name}</h1>
+    <address class="home-hero__contact">
+      <span class="home-hero__location">
+        <GeometricMark name="canada" />
+        Ontario, Canada
+      </span>
+      <a class="home-hero__social" href={`https://github.com/${config.github}`}>
+        <GeometricMark name="github" />
+        GitHub
+      </a>
+      <a
+        class="home-hero__social"
+        href={`https://www.linkedin.com/in/${config.linkedin}`}
+      >
+        <GeometricMark name="linkedin" />
+        LinkedIn
+      </a>
+    </address>
+  </div>
+  <div class="home-hero__art" data-bauhaus-region aria-hidden="true"></div>
 </header>
+
+<style>
+  .home-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30rem;
+    align-items: center;
+    gap: 2rem;
+    min-height: 27rem;
+    padding: clamp(4rem, 8vw, 7rem) 0;
+  }
+
+  .home-hero__art {
+    width: 30rem;
+    aspect-ratio: 4 / 3;
+    align-self: start;
+    margin-top: 1rem;
+  }
+
+  .home-hero h1 {
+    max-width: 7ch;
+    margin: 0;
+    font-size: clamp(4rem, 10vw, 8.5rem);
+    font-weight: 800;
+    line-height: 0.78;
+    letter-spacing: -0.075em;
+    transform: translateX(var(--heading-side-bearing, 0px));
+  }
+
+  .home-hero__index {
+    margin-bottom: var(--page-title-gap);
+  }
+
+  .home-hero__contact {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    margin-top: 2.25rem;
+    font-size: 0.76rem;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .home-hero__social,
+  .home-hero__location {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 1.25rem;
+    line-height: 1.25rem;
+  }
+
+  @media (max-width: 48rem) {
+    .home-hero {
+      display: block;
+      min-height: 0;
+      padding: 4.5rem 0 3.5rem;
+    }
+
+    .home-hero__art {
+      position: absolute;
+      top: 3.5rem;
+      right: 0;
+      width: 9rem;
+      margin: 0;
+    }
+
+    .home-hero h1 {
+      max-width: 8ch;
+      font-size: 3.2rem;
+    }
+  }
+</style>
+
+<script>
+  const alignHomepageName = async () => {
+    const heading = document.querySelector<HTMLElement>('[data-optically-align]');
+    if (!heading) return;
+
+    await document.fonts.ready;
+
+    const styles = getComputedStyle(heading);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    context.font = [
+      styles.fontStyle,
+      styles.fontVariant,
+      styles.fontWeight,
+      styles.fontSize,
+      styles.fontFamily,
+    ].join(' ');
+
+    const metrics = context.measureText(heading.textContent?.trim() ?? '');
+    const sideBearing = metrics.actualBoundingBoxLeft;
+    heading.style.setProperty(
+      '--heading-side-bearing',
+      `${Number.isFinite(sideBearing) ? sideBearing : 0}px`,
+    );
+  };
+
+  void alignHomepageName();
+  document.addEventListener('astro:page-load', alignHomepageName);
+  window.addEventListener('resize', alignHomepageName);
+</script>
