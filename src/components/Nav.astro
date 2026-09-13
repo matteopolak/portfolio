@@ -26,7 +26,12 @@ const isActive = (href: string) =>
     <span class="palette-dot palette-dot--blue"></span>
     <span class="palette-dot palette-dot--yellow"></span>
   </button>
-  <a class="site-nav__mark" href="/" aria-label="Matthew Polak, home">
+  <a
+    class="site-nav__mark"
+    href="/"
+    aria-label="Matthew Polak, home"
+    data-astro-history="push"
+  >
     <svg viewBox="0 0 56 56" aria-hidden="true">
       <defs>
         <clipPath id="nav-m-clip">
@@ -46,6 +51,7 @@ const isActive = (href: string) =>
       links.map(({ name, href }) => (
         <a
           href={href}
+          data-astro-history="push"
           aria-current={isActive(href) ? 'page' : undefined}
           class:list={['site-nav__link', { 'is-active': isActive(href) }]}
         >

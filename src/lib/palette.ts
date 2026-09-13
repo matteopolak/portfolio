@@ -11,9 +11,9 @@ interface OklchColor {
 }
 
 interface PaletteFamily {
-  red: OklchColor;
-  blue: OklchColor;
-  yellow: OklchColor;
+  darkOne: OklchColor;
+  darkTwo: OklchColor;
+  bright: OklchColor;
 }
 
 type LinearSrgb = [red: number, green: number, blue: number];
@@ -27,29 +27,34 @@ const INK_LUMINANCE = relativeLuminance(
 
 const PALETTE_FAMILIES: PaletteFamily[] = [
   {
-    red: { lightness: 0.6, chroma: 0.23, hue: 31 },
-    blue: { lightness: 0.5, chroma: 0.16, hue: 252 },
-    yellow: { lightness: 0.84, chroma: 0.17, hue: 84 },
+    darkOne: { lightness: 0.6, chroma: 0.23, hue: 31 },
+    darkTwo: { lightness: 0.5, chroma: 0.16, hue: 252 },
+    bright: { lightness: 0.84, chroma: 0.17, hue: 84 },
   },
   {
-    red: { lightness: 0.55, chroma: 0.2, hue: 18 },
-    blue: { lightness: 0.48, chroma: 0.13, hue: 210 },
-    yellow: { lightness: 0.82, chroma: 0.14, hue: 93 },
+    darkOne: { lightness: 0.5, chroma: 0.2, hue: 320 },
+    darkTwo: { lightness: 0.47, chroma: 0.12, hue: 188 },
+    bright: { lightness: 0.84, chroma: 0.14, hue: 55 },
   },
   {
-    red: { lightness: 0.53, chroma: 0.18, hue: 355 },
-    blue: { lightness: 0.48, chroma: 0.16, hue: 275 },
-    yellow: { lightness: 0.85, chroma: 0.14, hue: 75 },
+    darkOne: { lightness: 0.47, chroma: 0.14, hue: 145 },
+    darkTwo: { lightness: 0.49, chroma: 0.18, hue: 295 },
+    bright: { lightness: 0.83, chroma: 0.11, hue: 210 },
   },
   {
-    red: { lightness: 0.55, chroma: 0.16, hue: 40 },
-    blue: { lightness: 0.48, chroma: 0.12, hue: 235 },
-    yellow: { lightness: 0.83, chroma: 0.15, hue: 98 },
+    darkOne: { lightness: 0.47, chroma: 0.16, hue: 265 },
+    darkTwo: { lightness: 0.53, chroma: 0.17, hue: 45 },
+    bright: { lightness: 0.85, chroma: 0.11, hue: 155 },
   },
   {
-    red: { lightness: 0.52, chroma: 0.16, hue: 24 },
-    blue: { lightness: 0.47, chroma: 0.1, hue: 190 },
-    yellow: { lightness: 0.81, chroma: 0.15, hue: 72 },
+    darkOne: { lightness: 0.48, chroma: 0.16, hue: 345 },
+    darkTwo: { lightness: 0.49, chroma: 0.12, hue: 100 },
+    bright: { lightness: 0.84, chroma: 0.11, hue: 195 },
+  },
+  {
+    darkOne: { lightness: 0.49, chroma: 0.18, hue: 270 },
+    darkTwo: { lightness: 0.47, chroma: 0.13, hue: 160 },
+    bright: { lightness: 0.82, chroma: 0.16, hue: 25 },
   },
 ];
 
@@ -131,9 +136,9 @@ const jitter = (amount: number) => (Math.random() * 2 - 1) * amount;
 
 function vary(color: OklchColor): OklchColor {
   return {
-    lightness: color.lightness + jitter(0.008),
-    chroma: color.chroma + jitter(0.008),
-    hue: color.hue + jitter(3),
+    lightness: color.lightness + jitter(0.012),
+    chroma: color.chroma + jitter(0.012),
+    hue: color.hue + jitter(7),
   };
 }
 
@@ -146,29 +151,29 @@ function chooseFamily() {
 
 export function generatePalette(): GeneratedPalette {
   const family = chooseFamily();
-  const red = vary(family.red);
-  const blue = vary(family.blue);
-  const yellow = vary(family.yellow);
+  const darkOne = vary(family.darkOne);
+  const darkTwo = vary(family.darkTwo);
+  const bright = vary(family.bright);
 
   return {
     red: accessibleColor(
-      red.lightness,
-      red.chroma,
-      red.hue,
+      darkOne.lightness,
+      darkOne.chroma,
+      darkOne.hue,
       PAPER_LUMINANCE,
       -1
     ),
     blue: accessibleColor(
-      blue.lightness,
-      blue.chroma,
-      blue.hue,
+      darkTwo.lightness,
+      darkTwo.chroma,
+      darkTwo.hue,
       PAPER_LUMINANCE,
       -1
     ),
     yellow: accessibleColor(
-      yellow.lightness,
-      yellow.chroma,
-      yellow.hue,
+      bright.lightness,
+      bright.chroma,
+      bright.hue,
       INK_LUMINANCE,
       1
     ),

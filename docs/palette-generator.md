@@ -6,7 +6,7 @@ The large-screen navigation includes a three-dot control that generates a new ha
 
 ## How it works
 
-`src/lib/palette.ts` chooses from five art-directed color families: variations on vermilion/cobalt/gold, coral/teal/mustard, berry/indigo/apricot, rust/azure/citron, and brick/peacock/saffron. It avoids immediately repeating the same family and applies only a small amount of lightness, chroma, and hue variation, keeping each click fresh without producing arbitrary color-wheel combinations.
+`src/lib/palette.ts` chooses from six art-directed color families. The classic vermilion/cobalt/gold set is joined by orchid/lagoon/apricot, forest/violet/sky, navy/rust/mint, plum/olive/aqua, and cobalt/emerald/coral. These are role-based anchors rather than fixed red/blue/yellow hue ranges, so every click can move the full design into a distinctly different part of the color wheel while the three colors remain coordinated. The generator avoids immediately repeating the same family, then varies its lightness, chroma, and hue.
 
 The colors are generated directly in OKLCH: two darker accents serve links and light-text surfaces, while the brighter accent supports dark text. The three color properties are registered with CSS `@property`, allowing the root palette to interpolate as one synchronized 500ms transition when it changes. The navigation M receives the same final colors directly on its SVG circles and transitions their `fill` properties separately; this avoids browser compositing bugs that can temporarily drop SVG paint while an inherited registered color is interpolating.
 
@@ -16,7 +16,7 @@ The palette lives only in JavaScript memory. It carries across Astro client-side
 
 ## How to change it
 
-- Add or tune the curated OKLCH anchors in `PALETTE_FAMILIES`; keep variation deliberately narrow in `vary()`.
+- Add or tune the curated role-based OKLCH anchors in `PALETTE_FAMILIES`; keep each family's three anchors harmonious and use `vary()` only for local variation around them.
 - Adjust the shared palette transition duration in the root rule in `src/styles/global.css`.
 - Keep both darker colors at readable contrast against `--paper` because they are used for links and light-text controls.
 - Keep the brighter color readable against `--ink` because it is used behind dark navigation text.
