@@ -15,18 +15,25 @@ const isActive = (href: string) =>
 ---
 
 <nav class="site-nav" aria-label="Primary navigation">
+  <button
+    class="site-nav__palette"
+    type="button"
+    aria-label="Generate a new color palette"
+    title="Generate a new color palette"
+    data-palette-generator
+  >
+    <span class="palette-dot palette-dot--red"></span>
+    <span class="palette-dot palette-dot--blue"></span>
+    <span class="palette-dot palette-dot--yellow"></span>
+  </button>
   <a class="site-nav__mark" href="/" aria-label="Matthew Polak, home">
     <svg viewBox="0 0 56 56" aria-hidden="true">
       <defs>
-        <mask id="nav-m-mask">
-          <rect width="56" height="56" fill="black" />
-          <path
-            d="M5 51V5H15L28 23L41 5H51V51H40V22L28 39L16 22V51Z"
-            fill="white"
-          />
-        </mask>
+        <clipPath id="nav-m-clip">
+          <path d="M5 51V5H15L28 23L41 5H51V51H40V22L28 39L16 22V51Z" />
+        </clipPath>
       </defs>
-      <g mask="url(#nav-m-mask)">
+      <g clip-path="url(#nav-m-clip)">
         <rect width="56" height="56" fill="var(--paper)" />
         <circle class="mark-blue" cx="48" cy="48" r="52" />
         <circle class="mark-red" cx="48" cy="48" r="34" />
@@ -73,6 +80,66 @@ const isActive = (href: string) =>
     background: var(--ink);
   }
 
+  .site-nav__palette {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 0.85rem);
+    display: none;
+    align-items: center;
+    gap: 0.32rem;
+    padding: 0.65rem 0.45rem;
+    border: 0;
+    background: transparent;
+    transform: translateY(-50%);
+    cursor: pointer;
+  }
+
+  .palette-dot {
+    display: block;
+    width: 0.62rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .palette-dot--red {
+    background: var(--red);
+  }
+
+  .palette-dot--blue {
+    background: var(--blue);
+  }
+
+  .palette-dot--yellow {
+    background: var(--yellow);
+  }
+
+  .site-nav__palette:hover .palette-dot {
+    transform: translateY(-0.16rem);
+  }
+
+  .site-nav__palette:hover .palette-dot:nth-child(2) {
+    transform: translateY(0.16rem);
+  }
+
+  .site-nav__palette.is-shuffling .palette-dot {
+    animation: palette-pop 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .site-nav__palette.is-shuffling .palette-dot:nth-child(2) {
+    animation-delay: 45ms;
+  }
+
+  .site-nav__palette.is-shuffling .palette-dot:nth-child(3) {
+    animation-delay: 90ms;
+  }
+
+  @keyframes palette-pop {
+    50% {
+      transform: translateY(-0.35rem) scale(1.25);
+    }
+  }
+
   .site-nav__mark svg {
     display: block;
     width: 100%;
@@ -81,14 +148,17 @@ const isActive = (href: string) =>
 
   .mark-red {
     fill: var(--red);
+    transition: fill 500ms ease;
   }
 
   .mark-blue {
     fill: var(--blue);
+    transition: fill 500ms ease;
   }
 
   .mark-yellow {
     fill: var(--yellow);
+    transition: fill 500ms ease;
   }
 
   .site-nav__links {
@@ -137,7 +207,7 @@ const isActive = (href: string) =>
 
   .site-nav__link:not(.is-active):hover {
     color: var(--ink);
-    background: #e4ded1;
+    background: oklch(90.177% 0.01865 86.151);
   }
 
   .site-nav__resume {
@@ -181,4 +251,67 @@ const isActive = (href: string) =>
       padding: 0.55rem 0.6rem;
     }
   }
+
+  @media (min-width: 80rem) {
+    .site-nav__palette {
+      display: flex;
+    }
+  }
+
 </style>
+
+<script>
+  import { generatePalette, type GeneratedPalette } from '../lib/palette';
+
+  type PaletteWindow = Window &
+    typeof globalThis & {
+      bauhausPalette?: GeneratedPalette;
+      bauhausPaletteControllerReady?: boolean;
+    };
+
+  const paletteWindow = window as PaletteWindow;
+
+  const applyPalette = (palette: GeneratedPalette) => {
+    const root = document.documentElement;
+    root.style.setProperty('--red', palette.red);
+    root.style.setProperty('--blue', palette.blue);
+    root.style.setProperty('--yellow', palette.yellow);
+
+    for (const [selector, color] of [
+      ['.mark-red', palette.red],
+      ['.mark-blue', palette.blue],
+      ['.mark-yellow', palette.yellow],
+    ] as const) {
+      document.querySelectorAll<SVGElement>(selector).forEach((element) => {
+        element.style.fill = color;
+      });
+    }
+  };
+
+  const preparePaletteButton = () => {
+    if (paletteWindow.bauhausPalette) applyPalette(paletteWindow.bauhausPalette);
+
+    const button = document.querySelector<HTMLButtonElement>('[data-palette-generator]');
+    if (!button) return;
+    if (button.dataset.ready === 'true') return;
+    button.dataset.ready = 'true';
+
+    button.addEventListener('click', () => {
+      const palette = generatePalette();
+      paletteWindow.bauhausPalette = palette;
+      applyPalette(palette);
+
+      button.classList.remove('is-shuffling');
+      void button.offsetWidth;
+      button.classList.add('is-shuffling');
+      window.setTimeout(() => button.classList.remove('is-shuffling'), 500);
+    });
+  };
+
+  if (!paletteWindow.bauhausPaletteControllerReady) {
+    document.addEventListener('astro:page-load', preparePaletteButton);
+    paletteWindow.bauhausPaletteControllerReady = true;
+  }
+
+  preparePaletteButton();
+</script>

@@ -145,7 +145,18 @@ export function generateBauhausPattern({
     random
   );
   const motifCycle = shuffled(
-    ['dots', 'curve-ring', 'curve-open', 'stripes'] as const,
+    [
+      'dots',
+      'curve-ring',
+      'curve-ring',
+      'curve-open',
+      'curve-open',
+      'stripes',
+      'stripes',
+      'solid',
+      'solid',
+      'solid',
+    ] as const,
     random
   );
   const isCroppedAtEdge = (column: number, row: number) =>
@@ -185,6 +196,13 @@ export function generateBauhausPattern({
         rotates: !isCroppedAtEdge(column, row) && random() > 0.55,
       });
       placedColors[moduleRow][moduleColumn] = new Set([background]);
+      continue;
+    }
+
+    if (motif === 'solid') {
+      const color = chooseColor(moduleColumn, moduleRow);
+      shapes.push({ kind: 'solid', column, row, color });
+      placedColors[moduleRow][moduleColumn] = new Set([color]);
       continue;
     }
 

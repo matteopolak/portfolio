@@ -7,6 +7,7 @@
 | [site-design.md](./site-design.md)                                                                 | Bauhaus design system, responsive layouts, and modular homepage artwork               |
 | [bauhaus-grid-state.md](./bauhaus-grid-state.md)                                                   | In-memory artwork continuity across client-side routes                                |
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
+| [palette-generator.md](./palette-generator.md)                                                     | Large-screen OKLCH palette generator and contrast constraints                          |
 | [Lodestone web embed](./lodestone-web-embed.md)                                                     | How the singleplayer WebGPU build is published and embedded                          |
 | [Resume technical skills design](./superpowers/specs/2026-07-11-resume-technical-skills-design.md) | Design for the modernized technical skills section                                   |
 | [Resume technical skills plan](./superpowers/plans/2026-07-11-resume-technical-skills.md)          | Implementation plan for the technical skills refresh                                 |
