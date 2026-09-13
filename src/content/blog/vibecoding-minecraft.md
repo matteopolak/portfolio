@@ -8,7 +8,7 @@ tags:
 published: false
 ---
 
-*This blog post was written entirely by me, a human.*
+_This blog post was written entirely by me, a human._
 
 vibecoding is weird
 
@@ -18,7 +18,7 @@ minecraft is a pretty big game. the client and server combined total just over 1
 
 however, vibecoding has changed this story for the... better? worse? now, one person can complete the task reasonably well in under a month (bottlenecked on token consumption and available resources)
 
-There have been many "rewrites" of *Minecraft: Java Edition* in the past, but they all come with some kind of caveat: only supporting some subset of mechanics, versions, and functionality. this is expected, the game has gone through too many changes, there are too many edgecases, and it gets really boring to port over tons of functionality just to call the implementation complete. that 1.1 million line figure is for a SINGLE version (of course a lot is shared), but counting all unique versions together brings it to well over 2 million lines of code.
+There have been many "rewrites" of _Minecraft: Java Edition_ in the past, but they all come with some kind of caveat: only supporting some subset of mechanics, versions, and functionality. this is expected, the game has gone through too many changes, there are too many edgecases, and it gets really boring to port over tons of functionality just to call the implementation complete. that 1.1 million line figure is for a SINGLE version (of course a lot is shared), but counting all unique versions together brings it to well over 2 million lines of code.
 
 I decided to give it a shot: rewrite the whole game, with every feature, every version, and no "well, except for X".
 
@@ -79,7 +79,7 @@ Great. I'm running at 40fps, but I'm reaching >100fps on the regular game. This 
 
 A lot of the issues are the same issues made by an amateur Rust developer: allocating tons of `String`s, cloning when `Arc` or `&` can be used (or reworking the algorithm to avoid stuff in the first place), etc.
 
-This is another place where I had to guide (in this case, Opus 5) to use a bit more codegen. For each version, all of the entities, blocks, biomes, etc. are extracted as strings and used by the rest of the crates. Not only is this not type-safe (for example, matching over `minceraft:ghast` would be wrong), it's extremely slow. In the first implementation of world generation, the full end-to-end generation of a chunk used over 200 *million* comparisons. Switching to using indices and enums brought this number down to under 20,000.
+This is another place where I had to guide (in this case, Opus 5) to use a bit more codegen. For each version, all of the entities, blocks, biomes, etc. are extracted as strings and used by the rest of the crates. Not only is this not type-safe (for example, matching over `minceraft:ghast` would be wrong), it's extremely slow. In the first implementation of world generation, the full end-to-end generation of a chunk used over 200 _million_ comparisons. Switching to using indices and enums brought this number down to under 20,000.
 
 Another big part of the performance work was simply playing the game while `samply` was running. After a couple of minutes of trying different things, the finalized flamgraph (~6GiB in size) was used by Opus and fixed a surprisingly-large number of performance bottlenecks (such as with repetitive mesh loading, occlusion culling, etc.)
 
