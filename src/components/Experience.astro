@@ -1,39 +1,71 @@
 ---
 import { jobs, formatDate } from '../lib/config';
 import { bold } from '../lib/bold';
+import CompanyLogo from './CompanyLogo.astro';
 ---
 
-<section>
-  <h2>Experience</h2>
-  {
-    jobs.map((job) => (
-      <article class="mb-5">
-        <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-2 mb-1.5">
-          <div class="flex flex-col">
-            <span class="font-semibold">{job.title}</span>
-            <span class="text-sm text-base-content/70">{job.company}</span>
+<section class="resume-section">
+  <h2 class="section-title">Experience</h2>
+  <div class="resume-list">
+    {
+      jobs.map((job) => (
+        <article class="resume-entry">
+          <div class="resume-entry__heading">
+            <div>
+              <h3 class="resume-entry__title">{job.title}</h3>
+              <div class="resume-entry__meta resume-entry__company">
+                <CompanyLogo company={job.company} />
+                <span>{job.company}</span>
+                {
+                  job.company === 'Microsoft AI' && (
+                    <span class="resume-entry__parent-company">
+                      (within <img src="/logos/microsoft.svg" alt="" /> Microsoft)
+                    </span>
+                  )
+                }
+              </div>
+            </div>
+            <div class="resume-entry__aside">
+              <div>{job.location}</div>
+              <div>
+                <time datetime={job.start.toISOString().slice(0, 7)}>
+                  {formatDate(job.start)}
+                </time>{' '}
+                —{' '}
+                {job.end ? (
+                  <time datetime={job.end.toISOString().slice(0, 7)}>
+                    {formatDate(job.end)}
+                  </time>
+                ) : (
+                  'Present'
+                )}
+              </div>
+            </div>
           </div>
-          <div class="flex flex-col items-end text-sm text-base-content/70">
-            <span>{job.location}</span>
-            <span>
-              <time datetime={job.start.toISOString().slice(0, 7)}>{formatDate(job.start)}</time>
-              {' '}&ndash;{' '}
-              {job.end
-                ? <time datetime={job.end.toISOString().slice(0, 7)}>{formatDate(job.end)}</time>
-                : 'Present'}
-            </span>
-          </div>
-        </div>
-        {job.achievements.length > 0 && (
-          <ul class="text-sm">
-            {job.achievements.map((a) => (
-              <li>
-                <Fragment set:html={bold(a)} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </article>
-    ))
-  }
+          {job.achievements.length > 0 && (
+            <ul>
+              {job.achievements.map((achievement) => (
+                <li>
+                  <Fragment set:html={bold(achievement)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      ))
+    }
+  </div>
 </section>
+
+<style>
+  .resume-entry__parent-company {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+  }
+
+  .resume-entry__parent-company img {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+</style>

@@ -2,6 +2,8 @@
 import '../styles/global.css';
 import Head from '../components/Head.astro';
 import Nav from '../components/Nav.astro';
+import BauhausField from '../components/BauhausField.astro';
+import { ClientRouter } from 'astro:transitions';
 
 import config from '../lib/config';
 
@@ -13,11 +15,13 @@ interface Props {
 }
 
 const { title, description, type, publishedTime } = Astro.props;
+const isHome = Astro.url.pathname === '/';
 ---
 
 <!doctype html>
-<html lang="en" data-theme="black">
+<html lang="en" data-theme="light">
   <head>
+    <ClientRouter />
     <Head
       title={`${config.name} — ${title}`}
       description={description}
@@ -25,10 +29,13 @@ const { title, description, type, publishedTime } = Astro.props;
       publishedTime={publishedTime}
     />
   </head>
-  <body class="max-w-4xl mx-auto px-6 py-8">
-    <Nav />
-    <main>
-      <slot />
-    </main>
+  <body>
+    <div class="site-shell">
+      <BauhausField showHero={!isHome} />
+      <Nav />
+      <main class="site-main">
+        <slot />
+      </main>
+    </div>
   </body>
 </html>

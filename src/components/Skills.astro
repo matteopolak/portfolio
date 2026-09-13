@@ -3,30 +3,24 @@ import config from '../lib/config';
 const { skills } = config;
 ---
 
-<section>
-  <h2>Skills</h2>
-  <dl class="text-sm flex flex-col gap-1.5">
-    <div class="flex gap-3">
-      <dt class="font-semibold min-w-24 text-base-content/70">Languages</dt>
-      <dd class="m-0">{skills.languages.join(', ')}</dd>
+<section class="resume-section">
+  <h2 class="section-title">Skills</h2>
+  <dl class="skills-list">
+    <div>
+      <dt>Languages</dt>
+      <dd>{skills.languages.join(', ')}</dd>
     </div>
-    <div class="flex gap-3">
-      <dt class="font-semibold min-w-24 text-base-content/70">
-        AI & Agent Systems
-      </dt>
-      <dd class="m-0">{skills.agents.join(', ')}</dd>
+    <div>
+      <dt>AI & Agent Systems</dt>
+      <dd>{skills.agents.join(', ')}</dd>
     </div>
-    <div class="flex gap-3">
-      <dt class="font-semibold min-w-24 text-base-content/70">
-        APIs & Protocols
-      </dt>
-      <dd class="m-0">{skills.protocols.join(', ')}</dd>
+    <div>
+      <dt>APIs & Protocols</dt>
+      <dd>{skills.protocols.join(', ')}</dd>
     </div>
-    <div class="flex gap-3">
-      <dt class="font-semibold min-w-24 text-base-content/70">
-        Platforms & Tooling
-      </dt>
-      <dd class="m-0">{skills.tools.join(', ')}</dd>
+    <div>
+      <dt>Platforms & Tooling</dt>
+      <dd>{skills.tools.join(', ')}</dd>
     </div>
   </dl>
 </section>

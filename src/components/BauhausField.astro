@@ -1,0 +1,132 @@
+---
+import BauhausPattern from './BauhausPattern.astro';
+
+interface Props {
+  showHero?: boolean;
+}
+
+const { showHero = true } = Astro.props;
+---
+
+<div class="bauhaus-field" aria-hidden="true">
+  <div class="latent-grid" transition:persist="bauhaus-grid">
+    <BauhausPattern
+      columns={50}
+      rows={6}
+      seed="portfolio-bauhaus-v1-page"
+      density={0.6}
+      ambient
+    />
+  </div>
+
+  {
+    showHero ? (
+      <div class="cluster cluster--hero" data-bauhaus-region />
+    ) : (
+      <>
+        <div class="cluster cluster--experience" data-bauhaus-region></div>
+        <div class="cluster cluster--work" data-bauhaus-region></div>
+        <div class="cluster cluster--education" data-bauhaus-region></div>
+        <div class="cluster cluster--skills" data-bauhaus-region></div>
+        <div class="cluster cluster--achievements" data-bauhaus-region></div>
+      </>
+    )
+  }
+</div>
+
+<style>
+  .bauhaus-field {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100vw;
+    overflow: clip;
+    pointer-events: none;
+    transform: translateX(-50%);
+  }
+
+  .latent-grid {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: max(100%, 75rem);
+    transform: translateX(-50%);
+  }
+
+  .cluster {
+    position: absolute;
+  }
+
+  .cluster--hero {
+    top: 10rem;
+    right: max(1.5rem, calc((100vw - 72rem) / 2));
+    width: 30rem;
+    aspect-ratio: 4 / 3;
+  }
+
+  .cluster--experience,
+  .cluster--education,
+  .cluster--achievements {
+    left: max(0rem, calc((100vw - 72rem) / 2 - 6rem));
+  }
+
+  .cluster--work,
+  .cluster--skills {
+    right: max(0rem, calc((100vw - 72rem) / 2 - 6rem));
+  }
+
+  .cluster--experience {
+    top: 24%;
+    width: 4.5rem;
+    aspect-ratio: 3 / 4;
+  }
+
+  .cluster--work {
+    top: 43%;
+    width: 4.5rem;
+    aspect-ratio: 1;
+  }
+
+  .cluster--education {
+    top: 62%;
+    width: 4.5rem;
+    aspect-ratio: 1;
+  }
+
+  .cluster--skills {
+    top: 77%;
+    width: 4.5rem;
+    aspect-ratio: 3 / 4;
+  }
+
+  .cluster--achievements {
+    bottom: 0;
+    width: 4.5rem;
+    aspect-ratio: 1;
+  }
+
+  @media (max-width: 54rem) {
+    .cluster--hero {
+      top: 10rem;
+      right: 0;
+      width: 9rem;
+    }
+
+    .cluster:not(.cluster--hero) {
+      width: 4rem;
+    }
+
+    .cluster--experience,
+    .cluster--education,
+    .cluster--achievements {
+      left: 0;
+    }
+
+    .cluster--work,
+    .cluster--skills {
+      right: 0;
+    }
+  }
+</style>

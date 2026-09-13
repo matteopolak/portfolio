@@ -1,0 +1,1080 @@
+---
+import {
+  generateBauhausPattern,
+  type BauhausColor,
+  type BauhausShape,
+} from '../lib/bauhaus';
+
+interface Props {
+  columns: number;
+  rows: number;
+  seed: string;
+  density?: number;
+  ambient?: boolean;
+}
+
+const { columns, rows, seed, density, ambient = false } = Astro.props;
+const unit = 80;
+const pattern = ambient
+  ? { columns, rows, seed, shapes: [] as BauhausShape[] }
+  : generateBauhausPattern({ columns, rows, seed, density });
+const patternId = `bauhaus-${seed.replace(/[^a-z0-9]/gi, '').slice(-24)}-${columns}-${rows}`;
+const cropsOuterRing = columns >= 5 && rows >= 5;
+const edgeInset = cropsOuterRing ? unit : 0;
+const viewWidth = columns * unit - edgeInset * 2;
+const viewHeight = rows * unit - edgeInset * 2;
+
+const layout = (shape: BauhausShape) => {
+  return {
+    x: shape.column * unit,
+    y: shape.row * unit,
+    width: 2 * unit,
+    height: 2 * unit,
+  };
+};
+
+const quarterPath = (x: number, y: number, direction: number, size = unit) => {
+  const right = x + size;
+  const bottom = y + size;
+  return [
+    `M${x} ${y}H${right}A${size} ${size} 0 0 0 ${x} ${bottom}Z`,
+    `M${right} ${y}V${bottom}A${size} ${size} 0 0 0 ${x} ${y}Z`,
+    `M${right} ${bottom}H${x}A${size} ${size} 0 0 0 ${right} ${y}Z`,
+    `M${x} ${bottom}V${y}A${size} ${size} 0 0 0 ${right} ${bottom}Z`,
+  ][direction];
+};
+
+const quarterCirclePath = (x: number, y: number, direction: number, size = unit) => {
+  const right = x + size;
+  const bottom = y + size;
+  return [
+    `M${x} ${y}H${right}A${size} ${size} 0 0 1 ${x} ${bottom}Z`,
+    `M${right} ${y}V${bottom}A${size} ${size} 0 0 1 ${x} ${y}Z`,
+    `M${right} ${bottom}H${x}A${size} ${size} 0 0 1 ${right} ${y}Z`,
+    `M${x} ${bottom}V${y}A${size} ${size} 0 0 1 ${right} ${bottom}Z`,
+  ][direction];
+};
+
+const innerQuarterOffset = (direction: number, size: number) => {
+  return {
+    x: direction === 1 || direction === 2 ? size - unit : 0,
+    y: direction >= 2 ? size - unit : 0,
+  };
+};
+
+const shapeClass = (color: BauhausColor) => `fill-${color}`;
+---
+
+<svg
+  class="bauhaus-pattern"
+  data-bauhaus-pattern={seed}
+  data-ambient={ambient ? 'true' : undefined}
+  data-columns={columns}
+  data-rows={rows}
+  viewBox={`${edgeInset} ${edgeInset} ${viewWidth} ${viewHeight}`}
+  role="presentation"
+>
+  <defs>
+    {
+      pattern.shapes.map((shape, index) => {
+        const { x, y, width, height } = layout(shape);
+        if (shape.kind === 'curve' || shape.kind === 'dots') {
+          return (
+            <clipPath id={`${patternId}-cell-${index}`}>
+              <rect x={x} y={y} width={width} height={height} />
+            </clipPath>
+          );
+        }
+        return null;
+      })
+    }
+  </defs>
+
+  {
+    pattern.shapes.map((shape, index) => {
+      const { x, y, width, height } = layout(shape);
+
+      if (shape.kind === 'curve') {
+        const path = quarterPath(0, 0, shape.direction, width);
+        const innerDirection = ((shape.direction + 2) % 4) as 0 | 1 | 2 | 3;
+        const innerOffset = innerQuarterOffset(innerDirection, width);
+        return (
+          <g
+            class="pattern-region"
+            data-kind={shape.band ? 'curve-ring' : 'curve-open'}
+            data-region-index={index}
+            data-column={shape.column}
+            data-row={shape.row}
+            data-columns="2"
+            data-rows="2"
+            data-x={x}
+            data-y={y}
+            data-direction={shape.direction}
+            clip-path={`url(#${patternId}-cell-${index})`}
+          >
+            <rect
+              class={shapeClass(shape.background)}
+              x={x - 0.75}
+              y={y - 0.75}
+              width={width + 1.5}
+              height={height + 1.5}
+            />
+            <g data-curve-geometry transform={`translate(${x} ${y})`}>
+              <path
+                class={shapeClass(shape.color)}
+                d={path}
+                stroke="currentColor"
+                stroke-width="1.25"
+                vector-effect="non-scaling-stroke"
+              />
+              {
+                shape.band && shape.innerColor && (
+                  <path
+                    class={shapeClass(shape.innerColor)}
+                    d={quarterCirclePath(
+                      innerOffset.x,
+                      innerOffset.y,
+                      innerDirection,
+                      unit,
+                    )}
+                    stroke="currentColor"
+                    stroke-width="1.25"
+                    vector-effect="non-scaling-stroke"
+                  />
+                )
+              }
+            </g>
+          </g>
+        );
+      }
+
+      if (shape.kind === 'dots') {
+        const offsetX = unit / 2;
+        const offsetY = unit / 2;
+        const spacingX = unit;
+        const spacingY = unit;
+        const radius = unit * 0.14;
+        return (
+          <g
+            class="pattern-region"
+            data-kind="dots"
+            data-region-index={index}
+            data-column={shape.column}
+            data-row={shape.row}
+            data-columns="2"
+            data-rows="2"
+            data-x={x}
+            data-y={y}
+            clip-path={`url(#${patternId}-cell-${index})`}
+          >
+            <rect
+              class={shapeClass(shape.background)}
+              x={x - 0.75}
+              y={y - 0.75}
+              width={width + 1.5}
+              height={height + 1.5}
+            />
+            <g class:list={['rotor', { 'rotor--active': shape.rotates }]}>
+              <circle class={shapeClass(shape.color)} cx={x + offsetX} cy={y + offsetY} r={radius} />
+              <circle
+                class={shapeClass(shape.color)}
+                cx={x + offsetX + spacingX}
+                cy={y + offsetY}
+                r={radius}
+              />
+              <circle
+                class={shapeClass(shape.color)}
+                cx={x + offsetX}
+                cy={y + offsetY + spacingY}
+                r={radius}
+              />
+              <circle
+                class={shapeClass(shape.color)}
+                cx={x + offsetX + spacingX}
+                cy={y + offsetY + spacingY}
+                r={radius}
+              />
+            </g>
+          </g>
+        );
+      }
+
+      if (shape.kind === 'empty') {
+        return (
+          <g
+            class="pattern-region"
+            data-kind="empty"
+            data-region-index={index}
+            data-column={shape.column}
+            data-row={shape.row}
+            data-columns="2"
+            data-rows="2"
+            data-x={x}
+            data-y={y}
+          >
+            <rect class="pattern-hit-area" x={x} y={y} width={width} height={height} />
+          </g>
+        );
+      }
+
+      if (shape.kind === 'solid') {
+        return (
+          <g
+            class="pattern-region"
+            data-kind="solid"
+            data-region-index={index}
+            data-column={shape.column}
+            data-row={shape.row}
+            data-columns="2"
+            data-rows="2"
+            data-x={x}
+            data-y={y}
+          >
+            <rect
+              class={shapeClass(shape.color)}
+              x={x}
+              y={y}
+              width={width}
+              height={height}
+              stroke="currentColor"
+              stroke-width="1.25"
+            />
+          </g>
+        );
+      }
+
+      const stripeColors = shape.colors;
+      const isHorizontal = shape.orientation === 'horizontal';
+      return (
+        <g
+          class="pattern-region"
+          data-kind="stripes"
+          data-region-index={index}
+          data-column={shape.column}
+          data-row={shape.row}
+          data-columns="2"
+          data-rows="2"
+          data-x={x}
+          data-y={y}
+          data-orientation={shape.orientation}
+        >
+          <rect
+            class={shapeClass(stripeColors[0])}
+            x={x}
+            y={y}
+            width={isHorizontal ? width : unit + 0.75}
+            height={isHorizontal ? unit + 0.75 : height}
+            stroke="currentColor"
+            stroke-width="1.25"
+          />
+          <rect
+            class={shapeClass(stripeColors[1])}
+            x={isHorizontal ? x : x + unit - 0.75}
+            y={isHorizontal ? y + unit - 0.75 : y}
+            width={isHorizontal ? width : unit + 0.75}
+            height={isHorizontal ? unit + 0.75 : height}
+            stroke="currentColor"
+            stroke-width="1.25"
+          />
+        </g>
+      );
+    })
+  }
+</svg>
+
+<script>
+  type Color = 'paper' | 'ink' | 'red' | 'blue' | 'yellow';
+
+  const colorNames = ['paper', 'ink', 'red', 'blue', 'yellow'] as const;
+  const solidColors = ['ink', 'red', 'blue', 'yellow'] as const;
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+
+  function hash(value: string) {
+    let result = 2166136261;
+    for (const character of value) {
+      result ^= character.charCodeAt(0);
+      result = Math.imul(result, 16777619);
+    }
+    return result >>> 0;
+  }
+
+  function randomFrom(value: string) {
+    let state = hash(value);
+    return () => {
+      state += 0x6d2b79f5;
+      let next = state;
+      next = Math.imul(next ^ (next >>> 15), next | 1);
+      next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+      return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function setColor(element: Element, color: Color) {
+    for (const name of colorNames) element.classList.remove(`fill-${name}`);
+    element.classList.add(`fill-${color}`);
+    (element as SVGElement).dataset.color = color;
+    element.setAttribute('fill', `var(--${color})`);
+    element.setAttribute('color', `var(--${color})`);
+  }
+
+  function readColor(element: Element): Color | undefined {
+    const stored = (element as SVGElement).dataset.color as Color | undefined;
+    if (stored) return stored;
+    return colorNames.find((color) => element.classList.contains(`fill-${color}`));
+  }
+
+  function svgElement(
+    tag: string,
+    attributes: Record<string, string | number>,
+    color?: Color,
+  ) {
+    const element = document.createElementNS(svgNamespace, tag);
+    for (const [name, value] of Object.entries(attributes)) {
+      element.setAttribute(name, String(value));
+    }
+    if (color) setColor(element, color);
+    return element;
+  }
+
+  function curvePath(
+    x: number,
+    y: number,
+    direction: number,
+    size = 80,
+  ) {
+    const right = x + size;
+    const bottom = y + size;
+    const paths = [
+      `M${x} ${y}H${right}A${size} ${size} 0 0 0 ${x} ${bottom}Z`,
+      `M${right} ${y}V${bottom}A${size} ${size} 0 0 0 ${x} ${y}Z`,
+      `M${right} ${bottom}H${x}A${size} ${size} 0 0 0 ${right} ${y}Z`,
+      `M${x} ${bottom}V${y}A${size} ${size} 0 0 0 ${right} ${bottom}Z`,
+    ];
+    return paths[direction];
+  }
+
+  function quarterCirclePath(x: number, y: number, direction: number, size = 80) {
+    const right = x + size;
+    const bottom = y + size;
+    const paths = [
+      `M${x} ${y}H${right}A${size} ${size} 0 0 1 ${x} ${bottom}Z`,
+      `M${right} ${y}V${bottom}A${size} ${size} 0 0 1 ${x} ${y}Z`,
+      `M${right} ${bottom}H${x}A${size} ${size} 0 0 1 ${right} ${y}Z`,
+      `M${x} ${bottom}V${y}A${size} ${size} 0 0 1 ${right} ${bottom}Z`,
+    ];
+    return paths[direction];
+  }
+
+  function innerQuarterPosition(x: number, y: number, direction: number) {
+    return {
+      x: direction === 1 || direction === 2 ? x + 80 : x,
+      y: direction >= 2 ? y + 80 : y,
+    };
+  }
+
+  function regenerate(
+    region: SVGElement,
+    random: () => number,
+    chooseColor: (excluded?: Set<Color>) => Color,
+  ) {
+    const x = Number(region.dataset.x);
+    const y = Number(region.dataset.y);
+    const currentKind = region.dataset.kind ?? 'stripes';
+    const candidates = ['empty', 'dots', 'curve-ring', 'curve-open', 'stripes'].filter(
+      (kind) => kind !== currentKind,
+    );
+    let nextKind = candidates[Math.floor(random() * candidates.length)];
+
+    region.replaceChildren();
+    region.dataset.kind = nextKind;
+
+    if (nextKind === 'empty') {
+      region.append(
+        svgElement('rect', {
+          class: 'pattern-hit-area',
+          x,
+          y,
+          width: 160,
+          height: 160,
+          fill: 'transparent',
+          'pointer-events': 'all',
+        }),
+      );
+      return;
+    }
+
+    if (nextKind === 'stripes') {
+      const first = chooseColor();
+      const second = chooseColor(new Set([first]));
+      const left = Number(region.dataset.column);
+      const top = Number(region.dataset.row);
+      const neighboringRegions = Array.from(
+        region.parentElement?.querySelectorAll<SVGElement>('.pattern-region') ?? [],
+      ).filter((other) => other !== region && other.dataset.kind?.startsWith('curve'));
+      const touchesCurveAcrossVerticalEdge = neighboringRegions.some(
+        (other) =>
+          Math.abs(Number(other.dataset.column) - left) === 2 &&
+          Number(other.dataset.row) === top,
+      );
+      const touchesCurveAcrossHorizontalEdge = neighboringRegions.some(
+        (other) =>
+          Math.abs(Number(other.dataset.row) - top) === 2 &&
+          Number(other.dataset.column) === left,
+      );
+
+      if (touchesCurveAcrossVerticalEdge && touchesCurveAcrossHorizontalEdge) {
+        nextKind = 'solid';
+        region.dataset.kind = nextKind;
+        region.append(
+          svgElement(
+            'rect',
+            { x, y, width: 160, height: 160, stroke: `var(--${first})`, 'stroke-width': 1.25 },
+            first,
+          ),
+        );
+        return;
+      }
+
+      const orientation = touchesCurveAcrossVerticalEdge
+        ? 'vertical'
+        : touchesCurveAcrossHorizontalEdge
+          ? 'horizontal'
+          : random() > 0.5
+            ? 'horizontal'
+            : 'vertical';
+      region.dataset.orientation = orientation;
+      const isHorizontal = orientation === 'horizontal';
+      region.append(
+        svgElement(
+          'rect',
+          {
+            x,
+            y,
+            width: isHorizontal ? 160 : 80.75,
+            height: isHorizontal ? 80.75 : 160,
+            stroke: `var(--${first})`,
+            'stroke-width': 1.25,
+          },
+          first,
+        ),
+        svgElement(
+          'rect',
+          {
+            x: isHorizontal ? x : x + 79.25,
+            y: isHorizontal ? y + 79.25 : y,
+            width: isHorizontal ? 160 : 80.75,
+            height: isHorizontal ? 80.75 : 160,
+            stroke: `var(--${second})`,
+            'stroke-width': 1.25,
+          },
+          second,
+        ),
+      );
+      return;
+    }
+
+    if (nextKind === 'dots') {
+      const background: Color = random() > 0.45 ? 'paper' : chooseColor();
+      const dotColor: Color = background === 'paper' || background === 'yellow' ? 'ink' : 'paper';
+      region.append(
+        svgElement(
+          'rect',
+          { x, y, width: 160, height: 160, stroke: `var(--${background})`, 'stroke-width': 1.25 },
+          background,
+        ),
+      );
+      for (const [dotX, dotY] of [
+        [x + 40, y + 40],
+        [x + 120, y + 40],
+        [x + 40, y + 120],
+        [x + 120, y + 120],
+      ]) {
+        region.append(svgElement('circle', { cx: dotX, cy: dotY, r: 11.2 }, dotColor));
+      }
+      return;
+    }
+
+    if (nextKind === 'curve-ring' || nextKind === 'curve-open') {
+      const background: Color = random() > 0.42 ? 'paper' : chooseColor();
+      const foreground = chooseColor(new Set([background]));
+      const inner = chooseColor(new Set([background, foreground]));
+      const direction = Math.floor(random() * 4);
+      const isRing = nextKind === 'curve-ring';
+      const innerDirection = (direction + 2) % 4;
+      const innerPosition = innerQuarterPosition(x, y, innerDirection);
+      region.dataset.direction = String(direction);
+      region.append(
+        svgElement(
+          'rect',
+          { x, y, width: 160, height: 160, stroke: `var(--${background})`, 'stroke-width': 1.25 },
+          background,
+        ),
+        svgElement(
+          'path',
+          {
+            d: curvePath(x, y, direction, 160),
+            stroke: `var(--${foreground})`,
+            'stroke-width': 1.25,
+          },
+          foreground,
+        ),
+      );
+      if (isRing) {
+        region.append(
+          svgElement(
+            'path',
+            {
+              d: quarterCirclePath(innerPosition.x, innerPosition.y, innerDirection, 80),
+              stroke: `var(--${inner})`,
+              'stroke-width': 1.25,
+            },
+            inner,
+          ),
+        );
+      }
+      return;
+    }
+  }
+
+  document.querySelectorAll<SVGSVGElement>('[data-bauhaus-pattern]').forEach((pattern) => {
+    if (pattern.dataset.interactive === 'true') return;
+    if (pattern.dataset.ambient === 'true') {
+      const entropy = new Uint32Array(4);
+      crypto.getRandomValues(entropy);
+      const instanceSeed = Array.from(entropy, (value) => value.toString(16).padStart(8, '0')).join('');
+      pattern.dataset.bauhausPattern = `${pattern.dataset.bauhausPattern}:${instanceSeed}`;
+    }
+    pattern.dataset.interactive = 'true';
+
+    pattern.querySelectorAll<SVGElement>('[class*="fill-"]').forEach((element) => {
+      const color = readColor(element);
+      if (color) element.dataset.color = color;
+    });
+
+    const regions = Array.from(pattern.querySelectorAll<SVGElement>('.pattern-region'));
+    const regionsByPosition = new Map(
+      regions.map((region) => [`${region.dataset.column}:${region.dataset.row}`, region]),
+    );
+    const definitions = pattern.querySelector('defs');
+    const ensureRegion = (column: number, row: number) => {
+      const key = `${column}:${row}`;
+      const existing = regionsByPosition.get(key);
+      if (existing) return existing;
+
+      const region = svgElement('g', {}) as SVGElement;
+      region.classList.add('pattern-region');
+      region.dataset.kind = 'empty';
+      region.dataset.regionIndex = key;
+      region.dataset.column = String(column);
+      region.dataset.row = String(row);
+      region.dataset.columns = '2';
+      region.dataset.rows = '2';
+      region.dataset.x = String(column * 80);
+      region.dataset.y = String(row * 80);
+      const clipId = `runtime-cell-${pattern.dataset.bauhausPattern?.replace(/[^a-z0-9]/gi, '')}-${column}-${row}`;
+      const clipPath = svgElement('clipPath', { id: clipId });
+      clipPath.append(
+        svgElement('rect', {
+          x: column * 80,
+          y: row * 80,
+          width: 160,
+          height: 160,
+        }),
+      );
+      definitions?.append(clipPath);
+      region.setAttribute('clip-path', `url(#${clipId})`);
+      region.append(
+        svgElement('rect', {
+          class: 'pattern-hit-area',
+          x: column * 80,
+          y: row * 80,
+          width: 160,
+          height: 160,
+          fill: 'transparent',
+          'pointer-events': 'all',
+        }),
+      );
+      pattern.append(region);
+      regions.push(region);
+      regionsByPosition.set(key, region);
+      return region;
+    };
+
+    const animateRegionIn = (
+      region: SVGElement,
+      shiftX = '0px',
+      shiftY = '0px',
+    ) => {
+      region.style.setProperty('--tile-shift-x', shiftX);
+      region.style.setProperty('--tile-shift-y', shiftY);
+      region.classList.remove('is-entering', 'is-leaving');
+      void region.getBoundingClientRect();
+      region.classList.add('is-entering');
+      const finish = () => region.classList.remove('is-entering');
+      region.addEventListener('animationend', finish, { once: true });
+      window.setTimeout(finish, 340);
+    };
+
+    const resizePatternToField = () => {
+      if (pattern.dataset.ambient !== 'true') return;
+      const field = pattern.closest<HTMLElement>('.bauhaus-field');
+      const grid = pattern.closest<HTMLElement>('.latent-grid');
+      if (!field || !grid) return;
+
+      const renderedWidth = grid.getBoundingClientRect().width;
+      const renderedHeight = field.getBoundingClientRect().height;
+      const columnCount = Number(pattern.dataset.columns);
+      if (renderedWidth <= 0 || renderedHeight <= 0 || columnCount < 5) return;
+
+      const inset = 80;
+      const moduleSize = 160;
+      const viewWidth = columnCount * 80 - inset * 2;
+      const requiredViewHeight = (renderedHeight / renderedWidth) * viewWidth;
+      const coordinateHeight = Math.ceil(
+        (requiredViewHeight + inset * 2) / moduleSize,
+      ) * moduleSize;
+      const rowCount = Math.max(6, coordinateHeight / 80);
+      if (Number(pattern.dataset.rows) === rowCount) return;
+
+      pattern.dataset.rows = String(rowCount);
+      pattern.setAttribute(
+        'viewBox',
+        `${inset} ${inset} ${viewWidth} ${rowCount * 80 - inset * 2}`,
+      );
+    };
+
+    const markSpecialRegions = () => {
+      if (pattern.dataset.ambient !== 'true') return;
+      regions.forEach((region) => region.classList.remove('is-special'));
+      const patternBounds = pattern.getBoundingClientRect();
+      const viewBox = pattern.viewBox.baseVal;
+      const columnCount = Number(pattern.dataset.columns);
+      const rowCount = Number(pattern.dataset.rows);
+      const placeholders = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-bauhaus-region]'),
+      ).map((placeholder) => placeholder.getBoundingClientRect());
+      const textBounds: DOMRect[] = [];
+      const main = document.querySelector('.site-main');
+      if (main) {
+        const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+        let textNode = walker.nextNode();
+        while (textNode) {
+          if (textNode.textContent?.trim()) {
+            const range = document.createRange();
+            range.selectNodeContents(textNode);
+            textBounds.push(...Array.from(range.getClientRects()));
+          }
+          textNode = walker.nextNode();
+        }
+        main
+          .querySelectorAll<HTMLElement>('.page-intro__index, img, svg')
+          .forEach((element) => textBounds.push(element.getBoundingClientRect()));
+      }
+
+      const overlapsContent = (bounds: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+      }) => {
+        const safetyMargin = 6;
+        const right = bounds.left + bounds.width;
+        const bottom = bounds.top + bounds.height;
+        return textBounds.some(
+          (content) =>
+            right > content.left - safetyMargin &&
+            bounds.left < content.right + safetyMargin &&
+            bottom > content.top - safetyMargin &&
+            bounds.top < content.bottom + safetyMargin,
+        );
+      };
+
+      placeholders.forEach((placeholder) => {
+        const svgLeft =
+          viewBox.x + ((placeholder.left - patternBounds.left) / patternBounds.width) * viewBox.width;
+        const svgRight =
+          viewBox.x + ((placeholder.right - patternBounds.left) / patternBounds.width) * viewBox.width;
+        const svgTop =
+          viewBox.y + ((placeholder.top - patternBounds.top) / patternBounds.height) * viewBox.height;
+        const svgBottom =
+          viewBox.y + ((placeholder.bottom - patternBounds.top) / patternBounds.height) * viewBox.height;
+        const firstColumn = Math.max(0, Math.floor(svgLeft / 160) * 2);
+        const lastColumn = Math.min(columnCount - 2, Math.floor(svgRight / 160) * 2);
+        const firstRow = Math.max(0, Math.floor(svgTop / 160) * 2);
+        const lastRow = Math.min(rowCount - 2, Math.floor(svgBottom / 160) * 2);
+
+        for (let row = firstRow; row <= lastRow; row += 2) {
+          for (let column = firstColumn; column <= lastColumn; column += 2) {
+            const bounds = {
+              left:
+                patternBounds.left + ((column * 80 - viewBox.x) / viewBox.width) * patternBounds.width,
+              top:
+                patternBounds.top + ((row * 80 - viewBox.y) / viewBox.height) * patternBounds.height,
+              width: (160 / viewBox.width) * patternBounds.width,
+              height: (160 / viewBox.height) * patternBounds.height,
+            };
+            const right = bounds.left + bounds.width;
+            const bottom = bounds.top + bounds.height;
+            const overlapWidth = Math.max(
+              0,
+              Math.min(right, placeholder.right) - Math.max(bounds.left, placeholder.left),
+            );
+            const overlapHeight = Math.max(
+              0,
+              Math.min(bottom, placeholder.bottom) - Math.max(bounds.top, placeholder.top),
+            );
+            const overlapRatio = (overlapWidth * overlapHeight) / (bounds.width * bounds.height);
+            if (overlapRatio < 0.08) continue;
+            if (overlapsContent(bounds)) continue;
+
+            const centerX = bounds.left + bounds.width / 2;
+            const centerY = bounds.top + bounds.height / 2;
+            const edgeDepth = Math.max(
+              0,
+              Math.min(
+                centerX - placeholder.left,
+                placeholder.right - centerX,
+                centerY - placeholder.top,
+                placeholder.bottom - centerY,
+              ),
+            );
+            const edgeFactor = Math.min(
+              1,
+              edgeDepth / (Math.max(bounds.width, bounds.height) * 1.6),
+            );
+            const keepChance = 0.18 + edgeFactor * 0.8;
+            const boundaryRandom = randomFrom(
+              `${pattern.dataset.bauhausPattern}:boundary:${column}:${row}`,
+            );
+            const region = ensureRegion(column, row);
+            region.classList.add('is-special');
+            if (boundaryRandom() >= keepChance) continue;
+            if (
+              region.dataset.kind === 'empty' &&
+              region.dataset.specialSeeded !== 'true'
+            ) {
+              region.dataset.specialSeeded = 'true';
+              const random = randomFrom(
+                `${pattern.dataset.bauhausPattern}:special:${region.dataset.column}:${region.dataset.row}`,
+              );
+              const chooseColor = (excluded = new Set<Color>()): Color => {
+                const choices = solidColors.filter((color) => !excluded.has(color));
+                return choices[Math.floor(random() * choices.length)] ?? 'ink';
+              };
+              regenerate(region, random, chooseColor);
+              animateRegionIn(region);
+            }
+          }
+        }
+      });
+    };
+    let observedField: HTMLElement | null = null;
+    const fieldResizeObserver = new ResizeObserver(() => {
+      resizePatternToField();
+      markSpecialRegions();
+    });
+    const observeCurrentField = () => {
+      const field = pattern.closest<HTMLElement>('.bauhaus-field');
+      if (field === observedField) return;
+      if (observedField) fieldResizeObserver.unobserve(observedField);
+      observedField = field;
+      if (observedField) fieldResizeObserver.observe(observedField);
+    };
+
+    resizePatternToField();
+    observeCurrentField();
+    markSpecialRegions();
+    void document.fonts?.ready.then(markSpecialRegions);
+    document
+      .querySelector('.site-main')
+      ?.addEventListener('animationend', markSpecialRegions, { once: true });
+    window.addEventListener('load', markSpecialRegions, { once: true });
+    window.addEventListener(
+      'resize',
+      () => {
+        resizePatternToField();
+        markSpecialRegions();
+      },
+      { passive: true },
+    );
+    document.addEventListener('astro:page-load', () => {
+      resizePatternToField();
+      observeCurrentField();
+      markSpecialRegions();
+      void document.fonts?.ready.then(markSpecialRegions);
+      document
+        .querySelector('.site-main')
+        ?.addEventListener('animationend', markSpecialRegions, { once: true });
+    });
+
+    let generationCount = 0;
+    const regenerateNow = (
+      target: SVGElement,
+      shiftX = '0px',
+      shiftY = '0px',
+    ) => {
+      generationCount += 1;
+      const usage = Object.fromEntries(solidColors.map((color) => [color, 0])) as Record<
+        (typeof solidColors)[number],
+        number
+      >;
+      pattern.querySelectorAll<SVGElement>('[data-color]').forEach((element) => {
+        const color = readColor(element);
+        if (color && color !== 'paper') usage[color] += 1;
+      });
+
+      const compositionSignature = regions
+        .map((region) => `${region.dataset.kind}:${Array.from(region.querySelectorAll('[data-color]')).map(readColor).join('')}`)
+        .join('|');
+      const random = randomFrom(
+        `${pattern.dataset.bauhausPattern}:${generationCount}:${target.dataset.regionIndex}:${compositionSignature}`,
+      );
+
+      const neighborColors = new Set<Color>();
+      const left = Number(target.dataset.column);
+      const top = Number(target.dataset.row);
+      const right = left + Number(target.dataset.columns);
+      const bottom = top + Number(target.dataset.rows);
+      for (const region of regions) {
+        if (region === target) continue;
+        const otherLeft = Number(region.dataset.column);
+        const otherTop = Number(region.dataset.row);
+        const otherRight = otherLeft + Number(region.dataset.columns);
+        const otherBottom = otherTop + Number(region.dataset.rows);
+        const touches =
+          ((right === otherLeft || left === otherRight) && top < otherBottom && bottom > otherTop) ||
+          ((bottom === otherTop || top === otherBottom) && left < otherRight && right > otherLeft);
+        if (!touches) continue;
+        region.querySelectorAll('[data-color]').forEach((element) => {
+          const color = readColor(element);
+          if (color) neighborColors.add(color);
+        });
+      }
+
+      const chooseColor = (excluded = new Set<Color>()): Color => {
+        const choices = solidColors
+          .filter((color) => !excluded.has(color))
+          .map((color) => ({
+            color,
+            score: usage[color] * 0.02 + (neighborColors.has(color) ? -8 : 0) + random() * 0.35,
+          }))
+          .sort((a, b) => a.score - b.score);
+        const selected = choices[0]?.color ?? 'ink';
+        usage[selected] += 1;
+        return selected;
+      };
+
+      regenerate(target, random, chooseColor);
+      animateRegionIn(target, shiftX, shiftY);
+    };
+
+    if (pattern.dataset.ambient === 'true') {
+      let lastRegion: SVGElement | undefined;
+      const hideTimers = new WeakMap<SVGElement, number>();
+
+      const scheduleAmbientExit = (region: SVGElement) => {
+        const previousTimer = hideTimers.get(region);
+        if (previousTimer) window.clearTimeout(previousTimer);
+        if (region.classList.contains('is-special')) return;
+
+        const timer = window.setTimeout(() => {
+          region.classList.remove('is-entering');
+          region.classList.add('is-leaving');
+          const finish = () => {
+            region.classList.remove('is-visible', 'is-leaving');
+            if (lastRegion === region) lastRegion = undefined;
+          };
+          region.addEventListener('animationend', finish, { once: true });
+          window.setTimeout(finish, 340);
+          hideTimers.delete(region);
+        }, 1600);
+        hideTimers.set(region, timer);
+      };
+
+      document.addEventListener('pointermove', (event) => {
+        const bounds = pattern.getBoundingClientRect();
+        if (
+          event.clientX < bounds.left ||
+          event.clientX >= bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY >= bounds.bottom
+        ) {
+          lastRegion = undefined;
+          return;
+        }
+        const viewBox = pattern.viewBox.baseVal;
+        const svgX = viewBox.x + ((event.clientX - bounds.left) / bounds.width) * viewBox.width;
+        const svgY = viewBox.y + ((event.clientY - bounds.top) / bounds.height) * viewBox.height;
+        const column = Math.floor(svgX / 160) * 2;
+        const row = Math.floor(svgY / 160) * 2;
+        const region = ensureRegion(column, row);
+        if (region === lastRegion) return;
+        const horizontalMove = Math.abs(event.movementX) >= Math.abs(event.movementY);
+        const shiftX = horizontalMove
+          ? event.movementX >= 0
+            ? '-28px'
+            : '28px'
+          : '0px';
+        const shiftY = horizontalMove
+          ? '0px'
+          : event.movementY >= 0
+            ? '-28px'
+            : '28px';
+        region.classList.add('is-visible');
+        lastRegion = region;
+        regenerateNow(region, shiftX, shiftY);
+        scheduleAmbientExit(region);
+      });
+    } else {
+      regions.forEach((region) => {
+        region.addEventListener('pointerenter', () => regenerateNow(region));
+      });
+    }
+  });
+</script>
+
+<style>
+  .bauhaus-pattern {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+  }
+
+  .fill-paper {
+    fill: var(--paper);
+    color: var(--paper);
+  }
+
+  .fill-ink {
+    fill: var(--ink);
+    color: var(--ink);
+  }
+
+  .fill-red {
+    fill: var(--red);
+    color: var(--red);
+  }
+
+  .fill-blue {
+    fill: var(--blue);
+    color: var(--blue);
+  }
+
+  .fill-yellow {
+    fill: var(--yellow);
+    color: var(--yellow);
+  }
+
+  .pattern-region {
+    cursor: crosshair;
+    pointer-events: visiblePainted;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      opacity 150ms ease,
+      transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :global(.bauhaus-pattern[data-ambient='true'] .pattern-region) {
+    --tile-opacity: 0;
+    opacity: 0;
+    cursor: default;
+    pointer-events: none;
+    transition: none;
+  }
+
+  :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-visible) {
+    --tile-opacity: 0.05;
+    opacity: var(--tile-opacity);
+  }
+
+  :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-special) {
+    --tile-opacity: 1;
+    opacity: var(--tile-opacity);
+  }
+
+  :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-entering) {
+    animation: tile-pop-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-leaving) {
+    animation: tile-pop-out 280ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  .pattern-hit-area {
+    fill: transparent;
+  }
+
+  .rotor {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .rotor--active {
+    animation: quarter-turn 18s cubic-bezier(0.65, 0, 0.35, 1) 8s infinite;
+  }
+
+  .rotor--slow {
+    animation-duration: 23s;
+    animation-delay: 13s;
+  }
+
+  @keyframes quarter-turn {
+    0%,
+    68% {
+      transform: rotate(0);
+    }
+    76%,
+    94% {
+      transform: rotate(90deg);
+    }
+    100% {
+      transform: rotate(0);
+    }
+  }
+
+  @keyframes tile-pop-in {
+    from {
+      opacity: 0;
+      transform: translate(var(--tile-shift-x, 0px), var(--tile-shift-y, 0px));
+    }
+    to {
+      opacity: var(--tile-opacity);
+      transform: translate(0, 0);
+    }
+  }
+
+  @keyframes tile-pop-out {
+    from {
+      opacity: var(--tile-opacity);
+      transform: translate(0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate(var(--tile-shift-x, 0px), var(--tile-shift-y, 0px));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rotor--active {
+      animation: none;
+    }
+
+    .pattern-region {
+      transition: none;
+    }
+
+    :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-entering),
+    :global(.bauhaus-pattern[data-ambient='true'] .pattern-region.is-leaving) {
+      animation: none;
+    }
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .pattern-region {
+      cursor: default;
+      pointer-events: none;
+    }
+  }
+</style>

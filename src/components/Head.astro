@@ -1,5 +1,7 @@
 ---
 import config from '../lib/config';
+import openSansBoldUrl from '../../resume/fonts/opensans-bold.ttf?url';
+import openSansRegularUrl from '../../resume/fonts/opensans-regular.ttf?url';
 
 interface Props {
   title: string;
@@ -18,7 +20,9 @@ const canonicalUrl = Astro.site
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="generator" content={Astro.generator} />
 {description && <meta name="description" content={description} />}
-<link rel="icon" type="image/webp" href="/favicon.webp" />
+<link rel="preload" href={openSansRegularUrl} as="font" type="font/ttf" crossorigin="anonymous" />
+<link rel="preload" href={openSansBoldUrl} as="font" type="font/ttf" crossorigin="anonymous" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <title>{title}</title>
 
 {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
