@@ -25,7 +25,11 @@ function slug(id: string) {
           </span>
           <div>
             <h2 class="editorial-item__heading">
-              <a class="editorial-item__title" href={`/blog/${slug(post.id)}`}>
+              <a
+                class="editorial-item__title"
+                href={`/blog/${slug(post.id)}`}
+                data-astro-history="push"
+              >
                 {post.data.title}
               </a>
             </h2>

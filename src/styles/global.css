@@ -739,6 +739,7 @@ a:hover {
 
 .toc a.is-visible {
   color: var(--ink);
+  font-weight: 700;
 }
 
 .toc__bar {
@@ -785,7 +786,7 @@ a:hover {
 
   .resume-section {
     grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
+    gap: 1.75rem;
     padding: 1.5rem 0;
   }
 
@@ -811,6 +812,7 @@ a:hover {
 
   .section-title {
     position: relative;
+    top: auto;
   }
 
   .resume-entry__heading {

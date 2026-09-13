@@ -940,7 +940,7 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
         hideTimers.set(region, timer);
       };
 
-      document.addEventListener('pointermove', (event) => {
+      const regionAtPointer = (event: PointerEvent) => {
         const bounds = pattern.getBoundingClientRect();
         if (
           event.clientX < bounds.left ||
@@ -948,7 +948,6 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
           event.clientY < bounds.top ||
           event.clientY >= bounds.bottom
         ) {
-          lastRegion = undefined;
           return;
         }
         const viewBox = pattern.viewBox.baseVal;
@@ -956,7 +955,26 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
         const svgY = viewBox.y + ((event.clientY - bounds.top) / bounds.height) * viewBox.height;
         const column = Math.floor(svgX / 160) * 2;
         const row = Math.floor(svgY / 160) * 2;
-        const region = ensureRegion(column, row);
+        return ensureRegion(column, row);
+      };
+
+      const revealRegion = (
+        region: SVGElement,
+        shiftX = '0px',
+        shiftY = '0px',
+      ) => {
+        region.classList.add('is-visible');
+        lastRegion = region;
+        regenerateNow(region, shiftX, shiftY);
+        scheduleAmbientExit(region);
+      };
+
+      document.addEventListener('pointermove', (event) => {
+        const region = regionAtPointer(event);
+        if (!region) {
+          lastRegion = undefined;
+          return;
+        }
         if (region === lastRegion) return;
         const horizontalMove = Math.abs(event.movementX) >= Math.abs(event.movementY);
         const shiftX = horizontalMove
@@ -969,10 +987,12 @@ const shapeClass = (color: BauhausColor) => `fill-${color}`;
           : event.movementY >= 0
             ? '-28px'
             : '28px';
-        region.classList.add('is-visible');
-        lastRegion = region;
-        regenerateNow(region, shiftX, shiftY);
-        scheduleAmbientExit(region);
+        revealRegion(region, shiftX, shiftY);
+      });
+
+      document.addEventListener('pointerdown', (event) => {
+        const region = regionAtPointer(event);
+        if (region) revealRegion(region);
       });
     } else {
       regions.forEach((region) => {
