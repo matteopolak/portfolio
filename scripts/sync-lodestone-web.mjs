@@ -16,6 +16,7 @@ const root = resolve(import.meta.dirname, '..');
 const pointerPath = join(root, 'lodestone-web-release.json');
 const outputPath = join(root, 'public', 'lodestone');
 const stampPath = join(outputPath, '.lodestone-bundle.json');
+const downloadAttempts = 5;
 
 const pointer = JSON.parse(await readFile(pointerPath, 'utf8'));
 if (!pointer.enabled) {
@@ -125,11 +126,43 @@ try {
 }
 
 async function download(url) {
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) {
-    throw new Error(`download failed with HTTP ${response.status}: ${url}`);
+  let lastError;
+
+  for (let attempt = 1; attempt <= downloadAttempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { redirect: 'follow' });
+      if (response.ok) return Buffer.from(await response.arrayBuffer());
+
+      const retryable =
+        response.status === 408 ||
+        response.status === 425 ||
+        response.status === 429 ||
+        response.status >= 500;
+      await response.body?.cancel();
+      lastError = new Error(
+        `download failed with HTTP ${response.status}: ${url}`
+      );
+      lastError.retryable = retryable;
+      if (!retryable) throw lastError;
+    } catch (error) {
+      if (error?.retryable === false) throw error;
+      lastError = error;
+    }
+
+    if (attempt < downloadAttempts) {
+      const delayMilliseconds = 2 ** (attempt - 1) * 1_000;
+      console.warn(
+        `Download attempt ${attempt} failed; retrying in ${delayMilliseconds / 1_000}s…`
+      );
+      await delay(delayMilliseconds);
+    }
   }
-  return Buffer.from(await response.arrayBuffer());
+
+  throw lastError;
+}
+
+function delay(milliseconds) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
 function parseManifest(bytes) {

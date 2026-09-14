@@ -1,3 +1,8 @@
 {
-  "enabled": false
+  "enabled": true,
+  "repository": "matteopolak/portfolio",
+  "tag": "lodestone-web-latest",
+  "manifestAsset": "lodestone-web-sdk.manifest.json",
+  "manifestSha256": "843c15fec3bef0eabf1925f49a85a3f9cdccea6fcf0d635ad2657030c329581b",
+  "lodestoneRevision": "c5ff3a0eee3e2831f325a387c92df59f0e65ca8a"
 }

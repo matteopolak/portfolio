@@ -25,6 +25,10 @@ to ignored `public/lodestone/` output. `pnpm dev` and `pnpm build` both run this
 sync, so Vite development and the fully static production build consume the
 same release.
 
+Release downloads retry transient HTTP and network failures with bounded
+exponential backoff. Permanent HTTP errors still fail immediately, and a retry
+never weakens the manifest, archive, or per-file digest checks.
+
 `src/lib/lodestone-game.ts` reads the staged manifest and imports its hashed ESM
 entrypoint with a runtime URL. It downloads the page Wasm, filtered resource
 pack, and block report in parallel with streamed progress, initializes the
@@ -57,7 +61,9 @@ Change loader styling, progress wording, focus, or fullscreen behavior in
 `web/src/embed.rs`, then republish via the workflow rather than patching emitted
 JavaScript or renaming archive members. The sync script deliberately rejects a
 dirty SDK package, unexpected schema, changed inventory, unsafe path, mismatched
-commit, or failed digest.
+commit, or failed digest. Adjust `downloadAttempts` in
+`scripts/sync-lodestone-web.mjs` only if GitHub Releases needs a different retry
+budget.
 
 Run `Publish Lodestone web SDK` with `update_repository: pointer` for normal
 deployment. `assets` also commits the generated `public/lodestone/` directory
