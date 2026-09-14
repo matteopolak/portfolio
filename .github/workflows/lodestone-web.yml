@@ -51,6 +51,7 @@ jobs:
         with:
           toolchain: nightly-2026-08-07
           targets: wasm32-unknown-unknown
+          components: rust-src
 
       - name: cache rust builds and minecraft downloads
         uses: Swatinem/rust-cache@v2

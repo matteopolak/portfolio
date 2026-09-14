@@ -81,7 +81,9 @@ release assets are removed only after the new pointer/build step succeeds.
 ## Dependencies
 
 The embed uses Astro, WebGPU, GitHub Releases, GitHub Actions, Lodestone's
-wasm-bindgen SDK and matching CLI, Rust, Trunk, Java 25, and Minecraft 26.2 build
-inputs. The SDK archive contains Lodestone's filtered render resource pack and
-generated block report; optional title panorama, sound assets, standalone page,
-diagnostics, and consumer presentation are excluded.
+wasm-bindgen SDK and matching CLI, Rust nightly with `rust-src`, Trunk, Java 25,
+and Minecraft 26.2 build inputs. `rust-src` is required because Lodestone's
+threaded Wasm worker builds its standard library for the browser target. The SDK
+archive contains Lodestone's filtered render resource pack and generated block
+report; optional title panorama, sound assets, standalone page, diagnostics,
+and consumer presentation are excluded.
