@@ -37,6 +37,9 @@ function initializeProjectActions() {
   const quasiPanel = quasiDialog?.querySelector<HTMLElement>(
     '[data-quasi-fullscreen-target]'
   );
+  const projectDialogs = [
+    ...document.querySelectorAll<HTMLDialogElement>('[data-project-demo]'),
+  ];
   let activeTrigger: HTMLButtonElement | undefined;
   const cleanupQuasi = quasiDialog
     ? initializeQuasiPlayground(quasiDialog, signal)
@@ -135,6 +138,46 @@ function initializeProjectActions() {
       if (event.target === minecraftDialog) closeMinecraft();
     },
     { signal }
+  );
+  const getOpenProjectDialog = () =>
+    projectDialogs.find((dialog) => dialog.open);
+  const isModalScrollRegion = (target: EventTarget | null) =>
+    target instanceof Element &&
+    Boolean(target.closest('[data-project-demo-scroll]'));
+
+  for (const eventName of ['wheel', 'touchmove'] as const) {
+    window.addEventListener(
+      eventName,
+      (event) => {
+        if (getOpenProjectDialog() && !isModalScrollRegion(event.target)) {
+          event.preventDefault();
+        }
+      },
+      { capture: true, passive: false, signal }
+    );
+  }
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (
+        getOpenProjectDialog() &&
+        !isModalScrollRegion(event.target) &&
+        [
+          'ArrowDown',
+          'ArrowLeft',
+          'ArrowRight',
+          'ArrowUp',
+          'End',
+          'Home',
+          'PageDown',
+          'PageUp',
+          'Space',
+        ].includes(event.code)
+      ) {
+        event.preventDefault();
+      }
+    },
+    { capture: true, signal }
   );
   minecraftDialog?.addEventListener(
     'close',

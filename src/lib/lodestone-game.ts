@@ -2,14 +2,9 @@ const SDK_ROOT = '/lodestone/';
 const SDK_MANIFEST_URL = `${SDK_ROOT}lodestone-web-sdk.manifest.json`;
 const STAGE_COUNT = 6;
 
-interface LodestoneHandle {
-  destroy(): void;
-  isDestroyed(): boolean;
-}
-
 interface LodestoneProgressEvent {
-  type: string;
-  phase: string;
+  type?: string;
+  phase?: string;
   fraction: number;
   message: string;
   assetName?: 'clientJar' | 'blocksJson';
@@ -17,15 +12,16 @@ interface LodestoneProgressEvent {
   totalBytes?: number;
 }
 
-interface LodestoneModule {
-  default(input?: { module_or_path: ArrayBuffer }): Promise<unknown>;
-  mount(options: {
-    canvas: HTMLCanvasElement;
-    clientJar: ArrayBuffer;
-    blocksJson: ArrayBuffer;
-    onProgress: (event: LodestoneProgressEvent) => void;
-  }): Promise<LodestoneHandle>;
+interface LodestoneHostAction {
+  type: 'pointer-lock';
+  locked: boolean;
 }
+
+type LodestoneWorkerMessage =
+  | { kind: 'progress'; event: LodestoneProgressEvent }
+  | { kind: 'host-action'; action: LodestoneHostAction }
+  | { kind: 'ready' }
+  | { kind: 'error'; message: string };
 
 interface SdkFile {
   path: string;
@@ -44,9 +40,14 @@ class LodestoneGameElement extends HTMLElement {
   #status: HTMLElement | undefined;
   #startButton: HTMLButtonElement | undefined;
   #canvas: HTMLCanvasElement | undefined;
-  #handle: LodestoneHandle | undefined;
+  #worker: Worker | undefined;
   #abortController: AbortController | undefined;
   #startPromise: Promise<void> | undefined;
+  #downloadProgressFrame: number | undefined;
+  #resizeObserver: ResizeObserver | undefined;
+  #canvasTransferred = false;
+  #canvasRevealed = false;
+  #pointerLockRequested = false;
   #stageProgress = Array<number>(STAGE_COUNT).fill(0);
   #downloads = new Map<number, { loaded: number; total: number }>();
 
@@ -117,7 +118,10 @@ class LodestoneGameElement extends HTMLElement {
           gap: 0.75rem;
           padding: 1.5rem;
           text-align: center;
+          transition: opacity 180ms ease;
         }
+        .prompt[data-mounted='true'] { pointer-events: none; }
+        .prompt[data-ready='true'] { opacity: 0; pointer-events: none; }
         .title { margin: 0; color: #151515; font-size: 1.1rem; font-weight: 800; }
         .status { margin: 0; max-width: 40rem; color: #625f58; font-size: 0.82rem; }
         .progress {
@@ -215,22 +219,21 @@ class LodestoneGameElement extends HTMLElement {
     shadow
       .querySelector<HTMLButtonElement>('.fullscreen')
       ?.addEventListener('click', () => void this.enterFullscreen());
-    if (!('gpu' in navigator)) {
+    if (
+      !('gpu' in navigator) ||
+      !('transferControlToOffscreen' in HTMLCanvasElement.prototype)
+    ) {
       this.#setUnavailable(
-        'WebGPU is unavailable in this browser. Try a current version of Chrome, Edge, Firefox, or Safari.'
+        'Worker-based WebGPU is unavailable in this browser. Try a current version of Chrome, Edge, Firefox, or Safari.'
       );
     }
   }
 
   disconnectedCallback() {
+    this.#cancelScheduledWork();
     this.#abortController?.abort();
     this.#abortController = undefined;
-    try {
-      this.#handle?.destroy();
-    } catch (error) {
-      console.warn('Could not fully stop the Lodestone browser demo', error);
-    }
-    this.#handle = undefined;
+    this.#stopWorker();
   }
 
   #setUnavailable(message: string) {
@@ -242,12 +245,18 @@ class LodestoneGameElement extends HTMLElement {
   }
 
   start() {
-    if (this.#handle && !this.#handle.isDestroyed()) {
+    if (this.#worker) {
       this.#canvas?.focus();
       return Promise.resolve();
     }
     if (this.#startPromise) return this.#startPromise;
-    if (!('gpu' in navigator) || !this.#canvas) return Promise.resolve();
+    if (
+      !('gpu' in navigator) ||
+      !('transferControlToOffscreen' in HTMLCanvasElement.prototype) ||
+      !this.#canvas
+    ) {
+      return Promise.resolve();
+    }
 
     this.#startPromise = this.#mount().finally(() => {
       this.#startPromise = undefined;
@@ -259,48 +268,42 @@ class LodestoneGameElement extends HTMLElement {
     const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
     if (!prompt || !this.#canvas) return;
 
+    if (this.#canvasTransferred) this.#replaceCanvas();
+    const canvas = this.#canvas;
+    if (!canvas) return;
+
     this.#abortController?.abort();
     const controller = new AbortController();
     this.#abortController = controller;
+    this.#cancelScheduledWork();
+    this.#canvasRevealed = false;
     this.#stageProgress.fill(0);
     this.#downloads.clear();
+    delete prompt.dataset.mounted;
+    delete prompt.dataset.ready;
     prompt.dataset.loading = 'true';
     if (this.#startButton) this.#startButton.hidden = true;
     this.#setStageProgress(0, 0.15, 'Preparing browser downloads…');
 
     try {
       const manifest = await this.#loadManifest(controller.signal);
-      this.#setStageProgress(0, 1, 'Loading the game engine…');
-      const moduleUrl = new URL(
-        manifest.entrypoint,
-        location.origin + SDK_ROOT
-      );
-      const wasmPath = manifest.entrypoint.replace(/\.js$/, '_bg.wasm');
-      const [sdk, wasm, clientJar, blocksJson] = await Promise.all([
-        import(/* @vite-ignore */ moduleUrl.href) as Promise<LodestoneModule>,
-        this.#fetchSdkFile(manifest, wasmPath, 1, controller.signal),
+      this.#setStageProgress(0, 1, 'Downloading game files…');
+      this.#setStageProgress(1, 0.1, 'Downloading game files…');
+      const [clientJar, blocksJson] = await Promise.all([
         this.#fetchSdkFile(manifest, 'client.jar', 2, controller.signal),
         this.#fetchSdkFile(manifest, 'blocks.json', 3, controller.signal),
       ]);
       if (!this.isConnected || controller.signal.aborted) return;
 
-      this.#setStageProgress(4, 0.15, 'Initializing the game engine…');
-      await sdk.default({ module_or_path: wasm });
-      if (!this.isConnected || controller.signal.aborted) return;
-
-      this.#handle = await sdk.mount({
-        canvas: this.#canvas,
-        clientJar,
-        blocksJson,
-        onProgress: (event) => this.#handleProgress(event),
-      });
-      if (!this.isConnected || controller.signal.aborted) {
-        this.#handle.destroy();
-        this.#handle = undefined;
-      }
+      this.#setStageProgress(1, 0.2, 'Starting the renderer worker…');
+      this.#launchWorker(canvas, clientJar, blocksJson, controller.signal);
     } catch (error) {
       if (controller.signal.aborted) return;
+      this.#cancelScheduledWork();
+      this.#stopWorker();
       console.error('Could not start the Lodestone browser demo', error);
+      delete prompt.dataset.mounted;
+      delete prompt.dataset.ready;
       delete prompt.dataset.loading;
       if (this.#status) {
         this.#status.textContent =
@@ -322,7 +325,10 @@ class LodestoneGameElement extends HTMLElement {
       manifest.schema !== 'lodestone-web-sdk' ||
       manifest.schema_version !== 1 ||
       !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
-      !Array.isArray(manifest.files)
+      !Array.isArray(manifest.files) ||
+      !['lodestone-render-worker.js', 'client.jar', 'blocks.json'].every(
+        (path) => manifest.files.some((entry) => entry.path === path)
+      )
     ) {
       throw new Error('The Lodestone SDK manifest is not supported.');
     }
@@ -343,8 +349,7 @@ class LodestoneGameElement extends HTMLElement {
     if (!response.ok)
       throw new Error(`${path} returned HTTP ${response.status}`);
 
-    const announcedLength = Number(response.headers.get('content-length'));
-    const total = announcedLength > 0 ? announcedLength : expected.size;
+    const total = expected.size;
     const reader = response.body?.getReader();
     if (!reader) {
       const bytes = await response.arrayBuffer();
@@ -357,25 +362,240 @@ class LodestoneGameElement extends HTMLElement {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
+      chunks.push(new Uint8Array(value));
       loaded += value.byteLength;
       this.#recordDownload(stage, loaded, total);
     }
     if (loaded !== expected.size) {
       throw new Error(`${path} has ${loaded} bytes, expected ${expected.size}`);
     }
-    const bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
+    const bytes = await new Blob(chunks).arrayBuffer();
     this.#recordDownload(stage, loaded, total);
-    return bytes.buffer;
+    return bytes;
+  }
+
+  #launchWorker(
+    canvas: HTMLCanvasElement,
+    clientJar: ArrayBuffer,
+    blocksJson: ArrayBuffer,
+    signal: AbortSignal
+  ) {
+    this.#resizeCanvas(canvas);
+    const offscreen = canvas.transferControlToOffscreen();
+    this.#canvasTransferred = true;
+    const worker = new Worker(
+      new URL('lodestone-render-worker.js', location.origin + SDK_ROOT),
+      { type: 'module', name: 'lodestone-renderer' }
+    );
+    this.#worker = worker;
+
+    worker.addEventListener(
+      'message',
+      (event: MessageEvent<LodestoneWorkerMessage>) => {
+        const message = event.data;
+        if (message.kind === 'progress') {
+          this.#handleProgress(message.event);
+        } else if (message.kind === 'host-action') {
+          this.#handleHostAction(message.action);
+        } else if (message.kind === 'ready') {
+          this.#setStageProgress(1, 1, 'Building the first frame…');
+        } else if (message.kind === 'error') {
+          this.#handleWorkerError(message.message);
+        }
+      },
+      { signal }
+    );
+    worker.addEventListener(
+      'error',
+      (event) => this.#handleWorkerError(event.message),
+      { signal }
+    );
+    this.#installInputBridge(canvas, worker, signal);
+    worker.postMessage(
+      { kind: 'mount', canvas: offscreen, clientJar, blocksJson },
+      [offscreen, clientJar, blocksJson]
+    );
+  }
+
+  #installInputBridge(
+    canvas: HTMLCanvasElement,
+    worker: Worker,
+    signal: AbortSignal
+  ) {
+    const sendInput = (input: Record<string, unknown>) => {
+      worker.postMessage({ kind: 'input', input });
+    };
+
+    canvas.addEventListener(
+      'pointermove',
+      (event) => {
+        sendInput({ type: 'pointerMove', x: event.offsetX, y: event.offsetY });
+        if (event.movementX || event.movementY) {
+          sendInput({
+            type: 'mouseMotion',
+            dx: event.movementX,
+            dy: event.movementY,
+          });
+        }
+      },
+      { signal }
+    );
+    for (const eventName of ['mousedown', 'mouseup'] as const) {
+      canvas.addEventListener(
+        eventName,
+        (event) => {
+          canvas.focus({ preventScroll: true });
+          sendInput({
+            type: 'mouseButton',
+            button: event.button,
+            pressed: eventName === 'mousedown',
+          });
+          if (
+            eventName === 'mousedown' &&
+            this.#pointerLockRequested &&
+            document.pointerLockElement !== canvas
+          ) {
+            void canvas.requestPointerLock();
+          }
+        },
+        { signal }
+      );
+    }
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        sendInput({ type: 'wheel', dx: event.deltaX, dy: event.deltaY });
+        event.preventDefault();
+      },
+      { passive: false, signal }
+    );
+    for (const eventName of ['keydown', 'keyup'] as const) {
+      canvas.addEventListener(
+        eventName,
+        (event) => {
+          let modifiers = 0;
+          if (event.shiftKey) modifiers |= 1;
+          if (event.ctrlKey) modifiers |= 2;
+          if (event.altKey) modifiers |= 4;
+          if (event.metaKey) modifiers |= 8;
+          sendInput({
+            type: 'key',
+            code: event.code,
+            pressed: eventName === 'keydown',
+            text: event.key || undefined,
+            modifiers,
+          });
+          event.preventDefault();
+        },
+        { signal }
+      );
+    }
+    for (const eventName of ['focus', 'blur'] as const) {
+      canvas.addEventListener(
+        eventName,
+        () => sendInput({ type: 'focus', focused: eventName === 'focus' }),
+        { signal }
+      );
+    }
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault(), {
+      signal,
+    });
+    document.addEventListener(
+      'pointerlockchange',
+      () => {
+        const locked = document.pointerLockElement === canvas;
+        sendInput({ type: 'pointerLock', locked });
+        if (!locked) this.#pointerLockRequested = false;
+      },
+      { signal }
+    );
+
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = new ResizeObserver(() => {
+      const { width, height } = this.#canvasSize(canvas);
+      sendInput({ type: 'resize', width, height });
+    });
+    this.#resizeObserver.observe(canvas);
+  }
+
+  #canvasSize(canvas: HTMLCanvasElement) {
+    const scale = window.devicePixelRatio || 1;
+    return {
+      width: Math.max(1, Math.round(canvas.clientWidth * scale)),
+      height: Math.max(1, Math.round(canvas.clientHeight * scale)),
+    };
+  }
+
+  #resizeCanvas(canvas: HTMLCanvasElement) {
+    const { width, height } = this.#canvasSize(canvas);
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  #replaceCanvas() {
+    if (!this.#canvas) return;
+    const replacement = this.#canvas.cloneNode(false) as HTMLCanvasElement;
+    this.#canvas.replaceWith(replacement);
+    this.#canvas = replacement;
+    this.#canvasTransferred = false;
+  }
+
+  #stopWorker() {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = undefined;
+    this.#pointerLockRequested = false;
+    if (document.pointerLockElement === this.#canvas) {
+      document.exitPointerLock();
+    }
+    const worker = this.#worker;
+    this.#worker = undefined;
+    if (!worker) return;
+    try {
+      worker.postMessage({ kind: 'destroy' });
+    } catch {
+      // A failed worker no longer needs a graceful destroy request.
+    }
+    window.setTimeout(() => worker.terminate(), 250);
+  }
+
+  #handleWorkerError(message: string) {
+    console.error('Lodestone renderer worker failed', message);
+    this.#abortController?.abort();
+    this.#stopWorker();
+    const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+    if (prompt) {
+      delete prompt.dataset.mounted;
+      delete prompt.dataset.ready;
+      delete prompt.dataset.loading;
+    }
+    if (this.#status) {
+      this.#status.textContent =
+        'The game could not be started. Close this window and try again.';
+    }
+    if (this.#startButton) {
+      this.#startButton.hidden = false;
+      this.#startButton.textContent = 'Try again';
+    }
+  }
+
+  #handleHostAction(action: LodestoneHostAction) {
+    if (action.type !== 'pointer-lock') return;
+    this.#pointerLockRequested = action.locked;
+    if (!action.locked && document.pointerLockElement === this.#canvas) {
+      document.exitPointerLock();
+    }
   }
 
   #recordDownload(stage: number, loaded: number, total: number) {
     this.#downloads.set(stage, { loaded, total });
+    if (this.#downloadProgressFrame !== undefined) return;
+    this.#downloadProgressFrame = requestAnimationFrame(() => {
+      this.#downloadProgressFrame = undefined;
+      this.#renderDownloadProgress();
+    });
+  }
+
+  #renderDownloadProgress() {
     const totals = [...this.#downloads.values()].reduce(
       (sum, current) => ({
         loaded: sum.loaded + current.loaded,
@@ -383,39 +603,63 @@ class LodestoneGameElement extends HTMLElement {
       }),
       { loaded: 0, total: 0 }
     );
-    this.#setStageProgress(
-      stage,
-      total ? loaded / total : 0,
-      `Downloading game files… ${formatMiB(totals.loaded)} / ${formatMiB(totals.total)}`
-    );
+    const message = `Downloading game files… ${formatMiB(totals.loaded)} / ${formatMiB(totals.total)}`;
+    for (const [stage, current] of this.#downloads) {
+      this.#setStageProgress(
+        stage,
+        current.total ? current.loaded / current.total : 0,
+        message
+      );
+    }
   }
 
   #handleProgress(event: LodestoneProgressEvent) {
-    if (event.type === 'starting') {
+    const type = event.type ?? event.phase;
+    if (type === 'starting') {
+      this.#setStageProgress(1, 1, 'Starting Minecraft…');
       this.#setStageProgress(
         4,
         Math.max(0.2, event.fraction),
         'Starting Minecraft…'
       );
-    } else if (event.type === 'started') {
+    } else if (type === 'started') {
       this.#setStageProgress(4, 1, 'Building the first frame…');
       this.#setStageProgress(5, 0.25, 'Building the first frame…');
-    } else if (event.type === 'first-frame') {
+      const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+      if (prompt) prompt.dataset.mounted = 'true';
+    } else if (type === 'first-frame') {
       this.#setStageProgress(5, 1, 'Ready');
-      this.shadowRoot?.querySelector<HTMLElement>('.prompt')?.remove();
-      this.#canvas?.focus();
-    } else if (event.type === 'first-frame-timeout') {
-      this.#setStageProgress(
-        5,
-        0,
-        'The renderer did not produce a frame. Close this window and try again.'
-      );
-    } else if (event.type === 'asset-error') {
+      this.#revealCanvas();
+    } else if (type === 'first-frame-timeout') {
+      // The page cannot inspect a WebGPU frame once its canvas is off-thread.
+      // Lodestone can already be interactive when its conservative watchdog
+      // expires, so never leave the fallback overlay intercepting input.
+      this.#setStageProgress(5, 1, 'Ready');
+      this.#revealCanvas();
+    } else if (type === 'asset-error') {
       this.#setStageProgress(
         4,
         0,
         'A required game file could not be installed.'
       );
+    }
+  }
+
+  #revealCanvas() {
+    if (this.#canvasRevealed) return;
+    this.#canvasRevealed = true;
+    const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+    if (prompt) {
+      prompt.dataset.ready = 'true';
+      window.setTimeout(() => prompt.remove(), 180);
+    }
+    this.#canvas?.focus();
+  }
+
+  #cancelScheduledWork() {
+    if (this.#downloadProgressFrame !== undefined) {
+      cancelAnimationFrame(this.#downloadProgressFrame);
+      this.#downloadProgressFrame = undefined;
     }
   }
 
@@ -442,7 +686,12 @@ class LodestoneGameElement extends HTMLElement {
     try {
       await shell.requestFullscreen();
       try {
-        await navigator.keyboard?.lock?.(['Escape']);
+        const keyboard = (
+          navigator as Navigator & {
+            keyboard?: { lock?: (keys: string[]) => Promise<void> };
+          }
+        ).keyboard;
+        await keyboard?.lock?.(['Escape']);
       } catch {
         // Keyboard Lock is a progressive enhancement; fullscreen still works.
       }
