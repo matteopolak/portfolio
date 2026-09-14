@@ -1,0 +1,373 @@
+---
+const starter = `# Sum the squares from 1 through 10
+let total = 0;
+
+for let i = 1; i < 11; i = i + 1 [
+  total = total + i * i;
+]
+
+print "sum of squares:";
+print total;`;
+---
+
+<dialog class="quasi-demo-modal" data-project-demo="quasi" aria-label="Quasi language playground">
+  <div class="quasi-demo-modal__panel" data-quasi-fullscreen-target>
+    <div class="quasi-demo-modal__controls">
+      <button type="button" data-quasi-fullscreen aria-label="Enter full screen" title="Full screen">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path>
+        </svg>
+      </button>
+      <button type="button" data-quasi-close aria-label="Close playground" title="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m5 5 14 14M19 5 5 19"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="quasi-playground__workspace">
+      <div class="quasi-playground__source">
+        <div class="quasi-editor__lines" data-quasi-lines aria-hidden="true">1</div>
+        <div class="quasi-editor__surface">
+          <pre class="quasi-editor__highlight" aria-hidden="true"><code data-quasi-highlight></code></pre>
+          <textarea
+            data-quasi-source
+            aria-label="Quasi source code"
+            spellcheck="false"
+            autocomplete="off">{starter}</textarea
+          >
+        </div>
+        <button type="button" data-quasi-run title="Run (Ctrl/Command + Enter)">Run</button>
+      </div>
+      <section class="quasi-playground__output" aria-label="Program output">
+        <pre data-quasi-output aria-live="polite">Run the program to see its output.</pre>
+      </section>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .quasi-demo-modal {
+    width: min(88vw, calc(86svh * 16 / 9), 88rem);
+    max-width: none;
+    height: fit-content;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    overflow: visible;
+    background: transparent;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .quasi-demo-modal[open] {
+    animation: quasi-demo-enter 210ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  }
+
+  .quasi-demo-modal[open][data-closing='true'] {
+    animation: quasi-demo-exit 160ms ease-in both;
+  }
+
+  .quasi-demo-modal::backdrop {
+    background: oklch(0% 0 0 / 0.3);
+    backdrop-filter: blur(0.45rem);
+    animation: quasi-backdrop-enter 210ms ease-out both;
+  }
+
+  .quasi-demo-modal[data-closing='true']::backdrop {
+    animation: quasi-backdrop-exit 160ms ease-in both;
+  }
+
+  @keyframes quasi-demo-enter {
+    from { opacity: 0; transform: translate(-50%, -48%) scale(0.975); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  @keyframes quasi-demo-exit {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to { opacity: 0; transform: translate(-50%, -48%) scale(0.985); }
+  }
+
+  @keyframes quasi-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes quasi-backdrop-exit { from { opacity: 1; } to { opacity: 0; } }
+
+  .quasi-demo-modal__panel {
+    position: relative;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 16 / 9;
+    overflow: visible;
+    background: var(--paper);
+  }
+
+  .quasi-demo-modal__panel:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    aspect-ratio: auto;
+  }
+
+  .quasi-demo-modal__controls {
+    position: absolute;
+    top: 0;
+    right: -3.4rem;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow: visible;
+  }
+
+  .quasi-demo-modal__controls button {
+    display: grid;
+    width: 2.65rem;
+    height: 2.65rem;
+    padding: 0;
+    place-items: center;
+    border: 1px solid oklch(100% 0 0 / 0.2);
+    color: white;
+    background: oklch(9% 0 0 / 0.78);
+    box-shadow: 0 0.35rem 1.1rem oklch(0% 0 0 / 0.3);
+    backdrop-filter: blur(0.45rem);
+    cursor: pointer;
+  }
+
+  .quasi-demo-modal__controls svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: square;
+    stroke-width: 2;
+  }
+
+  .quasi-demo-modal__controls button:hover {
+    background: var(--blue);
+  }
+
+  .quasi-demo-modal__controls button:last-child:hover {
+    background: var(--red);
+  }
+
+  .quasi-demo-modal__panel:fullscreen .quasi-demo-modal__controls {
+    top: 0.75rem;
+    right: 0.75rem;
+    flex-direction: row;
+  }
+
+  .quasi-playground__workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .quasi-playground__source,
+  .quasi-playground__output {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .quasi-playground__source {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    border-right: 1px solid oklch(20% 0 0 / 0.18);
+    background: oklch(98% 0.01 91);
+  }
+
+  .quasi-playground__output {
+    color: oklch(91% 0.01 91);
+    background: #111317;
+  }
+
+  .quasi-editor__lines {
+    height: 100%;
+    padding: 0.8rem 0.42rem;
+    overflow: hidden;
+    border-right: 1px solid oklch(20% 0 0 / 0.08);
+    color: oklch(42% 0 0 / 0.42);
+    font: 400 clamp(0.72rem, 1.2vw, 0.88rem) / 1.55 ui-monospace, SFMono-Regular, Menlo, Monaco,
+      Consolas, monospace;
+    text-align: right;
+    white-space: pre;
+    user-select: none;
+  }
+
+  .quasi-editor__surface {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .quasi-demo-modal textarea,
+  .quasi-demo-modal pre {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0.8rem;
+    border: 0;
+    outline: 0;
+    overflow: auto;
+    color: inherit;
+    background: transparent;
+    font: 500 clamp(0.72rem, 1.2vw, 0.88rem) / 1.55 ui-monospace, SFMono-Regular, Menlo, Monaco,
+      Consolas, monospace;
+    tab-size: 2;
+    white-space: pre;
+  }
+
+  .quasi-demo-modal textarea {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    display: block;
+    height: 100%;
+    padding-bottom: 4rem;
+    color: transparent;
+    caret-color: var(--ink);
+    resize: none;
+    scrollbar-width: none;
+  }
+
+  .quasi-demo-modal textarea::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quasi-editor__highlight {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    padding-bottom: 4rem;
+    overflow: hidden;
+    color: var(--ink);
+    pointer-events: none;
+  }
+
+  .quasi-editor__highlight :global(.token.comment) {
+    color: oklch(48% 0.03 145);
+  }
+
+  .quasi-editor__highlight :global(.token.keyword),
+  .quasi-editor__highlight :global(.token.boolean) {
+    color: var(--red);
+    font-weight: 700;
+  }
+
+  .quasi-editor__highlight :global(.token.string),
+  .quasi-editor__highlight :global(.token.char) {
+    color: oklch(47% 0.15 145);
+  }
+
+  .quasi-editor__highlight :global(.token.number),
+  .quasi-editor__highlight :global(.token.operator) {
+    color: var(--blue);
+  }
+
+  .quasi-editor__highlight :global(.token.function) {
+    color: oklch(48% 0.15 60);
+  }
+
+  .quasi-playground__output pre[data-stream='stderr'] {
+    color: oklch(73% 0.19 28);
+  }
+
+  .quasi-playground__source > button {
+    position: absolute;
+    z-index: 2;
+    right: 0.8rem;
+    bottom: 0.8rem;
+    min-width: 4.5rem;
+    min-height: 2.4rem;
+    padding: 0.45rem 0.85rem;
+    border: 0;
+    color: var(--paper);
+    background: var(--red);
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .quasi-playground__source > button:hover {
+    background: var(--blue);
+  }
+
+  .quasi-playground__source > button:disabled {
+    opacity: 0.72;
+    cursor: wait;
+  }
+
+  .quasi-playground__source > button[data-running] {
+    color: transparent;
+  }
+
+  .quasi-playground__source > button[data-running]::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.9rem;
+    aspect-ratio: 1;
+    border: 0.14rem solid oklch(98% 0.01 91 / 0.38);
+    border-top-color: var(--paper);
+    border-radius: 50%;
+    content: '';
+    animation: quasi-run-spinner 620ms linear infinite;
+  }
+
+  @keyframes quasi-run-spinner {
+    from { transform: translate(-50%, -50%) rotate(0); }
+    to { transform: translate(-50%, -50%) rotate(1turn); }
+  }
+
+  .quasi-demo-modal button:focus-visible {
+    outline: 3px solid var(--yellow);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 42rem) {
+    .quasi-demo-modal {
+      width: 96vw;
+    }
+
+    .quasi-demo-modal__panel {
+      height: 82svh;
+      aspect-ratio: auto;
+    }
+
+    .quasi-demo-modal__controls {
+      top: -2.85rem;
+      right: 0;
+      flex-direction: row;
+      gap: 0.35rem;
+    }
+
+    .quasi-demo-modal__controls button {
+      width: 2.35rem;
+      height: 2.35rem;
+    }
+
+    .quasi-playground__workspace {
+      grid-template-columns: none;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .quasi-playground__source {
+      border-right: 0;
+      border-bottom: 1px solid oklch(100% 0 0 / 0.18);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .quasi-demo-modal,
+    .quasi-demo-modal::backdrop { animation: none !important; }
+
+    .quasi-playground__source > button[data-running]::after { animation: none; }
+  }
+</style>

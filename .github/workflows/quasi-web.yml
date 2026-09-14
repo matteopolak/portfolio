@@ -1,0 +1,193 @@
+name: Publish Quasi web build
+
+on:
+  workflow_dispatch:
+    inputs:
+      quasi_ref:
+        description: Quasi branch, tag, or commit to build
+        required: true
+        default: main
+      update_repository:
+        description: How to trigger the website rebuild
+        required: true
+        type: choice
+        default: pointer
+        options:
+          - pointer
+          - assets
+          - none
+
+concurrency:
+  group: quasi-web-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: quasi-web-latest
+  QUASI_REPOSITORY: matteopolak/quasi
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: check out portfolio default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: check out quasi
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.QUASI_REPOSITORY }}
+          ref: ${{ inputs.quasi_ref }}
+          path: .build/quasi
+
+      - name: install rust and the webassembly target
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: cache rust builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .build/quasi -> target
+
+      - name: install wasm-bindgen cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.92
+
+      - name: adapt timeout handling for a browser worker
+        run: |
+          git -C .build/quasi apply --check "$GITHUB_WORKSPACE/scripts/quasi-browser-worker.patch"
+          git -C .build/quasi apply "$GITHUB_WORKSPACE/scripts/quasi-browser-worker.patch"
+
+      - name: build browser module
+        env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: z
+          CARGO_PROFILE_RELEASE_LTO: fat
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '1'
+          CARGO_PROFILE_RELEASE_PANIC: abort
+          CARGO_PROFILE_RELEASE_DEBUG: '0'
+          CARGO_PROFILE_RELEASE_STRIP: symbols
+        run: |
+          cargo build \
+            --manifest-path .build/quasi/wasm/Cargo.toml \
+            --target wasm32-unknown-unknown \
+            --release
+          mkdir -p .build/quasi-dist
+          wasm-bindgen \
+            .build/quasi/target/wasm32-unknown-unknown/release/wasm.wasm \
+            --target web \
+            --out-dir "$GITHUB_WORKSPACE/.build/quasi-dist" \
+            --out-name quasi
+          rm -f .build/quasi-dist/quasi.d.ts \
+            .build/quasi-dist/quasi_bg.wasm.d.ts
+
+      - name: smoke-test the generated interpreter
+        run: |
+          node --input-type=module -e "
+            import { readFile } from 'node:fs/promises';
+            import init, { execute } from './.build/quasi-dist/quasi.js';
+            await init(await readFile('./.build/quasi-dist/quasi_bg.wasm'));
+            const output = execute(new TextEncoder().encode('print 1 + 2;'), 0n);
+            if (output.trim() !== '3') throw new Error('unexpected output: ' + output);
+          "
+
+      - name: package bundle and metadata
+        id: bundle
+        run: |
+          revision="$(git -C .build/quasi rev-parse HEAD)"
+          short_revision="${revision:0:12}"
+          asset="quasi-web-${short_revision}.tar.gz"
+          tar -C .build/quasi-dist -czf ".build/${asset}" .
+          digest="$(sha256sum ".build/${asset}" | cut -d ' ' -f 1)"
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg tag "$RELEASE_TAG" \
+            --arg bundleAsset "$asset" \
+            --arg sha256 "$digest" \
+            --arg quasiRevision "$revision" \
+            '{enabled:true,repository:$repository,tag:$tag,bundleAsset:$bundleAsset,sha256:$sha256,quasiRevision:$quasiRevision}' \
+            > .build/quasi-web-release.json
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: retain workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quasi-web-${{ steps.bundle.outputs.revision }}
+          path: |
+            .build/${{ steps.bundle.outputs.asset }}
+            .build/quasi-web-release.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: create or update prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Quasi web build'
+          else
+            gh release create "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Quasi web build' --notes 'Automated browser interpreter build.'
+          fi
+          gh release upload "$RELEASE_TAG" ".build/${{ steps.bundle.outputs.asset }}" --clobber
+          gh release upload "$RELEASE_TAG" .build/quasi-web-release.json --clobber
+
+      - name: install pnpm
+        if: ${{ inputs.update_repository != 'none' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: install node.js
+        if: ${{ inputs.update_repository != 'none' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: install portfolio dependencies
+        if: ${{ inputs.update_repository != 'none' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: update repository deployment pointer
+        if: ${{ inputs.update_repository != 'none' }}
+        env:
+          UPDATE_MODE: ${{ inputs.update_repository }}
+        run: |
+          cp .build/quasi-web-release.json quasi-web-release.json
+          if [ "$UPDATE_MODE" = assets ]; then
+            node scripts/sync-quasi-web.mjs
+            git add -f public/quasi
+          fi
+          pnpm lint
+          pnpm build
+          git add quasi-web-release.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if git diff --cached --quiet; then
+            echo 'Repository already points to this Quasi build.'
+          else
+            git commit -m "chore: update Quasi web build to ${{ steps.bundle.outputs.revision }}"
+            git push origin "HEAD:${{ github.event.repository.default_branch }}"
+          fi
+
+      - name: remove superseded release bundles
+        if: ${{ inputs.update_repository != 'none' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' > .build/release-assets.txt
+          while IFS= read -r asset; do
+            case "$asset" in
+              "${{ steps.bundle.outputs.asset }}"|quasi-web-release.json) ;;
+              '') ;;
+              *) gh release delete-asset "$RELEASE_TAG" "$asset" --yes ;;
+            esac
+          done < .build/release-assets.txt

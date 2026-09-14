@@ -1,8 +1,3 @@
 {
-  "enabled": true,
-  "repository": "matteopolak/portfolio",
-  "tag": "lodestone-web-latest",
-  "bundleAsset": "lodestone-web-2f629a6e76fe.tar.gz",
-  "sha256": "0ff7ca48b63b0284fac471dbb1fd41f84c7ec92b97be982ebd2606b7123149c0",
-  "lodestoneRevision": "2f629a6e76fe7979a80ca7c77c6f2b3274001578"
+  "enabled": false
 }

@@ -5,8 +5,11 @@ import GeometricMark from './GeometricMark.astro';
 
 <header class="home-hero">
   <div class="home-hero__copy">
-    <span class="page-intro__index home-hero__index">01</span>
-    <h1 data-optically-align>{config.name}</h1>
+    <div
+      class="page-intro__index page-intro__index--home home-hero__index"
+      aria-hidden="true"
+    ></div>
+    <h1>{config.name}</h1>
     <address class="home-hero__contact">
       <span class="home-hero__location">
         <GeometricMark name="canada" />
@@ -53,7 +56,6 @@ import GeometricMark from './GeometricMark.astro';
     font-weight: 800;
     line-height: 0.78;
     letter-spacing: -0.075em;
-    transform: translateX(var(--heading-side-bearing, 0px));
   }
 
   .home-hero__index {
@@ -102,36 +104,3 @@ import GeometricMark from './GeometricMark.astro';
     }
   }
 </style>
-
-<script>
-  const alignHomepageName = async () => {
-    const heading = document.querySelector<HTMLElement>('[data-optically-align]');
-    if (!heading) return;
-
-    await document.fonts.ready;
-
-    const styles = getComputedStyle(heading);
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    context.font = [
-      styles.fontStyle,
-      styles.fontVariant,
-      styles.fontWeight,
-      styles.fontSize,
-      styles.fontFamily,
-    ].join(' ');
-
-    const metrics = context.measureText(heading.textContent?.trim() ?? '');
-    const sideBearing = metrics.actualBoundingBoxLeft;
-    heading.style.setProperty(
-      '--heading-side-bearing',
-      `${Number.isFinite(sideBearing) ? sideBearing : 0}px`,
-    );
-  };
-
-  void alignHomepageName();
-  document.addEventListener('astro:page-load', alignHomepageName);
-  window.addEventListener('resize', alignHomepageName);
-</script>
