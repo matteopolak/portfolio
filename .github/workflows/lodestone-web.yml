@@ -64,10 +64,17 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      - name: read wasm-bindgen version
+        id: wasm_bindgen
+        working-directory: .build/lodestone
+        run: |
+          version="$(python3 -c 'import pathlib, tomllib; lock = tomllib.loads(pathlib.Path("Cargo.lock").read_text()); print(next(package["version"] for package in lock["package"] if package["name"] == "wasm-bindgen"))')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: install browser build tools
         uses: taiki-e/install-action@v2
         with:
-          tool: just,trunk@0.21.14
+          tool: just,trunk@0.21.14,wasm-bindgen-cli@${{ steps.wasm_bindgen.outputs.version }}
 
       - name: fetch browser assets and generated reports
         working-directory: .build/lodestone
