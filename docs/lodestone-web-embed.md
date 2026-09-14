@@ -10,8 +10,9 @@ the static site at build time.
 ## How it works
 
 `.github/workflows/lodestone-web.yml` checks out the selected Lodestone commit,
-populates its Minecraft 26.2 build cache, and runs `just wasm-sdk`. That command
-is Lodestone's canonical packaging recipe and emits
+populates its Minecraft 26.2 build cache, installs the `wasm-bindgen` CLI version
+matching Lodestone's locked Rust crate, and runs `just wasm-sdk`. That command is
+Lodestone's canonical packaging recipe and emits
 `lodestone-web-sdk.tar.gz` plus `lodestone-web-sdk.manifest.json`; the portfolio
 uploads both files unchanged. The manifest records the source commit, hashed
 ESM entrypoint, archive digest and size, and every member's digest and size.
@@ -80,7 +81,7 @@ release assets are removed only after the new pointer/build step succeeds.
 ## Dependencies
 
 The embed uses Astro, WebGPU, GitHub Releases, GitHub Actions, Lodestone's
-wasm-bindgen SDK, Rust, Trunk, Java 25, and Minecraft 26.2 build inputs. The SDK
-archive contains Lodestone's filtered render resource pack and generated block
-report; optional title panorama, sound assets, standalone page, diagnostics,
-and consumer presentation are excluded.
+wasm-bindgen SDK and matching CLI, Rust, Trunk, Java 25, and Minecraft 26.2 build
+inputs. The SDK archive contains Lodestone's filtered render resource pack and
+generated block report; optional title panorama, sound assets, standalone page,
+diagnostics, and consumer presentation are excluded.
