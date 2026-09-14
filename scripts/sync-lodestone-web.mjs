@@ -203,7 +203,14 @@ function parseManifest(bytes) {
     if (seen.has(entry.path)) throw new Error(`duplicate SDK path: ${entry.path}`);
     seen.add(entry.path);
   }
-  for (const required of [manifest.entrypoint, 'client.jar', 'blocks.json']) {
+  for (const required of [
+    manifest.entrypoint,
+    'lodestone-web-entry.js',
+    'lodestone-web-entry_bg.wasm',
+    'lodestone-render-worker.js',
+    'client.jar',
+    'blocks.json',
+  ]) {
     if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
   }
   return manifest;

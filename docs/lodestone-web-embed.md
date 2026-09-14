@@ -29,26 +29,37 @@ Release downloads retry transient HTTP and network failures with bounded
 exponential backoff. Permanent HTTP errors still fail immediately, and a retry
 never weakens the manifest, archive, or per-file digest checks.
 
-`src/lib/lodestone-game.ts` reads the staged manifest and imports its hashed ESM
-entrypoint with a runtime URL. It downloads the page Wasm, filtered resource
-pack, and block report in parallel with streamed progress, initializes the
-module, and calls `mount({ canvas, clientJar, blocksJson, onProgress })`. The
-portfolio owns the loading surface, fullscreen controls, and canvas; the SDK
+`src/lib/lodestone-game.ts` reads the staged manifest and downloads the filtered
+resource pack and block report in parallel. The buffers are assembled through
+`Blob` rather than a large JavaScript copy loop, and progress DOM writes are
+limited to one animation frame. It sizes a fresh HTML canvas, transfers its
+`OffscreenCanvas` plus both asset buffers to the package's canonical
+`lodestone-render-worker.js`, and then relinquishes those transferable objects.
+The worker initializes wasm-bindgen and calls
+`mount({ canvas, clientJar, blocksJson, onProgress, onHostAction })`, keeping
+Wasm compilation, resource installation, renderer initialization, simulation,
+and rendering away from the page's main thread.
+
+The portfolio owns the loading surface, fullscreen controls, and canvas; the SDK
 supplies structured lifecycle events and never inserts its own iframe, loader,
-CSS, or service worker.
+CSS, or service worker. The loading surface stops accepting pointer input as
+soon as the SDK reports `started`, then fades away after `first-frame`. The
+current SDK can conservatively emit `first-frame-timeout` after an interactive
+WebGPU frame is already visible, so that fallback also releases the overlay;
+explicit worker errors remain visible.
 
-The SDK's returned handle is retained for exactly one mounted custom element.
+The render worker retains the SDK handle for exactly one mounted custom element.
 Closing the project modal, navigating away, or otherwise disconnecting the
-element aborts unfinished downloads and calls the idempotent `destroy()` method.
-That releases Lodestone listeners, observers, workers, audio/render loops, and
-its active-mount lease so the same module can be cleanly mounted again. One
-initialized module keeps one immutable asset bundle, so changing SDK contents
-requires loading a newly hashed entrypoint.
+element aborts unfinished downloads, sends the worker an idempotent `destroy`
+request, disconnects the page's resize and input bridges, and terminates the
+worker. A transferred canvas cannot be reused, so retries and remounts replace
+it with a fresh canvas before starting a fresh worker.
 
-`destroy()` requests teardown immediately, while the structured `destroyed`
-event is delayed until the old browser event loop and renderer have actually
-dropped. If a new `mount()` begins during that short interval, the SDK waits for
-the teardown boundary instead of racing the previous WebGPU session.
+The page forwards pointer position and motion, mouse buttons, wheel input,
+keyboard state, focus, backing-size changes, and actual pointer-lock state to
+the worker. Lodestone requests pointer lock through `onHostAction`; the page
+performs the user-gesture-gated DOM operation and reports the resulting state
+back to the worker.
 
 Fullscreen is portfolio-owned. Chromium's Keyboard Lock API is requested for
 Escape when available so inventory interactions do not immediately collapse
@@ -56,8 +67,8 @@ fullscreen; the overlay explains the browser's hold-Escape exit gesture.
 
 ## How to change it
 
-Change loader styling, progress wording, focus, or fullscreen behavior in
-`src/lib/lodestone-game.ts`. Keep SDK API changes in Lodestone's
+Change loader styling, progress wording, the input bridge, focus, or fullscreen
+behavior in `src/lib/lodestone-game.ts`. Keep SDK API changes in Lodestone's
 `web/src/embed.rs`, then republish via the workflow rather than patching emitted
 JavaScript or renaming archive members. The sync script deliberately rejects a
 dirty SDK package, unexpected schema, changed inventory, unsafe path, mismatched
@@ -81,15 +92,18 @@ release assets are removed only after the new pointer/build step succeeds.
   SDK release is published.
 - Cloudflare Pages should run `pnpm build` and publish `dist/`.
 - COOP `same-origin` and COEP `require-corp` response headers enable Lodestone's
-  threaded worker path. Without cross-origin isolation, its packaged serial
-  worker fallback remains available.
+  threaded worker path. `public/_headers` configures the static deployment, and
+  `astro.config.ts` applies the same headers to local development and preview.
+  Without cross-origin isolation, its packaged serial worker fallback remains
+  available.
 
 ## Dependencies
 
-The embed uses Astro, WebGPU, GitHub Releases, GitHub Actions, Lodestone's
-wasm-bindgen SDK and matching CLI, Rust nightly with `rust-src`, Trunk, Java 25,
-and Minecraft 26.2 build inputs. `rust-src` is required because Lodestone's
-threaded Wasm worker builds its standard library for the browser target. The SDK
-archive contains Lodestone's filtered render resource pack and generated block
-report; optional title panorama, sound assets, standalone page, diagnostics,
-and consumer presentation are excluded.
+The embed uses Astro, WebGPU, `OffscreenCanvas`, Web Workers, GitHub Releases,
+GitHub Actions, Lodestone's wasm-bindgen SDK and matching CLI, Rust nightly with
+`rust-src`, Trunk, Java 25, and Minecraft 26.2 build inputs. `rust-src` is
+required because Lodestone's threaded Wasm worker builds its standard library
+for the browser target. The SDK archive contains Lodestone's canonical render
+worker, filtered render resource pack, and generated block report; optional
+title panorama, sound assets, standalone page, diagnostics, and consumer
+presentation are excluded.

@@ -32,6 +32,7 @@ print total;`;
           <pre class="quasi-editor__highlight" aria-hidden="true"><code data-quasi-highlight></code></pre>
           <textarea
             data-quasi-source
+            data-project-demo-scroll
             aria-label="Quasi source code"
             spellcheck="false"
             autocomplete="off">{starter}</textarea
@@ -40,7 +41,7 @@ print total;`;
         <button type="button" data-quasi-run title="Run (Ctrl/Command + Enter)">Run</button>
       </div>
       <section class="quasi-playground__output" aria-label="Program output">
-        <pre data-quasi-output aria-live="polite">Run the program to see its output.</pre>
+        <pre data-quasi-output data-project-demo-scroll aria-live="polite">Run the program to see its output.</pre>
       </section>
     </div>
   </div>
@@ -221,6 +222,10 @@ print total;`;
       Consolas, monospace;
     tab-size: 2;
     white-space: pre;
+  }
+
+  [data-project-demo-scroll] {
+    overscroll-behavior: contain;
   }
 
   .quasi-demo-modal textarea {

@@ -7,6 +7,18 @@ export default defineConfig({
   output: 'static',
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
+    },
+    preview: {
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
+    },
   },
   trailingSlash: 'never',
   build: {
