@@ -6,9 +6,12 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "predev": "pnpm generate:favicons && pnpm sync:web-assets",
     "dev": "astro dev",
-    "prebuild": "node scripts/sync-lodestone-web.mjs",
+    "prebuild": "pnpm generate:favicons && pnpm sync:web-assets",
     "build": "astro build",
+    "generate:favicons": "node scripts/generate-favicons.mjs",
+    "sync:web-assets": "node scripts/sync-lodestone-web.mjs && node scripts/sync-quasi-web.mjs",
     "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
     "resume:job": "node scripts/build-job-resume.mjs",
     "resume:batch": "node scripts/resume/build-batch.mjs",
@@ -26,11 +29,13 @@
     "format:check": "oxfmt --check"
   },
   "dependencies": {
+    "@fontsource-variable/open-sans": "^5.3.0",
     "@lucide/astro": "^0.577.0",
     "@shikijs/transformers": "^4.0.2",
     "@tailwindcss/vite": "^4.2.2",
     "astro": "^6.0.7",
     "daisyui": "^5.5.19",
+    "prismjs": "^1.30.0",
     "smol-toml": "^1.6.0",
     "tailwindcss": "^4.2.2"
   },
@@ -40,6 +45,7 @@
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "pdfjs-dist": "^6.1.200",
+    "sharp": "^0.34.5",
     "typescript-eslint": "^8.57.1"
   }
 }

@@ -6,4 +6,4 @@ repository: https://github.com/matteopolak/quasi
 component: quasi
 ---
 
-Quasi is an interpreted programming language with similar features to many mainstream languages. It supports variables, scopes, functions, expressions, and more.
+A complete interpreted-language pipeline with tokenization, parsing, scoped evaluation, functions, and expressions, designed to run both natively and in the browser.

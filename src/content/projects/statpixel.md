@@ -6,4 +6,4 @@ repository: https://github.com/statpixel-rs/statpixel
 website: https://statpixel.xyz
 ---
 
-StatPixel is a Discord bot that gives users access to huge amounts of data about Hypixel player performance, history, statistics, and much more, all in Discord.
+A Discord-native analytics service that ingests and stores Hypixel player history, computes performance changes, and renders dense statistics into shareable visual reports.

@@ -1,4 +1,4 @@
-name: Publish Lodestone web build
+name: Publish Lodestone web SDK
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         default: main
       update_repository:
-        description: How to trigger the website rebuild (committing assets grows git history quickly)
+        description: How to trigger the website rebuild
         required: true
         type: choice
         default: pointer
@@ -16,11 +16,6 @@ on:
           - pointer
           - assets
           - none
-      include_sounds:
-        description: Download the non-music sound corpus before staging the curated browser subset
-        required: true
-        type: boolean
-        default: true
 
 concurrency:
   group: lodestone-web-publish
@@ -38,43 +33,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Check out portfolio default branch
-        uses: actions/checkout@v4
+      - name: check out portfolio default branch
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: Check out Lodestone
-        uses: actions/checkout@v4
+      - name: check out lodestone
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.LODESTONE_REPOSITORY }}
           ref: ${{ inputs.lodestone_ref }}
           path: .build/lodestone
           token: ${{ secrets.LODESTONE_REPOSITORY_TOKEN || github.token }}
 
-      - name: Install Rust and the WebAssembly target
+      - name: install rust and the webassembly target
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-08-07
           targets: wasm32-unknown-unknown
 
-      - name: Cache Rust builds and Minecraft downloads
+      - name: cache rust builds and minecraft downloads
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: .build/lodestone -> target
           cache-directories: .build/lodestone/.cache/mc/26.2
 
-      - name: Install Java
+      - name: install java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
 
-      - name: Install Trunk
+      - name: install browser build tools
         uses: taiki-e/install-action@v2
         with:
-          tool: trunk@0.21.14
+          tool: just,trunk@0.21.14
 
-      - name: Fetch browser assets and generated reports
+      - name: fetch browser assets and generated reports
         working-directory: .build/lodestone
         run: |
           cargo run --release -p xtask -- fetch-assets --version 26.2
@@ -82,92 +77,75 @@ jobs:
           cd .cache/mc/26.2
           java -DbundlerMainClass=net.minecraft.data.Main -jar server.jar --reports
 
-      - name: Fetch browser sound corpus
-        if: ${{ inputs.include_sounds }}
+      - name: build canonical browser sdk
         working-directory: .build/lodestone
-        run: cargo run --release -p xtask -- fetch-sounds --version 26.2 --jobs 12
+        run: just wasm-sdk
 
-      - name: Build singleplayer-only WebAssembly game
-        working-directory: .build/lodestone/web
-        env:
-          LODESTONE_WEB_CLIENT_JAR_PARTS: '1'
-        run: trunk build --release --no-default-features --public-url /lodestone/ --dist "$GITHUB_WORKSPACE/.build/lodestone-dist"
-
-      - name: Enforce Cloudflare and multiplayer confinement
-        run: |
-          node scripts/prepare-lodestone-release.mjs .build/lodestone-dist
-          cd .build/lodestone
-          cargo tree --manifest-path web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e features > ../lodestone-features.txt
-          grep -Fq 'lodestone-shell feature "live"' ../lodestone-features.txt
-          if grep -Fq 'lodestone-shell feature "multiplayer"' ../lodestone-features.txt; then
-            echo 'error: the multiplayer feature was enabled in the website build' >&2
-            exit 1
-          fi
-          cargo tree --manifest-path web/Cargo.toml --target wasm32-unknown-unknown --no-default-features -e normal --prefix none > ../lodestone-packages.txt
-          grep -Eq '^lodestone-shell ' ../lodestone-packages.txt
-          if grep -Eq '^lodestone-relay( |$)' ../lodestone-packages.txt; then
-            echo 'error: lodestone-relay is reachable from the singleplayer website build' >&2
-            exit 1
-          fi
-
-      - name: Package bundle and metadata
+      - name: verify and describe release assets
         id: bundle
         run: |
-          revision="$(git -C .build/lodestone rev-parse HEAD)"
-          short_revision="${revision:0:12}"
-          asset="lodestone-web-${short_revision}.tar.gz"
-          tar -C .build/lodestone-dist -czf ".build/${asset}" .
-          digest="$(sha256sum ".build/${asset}" | cut -d ' ' -f 1)"
+          archive=.build/lodestone/target/wasm-sdk/lodestone-web-sdk.tar.gz
+          manifest=.build/lodestone/target/wasm-sdk/lodestone-web-sdk.manifest.json
+          revision="$(jq -er '.commit' "$manifest")"
+          archive_digest="$(jq -er '.archive.sha256' "$manifest")"
+          test "$(sha256sum "$archive" | cut -d ' ' -f 1)" = "$archive_digest"
+          manifest_digest="$(sha256sum "$manifest" | cut -d ' ' -f 1)"
           jq -n \
             --arg repository "$GITHUB_REPOSITORY" \
             --arg tag "$RELEASE_TAG" \
-            --arg bundleAsset "$asset" \
-            --arg sha256 "$digest" \
+            --arg manifestAsset "lodestone-web-sdk.manifest.json" \
+            --arg manifestSha256 "$manifest_digest" \
             --arg lodestoneRevision "$revision" \
-            '{enabled:true,repository:$repository,tag:$tag,bundleAsset:$bundleAsset,sha256:$sha256,lodestoneRevision:$lodestoneRevision}' \
+            '{enabled:true,repository:$repository,tag:$tag,manifestAsset:$manifestAsset,manifestSha256:$manifestSha256,lodestoneRevision:$lodestoneRevision}' \
             > .build/lodestone-web-release.json
-          echo "asset=$asset" >> "$GITHUB_OUTPUT"
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
-      - name: Retain workflow artifact
+      - name: retain workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: lodestone-web-${{ steps.bundle.outputs.revision }}
           path: |
-            .build/${{ steps.bundle.outputs.asset }}
+            .build/lodestone/target/wasm-sdk/lodestone-web-sdk.tar.gz
+            .build/lodestone/target/wasm-sdk/lodestone-web-sdk.manifest.json
             .build/lodestone-web-release.json
           retention-days: 30
           if-no-files-found: error
 
-      - name: Create or update prerelease
+      - name: create or update prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Lodestone web build'
+            gh release edit "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Lodestone web SDK'
           else
-            gh release create "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Lodestone web build' --notes 'Automated singleplayer-only browser build.'
+            gh release create "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Lodestone web SDK' --notes 'Canonical embeddable browser SDK built by Lodestone.'
           fi
-          gh release upload "$RELEASE_TAG" ".build/${{ steps.bundle.outputs.asset }}" --clobber
-          gh release upload "$RELEASE_TAG" .build/lodestone-web-release.json --clobber
+          gh release upload "$RELEASE_TAG" \
+            .build/lodestone/target/wasm-sdk/lodestone-web-sdk.tar.gz \
+            .build/lodestone/target/wasm-sdk/lodestone-web-sdk.manifest.json \
+            .build/lodestone-web-release.json \
+            --clobber
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - name: install pnpm
+        if: ${{ inputs.update_repository != 'none' }}
+        uses: pnpm/action-setup@v6
         with:
           version: 10.32.1
           run_install: false
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - name: install node.js
+        if: ${{ inputs.update_repository != 'none' }}
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install portfolio dependencies
+      - name: install portfolio dependencies
+        if: ${{ inputs.update_repository != 'none' }}
         run: pnpm install --frozen-lockfile
 
-      - name: Update repository deployment pointer
+      - name: update repository deployment pointer
         if: ${{ inputs.update_repository != 'none' }}
         env:
           UPDATE_MODE: ${{ inputs.update_repository }}
@@ -177,19 +155,20 @@ jobs:
             node scripts/sync-lodestone-web.mjs
             git add -f public/lodestone
           fi
+          pnpm format:check
           pnpm lint
           pnpm build
           git add lodestone-web-release.json
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           if git diff --cached --quiet; then
-            echo 'Repository already points to this Lodestone build.'
+            echo 'repository already points to this Lodestone SDK'
           else
-            git commit -m "chore: update Lodestone web build to ${{ steps.bundle.outputs.revision }}"
+            git commit -m "chore: update Lodestone web SDK to ${{ steps.bundle.outputs.revision }}"
             git push origin "HEAD:${{ github.event.repository.default_branch }}"
           fi
 
-      - name: Remove superseded release bundles
+      - name: remove superseded release assets
         if: ${{ inputs.update_repository != 'none' }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -197,8 +176,7 @@ jobs:
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' > .build/release-assets.txt
           while IFS= read -r asset; do
             case "$asset" in
-              "${{ steps.bundle.outputs.asset }}"|lodestone-web-release.json) ;;
-              '') ;;
+              lodestone-web-sdk.tar.gz|lodestone-web-sdk.manifest.json|lodestone-web-release.json|'') ;;
               *) gh release delete-asset "$RELEASE_TAG" "$asset" --yes ;;
             esac
           done < .build/release-assets.txt

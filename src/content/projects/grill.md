@@ -5,4 +5,4 @@ tags: [python, pytorch, deep learning, computer vision, efficientnet]
 repository: https://github.com/matteopolak/grill
 ---
 
-Grill is an AI-powered recipe-to-ingredients converter. It uses a deep learning model to analyze images of food and extract the ingredients used in the recipe.
+An end-to-end computer-vision pipeline that trains and serves a food classifier to infer the likely ingredients in a prepared dish from a single photograph.

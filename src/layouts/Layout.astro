@@ -6,6 +6,7 @@ import BauhausField from '../components/BauhausField.astro';
 import { ClientRouter } from 'astro:transitions';
 
 import config from '../lib/config';
+import { canonicalPathname } from '../lib/urls';
 
 interface Props {
   title: string;
@@ -15,7 +16,8 @@ interface Props {
 }
 
 const { title, description, type, publishedTime } = Astro.props;
-const isHome = Astro.url.pathname === '/';
+const isHome = canonicalPathname(Astro.url.pathname) === '/';
+const documentTitle = isHome ? `${config.name} — Software Engineer` : `${title} — ${config.name}`;
 ---
 
 <!doctype html>
@@ -23,7 +25,8 @@ const isHome = Astro.url.pathname === '/';
   <head>
     <ClientRouter />
     <Head
-      title={`${config.name} — ${title}`}
+      title={documentTitle}
+      pageTitle={title}
       description={description}
       type={type}
       publishedTime={publishedTime}

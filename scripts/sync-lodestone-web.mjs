@@ -1,8 +1,16 @@
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, normalize, resolve, sep } from 'node:path';
-import { spawn } from 'node:child_process';
 
 const root = resolve(import.meta.dirname, '..');
 const pointerPath = join(root, 'lodestone-web-release.json');
@@ -11,15 +19,15 @@ const stampPath = join(outputPath, '.lodestone-bundle.json');
 
 const pointer = JSON.parse(await readFile(pointerPath, 'utf8'));
 if (!pointer.enabled) {
-  console.log('Lodestone web bundle is not published yet; skipping sync.');
+  console.log('Lodestone web SDK is not published yet; skipping sync.');
   process.exit(0);
 }
 
 for (const [name, value] of Object.entries({
   repository: pointer.repository,
   tag: pointer.tag,
-  bundleAsset: pointer.bundleAsset,
-  sha256: pointer.sha256,
+  manifestAsset: pointer.manifestAsset,
+  manifestSha256: pointer.manifestSha256,
 })) {
   if (typeof value !== 'string' || !value) {
     throw new Error(`lodestone-web-release.json has no valid ${name}`);
@@ -28,60 +36,82 @@ for (const [name, value] of Object.entries({
 if (!/^[\w.-]+\/[\w.-]+$/.test(pointer.repository)) {
   throw new Error('invalid GitHub repository in lodestone-web-release.json');
 }
-if (!/^[\w.-]+$/.test(pointer.tag) || !/^[\w.-]+\.tar\.gz$/.test(pointer.bundleAsset)) {
-  throw new Error('invalid Lodestone release tag or bundle asset name');
+if (
+  !/^[\w.-]+$/.test(pointer.tag) ||
+  pointer.manifestAsset !== 'lodestone-web-sdk.manifest.json'
+) {
+  throw new Error('invalid Lodestone release tag or manifest asset name');
 }
-if (!/^[a-f0-9]{64}$/.test(pointer.sha256)) {
-  throw new Error('invalid Lodestone bundle SHA-256');
+if (!/^[a-f0-9]{64}$/.test(pointer.manifestSha256)) {
+  throw new Error('invalid Lodestone manifest SHA-256');
 }
 
 try {
   const stamp = JSON.parse(await readFile(stampPath, 'utf8'));
-  if (stamp.sha256 === pointer.sha256) {
-    console.log(`Lodestone web assets are current (${pointer.sha256.slice(0, 12)}).`);
+  if (stamp.manifestSha256 === pointer.manifestSha256) {
+    console.log(
+      `Lodestone web SDK is current (${pointer.manifestSha256.slice(0, 12)}).`
+    );
     process.exit(0);
   }
 } catch {
   // A missing or malformed stamp means the generated directory needs a refresh.
 }
 
-const temporaryRoot = await mkdtemp(join(tmpdir(), 'lodestone-web-'));
-const archivePath = join(temporaryRoot, 'bundle.tar.gz');
+const temporaryRoot = await mkdtemp(join(tmpdir(), 'lodestone-web-sdk-'));
+const archivePath = join(temporaryRoot, 'lodestone-web-sdk.tar.gz');
 const unpackPath = join(temporaryRoot, 'unpacked');
-const url = `https://github.com/${pointer.repository}/releases/download/${pointer.tag}/${pointer.bundleAsset}`;
+const releaseRoot = `https://github.com/${pointer.repository}/releases/download/${pointer.tag}`;
 
 try {
-  console.log(`Downloading Lodestone ${pointer.lodestoneRevision ?? 'web bundle'}…`);
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) {
-    throw new Error(`download failed with HTTP ${response.status}: ${url}`);
+  console.log(`Downloading Lodestone ${pointer.lodestoneRevision ?? 'web SDK'}…`);
+  const manifestBytes = await download(
+    `${releaseRoot}/${pointer.manifestAsset}`
+  );
+  verifyDigest(
+    manifestBytes,
+    pointer.manifestSha256,
+    'Lodestone SDK manifest'
+  );
+  const manifest = parseManifest(manifestBytes);
+
+  const archiveBytes = await download(`${releaseRoot}/${manifest.archive.path}`);
+  verifyDigest(archiveBytes, manifest.archive.sha256, 'Lodestone SDK archive');
+  if (archiveBytes.byteLength !== manifest.archive.size) {
+    throw new Error(
+      `Lodestone SDK archive has ${archiveBytes.byteLength} bytes, expected ${manifest.archive.size}`
+    );
   }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  const digest = createHash('sha256').update(bytes).digest('hex');
-  if (digest !== pointer.sha256) {
-    throw new Error(`bundle checksum mismatch: expected ${pointer.sha256}, got ${digest}`);
-  }
-  await writeFile(archivePath, bytes);
+  await writeFile(archivePath, archiveBytes);
 
   const entries = (await run('tar', ['-tzf', archivePath]))
     .split('\n')
     .filter(Boolean);
-  if (entries.length === 0) throw new Error('Lodestone bundle is empty');
-  for (const entry of entries) {
-    const normalized = normalize(entry);
-    if (
-      normalized.startsWith(`..${sep}`) ||
-      normalized === '..' ||
-      normalized.startsWith(sep)
-    ) {
-      throw new Error(`unsafe path in Lodestone bundle: ${entry}`);
-    }
+  const expectedEntries = manifest.files.map((entry) => entry.path);
+  if (
+    entries.length !== expectedEntries.length ||
+    entries.some((entry, index) => entry !== expectedEntries[index])
+  ) {
+    throw new Error('Lodestone SDK archive inventory does not match its manifest');
   }
+  expectedEntries.forEach(assertSafePath);
 
   await mkdir(unpackPath);
   await run('tar', ['-xzf', archivePath, '-C', unpackPath, '--no-same-owner']);
-  await stat(join(unpackPath, 'index.html'));
+  for (const entry of manifest.files) {
+    const path = join(unpackPath, entry.path);
+    const file = await readFile(path);
+    const details = await stat(path);
+    if (details.size !== entry.size) {
+      throw new Error(`${entry.path} has ${details.size} bytes, expected ${entry.size}`);
+    }
+    verifyDigest(file, entry.sha256, entry.path);
+  }
 
+  await writeFile(
+    join(unpackPath, 'lodestone-web-sdk.manifest.json'),
+    manifestBytes
+  );
   await writeFile(
     join(unpackPath, '.lodestone-bundle.json'),
     `${JSON.stringify(pointer, null, 2)}\n`
@@ -89,9 +119,81 @@ try {
   await rm(outputPath, { recursive: true, force: true });
   await mkdir(join(root, 'public'), { recursive: true });
   await rename(unpackPath, outputPath);
-  console.log(`Staged Lodestone at ${outputPath}.`);
+  console.log(`Staged Lodestone SDK at ${outputPath}.`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
+}
+
+async function download(url) {
+  const response = await fetch(url, { redirect: 'follow' });
+  if (!response.ok) {
+    throw new Error(`download failed with HTTP ${response.status}: ${url}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+function parseManifest(bytes) {
+  const manifest = JSON.parse(bytes.toString('utf8'));
+  if (manifest.schema !== 'lodestone-web-sdk' || manifest.schema_version !== 1) {
+    throw new Error('unsupported Lodestone SDK manifest schema');
+  }
+  if (
+    manifest.dirty_checkout !== false ||
+    !/^[a-f0-9]{40}$/.test(manifest.commit) ||
+    !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
+    manifest.archive?.path !== 'lodestone-web-sdk.tar.gz' ||
+    manifest.archive?.format !== 'tar.gz' ||
+    !Number.isSafeInteger(manifest.archive?.size) ||
+    !/^[a-f0-9]{64}$/.test(manifest.archive?.sha256) ||
+    !Array.isArray(manifest.files) ||
+    manifest.files.length === 0
+  ) {
+    throw new Error('malformed Lodestone SDK manifest');
+  }
+  if (pointer.lodestoneRevision && manifest.commit !== pointer.lodestoneRevision) {
+    throw new Error(
+      `Lodestone SDK commit ${manifest.commit} does not match pointer ${pointer.lodestoneRevision}`
+    );
+  }
+
+  const seen = new Set();
+  for (const entry of manifest.files) {
+    if (
+      typeof entry?.path !== 'string' ||
+      !Number.isSafeInteger(entry.size) ||
+      entry.size < 0 ||
+      !/^[a-f0-9]{64}$/.test(entry.sha256)
+    ) {
+      throw new Error('malformed file entry in Lodestone SDK manifest');
+    }
+    assertSafePath(entry.path);
+    if (seen.has(entry.path)) throw new Error(`duplicate SDK path: ${entry.path}`);
+    seen.add(entry.path);
+  }
+  for (const required of [manifest.entrypoint, 'client.jar', 'blocks.json']) {
+    if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
+  }
+  return manifest;
+}
+
+function assertSafePath(path) {
+  const normalized = normalize(path);
+  if (
+    !path ||
+    normalized.startsWith(`..${sep}`) ||
+    normalized === '..' ||
+    normalized.startsWith(sep) ||
+    normalized !== path
+  ) {
+    throw new Error(`unsafe path in Lodestone SDK: ${path}`);
+  }
+}
+
+function verifyDigest(bytes, expected, label) {
+  const actual = createHash('sha256').update(bytes).digest('hex');
+  if (actual !== expected) {
+    throw new Error(`${label} checksum mismatch: expected ${expected}, got ${actual}`);
+  }
 }
 
 function run(command, args) {

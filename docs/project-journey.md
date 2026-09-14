@@ -1,0 +1,62 @@
+# Project Journey
+
+## What it is
+
+The Projects page is a newest-first timeline that mixes project launches with career starts and a small, hand-curated set of AI-tool milestones. It also distinguishes projects built without generative AI from AI-paired and agent-led work.
+
+## How it works
+
+Project entries still come from `src/content/projects/*.md`. `src/pages/projects.astro` merges those entries with enabled job start dates from `portfolio.toml` and the events in `src/data/project-milestones.ts`, then sorts the combined list by date. Events newer than the newest project remain in the curated data but are not rendered, keeping the visible journey anchored to completed project work.
+
+Project cards remain full-width, centered rows. Contextual events are interleaved by date and alternate across a straight center rail. Each event displays only its date and title; descriptions, category labels, and source links remain in the data but are not rendered. The light-gray rail spans the full event interval, including a deliberate buffer before and after the event labels, and touches the project cards above and below. Two adjacent projects with no intervening events instead receive ordinary whitespace and no connector. Small solid dots distinguish career milestones in red from AI milestones in blue. On phones, event text moves to the right of a short left-side rail while project cards remain full-width.
+
+Every project card includes one of three textual AI-use states. Workflow, model, and token metadata remains available in frontmatter but is intentionally not rendered inside the card:
+
+- `No AI` means no generative AI assisted development. An AI or ML feature inside the product does not change this state.
+- `AI-paired` means models produced substantial work under direct human prompting and review.
+- `Agent-led` means an orchestrated agent workflow produced most of the implementation work.
+
+An omitted `ai` object means `No AI`. This keeps the zero-AI case explicit in the interface without requiring repetitive frontmatter.
+
+`ProjectCard.astro` normally reads the validated `project.data.ai` value. It falls back to the same entry's rendered Markdown frontmatter so an already-running Astro development content store cannot temporarily display a newly added optional field as `No AI`; production builds still receive the validated collection value directly.
+
+A project card may also receive a custom action descriptor. The descriptor renders a red button with a stable action ID; `src/lib/project-actions.ts` maps that ID to a client callback after direct entry and every Astro navigation. Minecraft's `Try in browser` callback opens `ProjectDemoModal.astro`, creates the shared `<lodestone-game>` element only on demand, and immediately starts its asset preparation while showing progress. It destroys the iframe when the modal closes so hidden game audio and processing cannot continue. The reusable blog embed retains a `Try in browser` control so merely reading the post cannot initiate the 37.4 MiB download. Quasi uses the same project-card action and floating-dialog pattern for its unlabelled two-panel interpreter playground, with Run anchored inside the source pane. Both use a crisp, shadowless 16:9 surface over a 30%-dimmed, blurred page backdrop. Opening uses a short scale-and-fade entrance; close controls, backdrop clicks, and Escape use the matching animated exit. Both transitions are disabled for reduced-motion visitors.
+
+## How to change it
+
+Add or edit project-specific AI details in the project's Markdown frontmatter:
+
+```yaml
+ai:
+  usage: paired
+  summary: I prompted the models directly and reviewed their work.
+  models:
+    - Claude Opus 5
+  approximateTokens: 100000000000
+```
+
+Only `paired` and `agent-led` are valid non-zero values. Omit `approximateTokens` when there is no defensible estimate. Totals describe processed-token scale, not monetary spend, and are retained as data for possible future use rather than displayed in the current interface.
+
+Edit `src/data/project-milestones.ts` to add, remove, or reword contextual events. These should be events that affected Matthew's work, not a general model-release feed. Use a stable `id`, an exact ISO date, concise first-person relevance, and an authoritative `sourceUrl` for researched claims. Career starts are automatic; change their source data in `portfolio.toml`.
+
+The event layout, line, dots, and mobile cutoff live in `src/pages/projects.astro`. Keep project rows free of the rail and avoid adding client-side layout measurement; the timeline is intentionally CSS-only.
+
+To add another interactive project, pass an `{ id, label }` action to `ProjectCard.astro` and register the matching callback in `src/lib/project-actions.ts`. The ID crosses Astro's static HTML boundary; the callback remains in the client module. Keep ordinary Website and GitHub destinations as links.
+
+## Configuration
+
+There are no environment variables or remote runtime feeds. The relevant configuration is:
+
+- project `date` and optional `ai` frontmatter;
+- enabled jobs and their `start` dates in `portfolio.toml`;
+- curated entries in `src/data/project-milestones.ts`;
+- the `52rem` desktop/mobile journey breakpoint.
+
+Dates are formatted in UTC so date-only values cannot move into the preceding month in western time zones.
+
+## Dependencies
+
+- Astro content collections validate and load project frontmatter.
+- `ProjectDemoModal.astro`, `QuasiDemoModal.astro`, and `src/lib/project-actions.ts` provide the interactive project demos.
+- `portfolio.toml` and `src/lib/config.ts` provide career milestones.
+- The shared Bauhaus color tokens and typography come from `src/styles/global.css`.

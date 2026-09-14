@@ -6,4 +6,4 @@ repository: https://github.com/matteopolak/noteboard
 website: https://noteboard.matteopolak.com
 ---
 
-Noteboard is a music-based collaborative drawing tool. It allows everyone to create and share their own music creations in real-time with anyone around the world.
+A synchronized musical canvas where multiple participants compose in real time by arranging colour-based tiles that map shared visual state into playback.

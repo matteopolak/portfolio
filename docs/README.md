@@ -6,9 +6,14 @@
 | [blog.md](./blog.md)                                                                               | How to write and publish blog posts                                                  |
 | [site-design.md](./site-design.md)                                                                 | Bauhaus design system, responsive layouts, and modular homepage artwork               |
 | [bauhaus-grid-state.md](./bauhaus-grid-state.md)                                                   | In-memory artwork continuity across client-side routes                                |
+| [continuous-integration.md](./continuous-integration.md)                                           | Per-commit formatting, lint, test, and static-build quality gate                       |
+| [favicon-pipeline.md](./favicon-pipeline.md)                                                       | Single-source SVG favicon generation and cache-safe asset delivery                    |
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
 | [palette-generator.md](./palette-generator.md)                                                     | Large-screen OKLCH palette generator and contrast constraints                          |
+| [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
+| [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
 | [Lodestone web embed](./lodestone-web-embed.md)                                                     | How the singleplayer WebGPU build is published and embedded                          |
+| [Quasi web playground](./quasi-web-playground.md)                                                   | How the sandboxed Quasi interpreter is built, published, and executed                |
 | [Resume technical skills design](./superpowers/specs/2026-07-11-resume-technical-skills-design.md) | Design for the modernized technical skills section                                   |
 | [Resume technical skills plan](./superpowers/plans/2026-07-11-resume-technical-skills.md)          | Implementation plan for the technical skills refresh                                 |
 | [Resume tailoring](./resume-tailoring/README.md)                                                   | Knowledge base for tailoring resumes to specific job postings                        |

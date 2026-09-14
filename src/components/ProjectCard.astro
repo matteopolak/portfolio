@@ -4,78 +4,218 @@ import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   project: CollectionEntry<'projects'>;
-  index: number;
+  action?: {
+    id: string;
+    label: string;
+  };
 }
 
-const { project, index } = Astro.props;
-const { Content } = await render(project);
+const { project, action } = Astro.props;
+const { Content, remarkPluginFrontmatter } = await render(project);
+// Astro's dev content store can retain the pre-schema shape after this optional
+// field is introduced. The rendered frontmatter is the same source document and
+// keeps the preview accurate; production builds normally use project.data.ai.
+const frontmatterAi = remarkPluginFrontmatter.ai as typeof project.data.ai;
+const ai = project.data.ai ?? frontmatterAi;
+const usage = ai?.usage ?? 'none';
+const usageLabel = {
+  none: 'No AI',
+  paired: 'AI-paired',
+  'agent-led': 'Agent-led',
+}[usage];
 const date = project.data.date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
+  timeZone: 'UTC',
 });
-const number = String(index + 1).padStart(2, '0');
 ---
 
-<article class="editorial-item">
-  <span class="editorial-item__number">{number}</span>
-  <div>
-    <h2 class="editorial-item__heading">
-      <a
-        class="editorial-item__title"
-        href={project.data.website ?? project.data.repository}
-      >
-        {project.data.title}
-      </a>
-    </h2>
-    <div class="tag-line">{project.data.tags.join(' · ')}</div>
-    <div class="project-body"><Content /></div>
-  </div>
-  <div class="editorial-item__aside">
-    <time datetime={project.data.date.toISOString().slice(0, 7)}>{date}</time>
+<article class="project-card">
+  <h2 class="project-card__heading">
+    <a class="project-card__title" href={project.data.website ?? project.data.repository}>
+      {project.data.title}
+    </a>
+    <span class:list={['ai-badge', `ai-badge--${usage}`]} aria-label={`AI usage: ${usageLabel}`}>
+      <span class="ai-badge__meter" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </span>
+      <span>{usageLabel}</span>
+    </span>
+  </h2>
+  <div class="tag-line">{project.data.tags.join(' · ')}</div>
+  <div class="project-card__body"><Content /></div>
+
+  <footer class="project-card__footer">
+    <time datetime={project.data.date.toISOString().slice(0, 10)}>{date}</time>
     <div class="project-links">
+      {action && (
+        <button type="button" data-project-action={action.id}>
+          {action.label}
+        </button>
+      )}
       {project.data.website && <a href={project.data.website}>Website ↗</a>}
       <a href={project.data.repository}>GitHub ↗</a>
     </div>
-  </div>
+  </footer>
 </article>
 
 <style>
-  .project-links {
+  .project-card {
     position: relative;
-    z-index: 2;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.4rem;
-    margin-top: 0.7rem;
-    font-weight: 700;
+    padding: clamp(1.25rem, 2.4vw, 1.75rem);
+    background: oklch(99.393% 0.00818 91.48 / 0.9);
+    transition:
+      background-color 160ms ease,
+      transform 160ms ease;
   }
 
-  .project-links a {
+  .project-card:hover {
+    background-color: oklch(93.5% 0 0 / 0.96);
+    transform: translateY(-0.16rem);
+  }
+
+  .project-card:has(.project-card__title:focus-visible) {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+  }
+
+  .project-card__heading,
+  .project-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .ai-badge {
     display: inline-flex;
     align-items: center;
-    min-height: 2rem;
-    padding: 0.35rem 0.55rem;
-    border: 0;
-    color: var(--paper);
-    background: var(--blue);
-    font-size: 0.72rem;
+    gap: 0.45rem;
+    padding: 0.26rem 0.48rem;
+    background: oklch(20.463% 0 0 / 0.055);
+    font-size: 0.68rem;
+    font-weight: 800;
     line-height: 1;
-    text-decoration: none;
+    white-space: nowrap;
   }
 
-  .project-links a:last-child {
-    color: var(--paper);
-    background: var(--ink);
+  .ai-badge__meter {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 0.38rem);
+    gap: 0.14rem;
   }
 
-  .project-links a:hover {
-    color: var(--paper);
-    border-color: var(--red);
+  .ai-badge__meter i {
+    width: 0.38rem;
+    aspect-ratio: 1;
+    background: oklch(20.463% 0 0 / 0.18);
+  }
+
+  .ai-badge--paired .ai-badge__meter i:nth-child(-n + 2) {
+    background: var(--blue);
+  }
+
+  .ai-badge--agent-led .ai-badge__meter i {
     background: var(--red);
   }
 
-  @media (max-width: 44rem) {
+  .project-card__heading {
+    align-items: flex-start;
+    margin: 0;
+  }
+
+  .project-card__title {
+    display: inline;
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    text-decoration: none;
+  }
+
+  .project-card__title::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    content: '';
+  }
+
+  .project-card__title:focus-visible {
+    outline: none;
+  }
+
+  .project-card__title:hover {
+    text-decoration: underline;
+  }
+
+  .project-card__body {
+    margin-top: 0.7rem;
+    font-size: 0.88rem;
+  }
+
+  .project-card__body p {
+    margin: 0;
+  }
+
+  .project-card__footer {
+    position: relative;
+    z-index: 2;
+    align-items: flex-end;
+    margin-top: 1.1rem;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+
+  .project-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    font-weight: 700;
+  }
+
+  .project-links a,
+  .project-links button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.9rem;
+    padding: 0.32rem 0.5rem;
+    border: 0;
+    color: var(--paper);
+    background: var(--blue);
+    font-size: 0.68rem;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .project-links button {
+    background: var(--red);
+  }
+
+  .project-links a:last-child {
+    background: var(--ink);
+  }
+
+  .project-links a:hover,
+  .project-links button:hover {
+    color: var(--paper);
+    background: var(--blue);
+  }
+
+  @media (max-width: 52rem) {
+    .project-card:hover {
+      transform: none;
+    }
+  }
+
+  @media (max-width: 30rem) {
+    .project-card__heading,
+    .project-card__footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
     .project-links {
       justify-content: flex-start;
     }

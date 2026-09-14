@@ -4,31 +4,16 @@
 }
 
 @font-face {
-  font-family: 'Open Sans Local';
-  src: url('../../resume/fonts/opensans-regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Open Sans Local';
-  src: url('../../resume/fonts/opensans-semibold.ttf') format('truetype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Open Sans Local';
-  src: url('../../resume/fonts/opensans-bold.ttf') format('truetype');
-  font-weight: 700 900;
+  font-family: 'Open Sans Variable';
+  src: url('@fontsource-variable/open-sans/files/open-sans-latin-wght-normal.woff2')
+    format('woff2-variations');
+  font-weight: 300 800;
   font-style: normal;
   font-display: swap;
 }
 
 @theme {
-  --font-sans: 'Open Sans Local', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Open Sans Variable', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 }
 
@@ -195,7 +180,7 @@ a:hover {
   grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   gap: var(--page-title-gap);
-  margin: clamp(4.5rem, 10vw, 7.5rem) 0 2.75rem;
+  margin: clamp(6rem, 13vw, 9.5rem) 0 2.75rem;
   padding-bottom: 0.5rem;
 }
 
@@ -209,14 +194,50 @@ a:hover {
 }
 
 .page-intro__index {
-  display: grid;
+  display: block;
   width: 4.5rem;
-  aspect-ratio: 1;
-  place-items: center;
-  color: var(--paper-bright);
+  height: 0.7rem;
   background: var(--blue);
-  font-size: 1rem;
-  font-weight: 800;
+}
+
+.page-intro__index--home {
+  background: var(--red);
+}
+
+.page-intro__index--blog {
+  background: var(--blue);
+}
+
+.page-intro__index--projects {
+  background: var(--yellow);
+}
+
+/* Kept global so Astro navigation and component HMR share one hit-target layer. */
+.project-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.project-card .ai-badge {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  pointer-events: none;
+}
+
+.project-card__footer {
+  pointer-events: none;
+}
+
+.project-card__footer .project-links a,
+.project-card__footer .project-links button {
+  pointer-events: auto;
+}
+
+body .site-main .project-card:hover {
+  background-color: oklch(93.5% 0 0 / 0.96);
 }
 
 .resume-section {
