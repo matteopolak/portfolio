@@ -6,4 +6,4 @@ repository: https://github.com/matteopolak/crave
 website: https://crave.matteopolak.com
 ---
 
-Crave is a YouTube-like recipe explorer with semantic recommendations and powerful search. It allows users to find recipes based on their ingredients, and it also recommends recipes based on their previous searches. It also includes a powerful search engine that allows users to search for recipes based on their ingredients, their preparation time, and even their nutritional value.
+A full recipe publishing and discovery platform with ingredient-aware search, nutritional and preparation filters, and semantic recommendations derived from browsing activity.

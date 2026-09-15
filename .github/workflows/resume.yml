@@ -14,14 +14,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: check out repository
+        uses: actions/checkout@v4
 
-      - uses: typst-community/setup-typst@v4
+      - name: install typst
+        uses: typst-community/setup-typst@v4
 
-      - name: Compile resume
+      - name: compile resume
         run: typst compile --root . resume/resume.typ --font-path resume/fonts resume.pdf
 
-      - name: Publish to GitHub Releases
+      - name: publish to github releases
         run: |
           gh release delete resume --yes 2>/dev/null || true
           gh release create resume resume.pdf \

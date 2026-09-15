@@ -1,19 +1,284 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
+import ProjectDemoModal from '../components/ProjectDemoModal.astro';
+import QuasiDemoModal from '../components/QuasiDemoModal.astro';
+import { jobs } from '../lib/config';
+import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
+
+interface ProjectJourneyItem {
+  kind: 'project';
+  id: string;
+  date: Date;
+  project: CollectionEntry<'projects'>;
+}
+
+interface MilestoneJourneyItem {
+  kind: 'milestone';
+  id: string;
+  date: Date;
+  milestone: ProjectMilestone;
+}
+
+interface CareerJourneyItem {
+  kind: 'career';
+  id: string;
+  date: Date;
+  title: string;
+}
+
+type JourneyItem = ProjectJourneyItem | MilestoneJourneyItem | CareerJourneyItem;
 
 const projects = (await getCollection('projects')).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
+const latestProjectDate = projects.at(0)?.data.date.valueOf() ?? Number.POSITIVE_INFINITY;
+
+const timeline: JourneyItem[] = [
+  ...projects.map(
+    (project): ProjectJourneyItem => ({
+      kind: 'project',
+      id: `project-${project.id}`,
+      date: project.data.date,
+      project,
+    }),
+  ),
+  ...jobs
+    .filter((job) => job.start.valueOf() <= latestProjectDate)
+    .map(
+      (job): CareerJourneyItem => ({
+        kind: 'career',
+        id: `career-${job.id}`,
+        date: job.start,
+        title: `Started at ${job.company}`,
+      }),
+    ),
+  ...projectMilestones
+    .map(
+      (milestone): MilestoneJourneyItem => ({
+        kind: 'milestone',
+        id: `milestone-${milestone.id}`,
+        date: new Date(`${milestone.date}T00:00:00Z`),
+        milestone,
+      }),
+    )
+    .filter((milestone) => milestone.date.valueOf() <= latestProjectDate),
+].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+
+function milestoneDate(date: Date, includeDay: boolean): string {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: includeDay ? 'numeric' : undefined,
+    timeZone: 'UTC',
+  });
+}
+
+let eventIndex = 0;
 ---
 
 <Layout title="Projects" description="Selected software projects by Matthew Polak.">
-  <header class="page-intro">
-    <span class="page-intro__index">03</span>
+  <header class="page-intro projects-intro">
+    <span class="page-intro__index page-intro__index--projects" aria-hidden="true"></span>
     <h1>Stuff I built</h1>
   </header>
-  <div class="editorial-list">
-    {projects.map((project, index) => <ProjectCard project={project} index={index} />)}
-  </div>
+
+  <ol class="project-journey">
+    {
+      timeline.map((item) => {
+        const side = item.kind === 'project' ? undefined : eventIndex++ % 2 === 0 ? 'left' : 'right';
+
+        return (
+          <li
+            class:list={[
+              'journey-entry',
+              `journey-entry--${item.kind}`,
+              item.kind === 'milestone' && `journey-entry--${item.milestone.category}`,
+              side && `journey-entry--${side}`,
+            ]}
+            data-journey-id={item.id}
+          >
+            {item.kind !== 'project' && <span class="journey-entry__node" aria-hidden="true"></span>}
+            <div class="journey-entry__content">
+              {item.kind === 'project' ? (
+                <ProjectCard
+                  project={item.project}
+                  action={
+                    item.project.id === 'minecraft'
+                      ? { id: 'play-minecraft', label: 'Try in browser' }
+                      : item.project.id === 'quasi'
+                        ? { id: 'try-quasi', label: 'Try in browser' }
+                        : undefined
+                  }
+                />
+              ) : (
+                <article class:list={['milestone', `milestone--${item.kind}`]}>
+                  <time class="milestone__date" datetime={item.date.toISOString().slice(0, 10)}>
+                    {milestoneDate(item.date, item.kind === 'milestone')}
+                  </time>
+                  <h2>{item.kind === 'career' ? item.title : item.milestone.title}</h2>
+                </article>
+              )}
+            </div>
+          </li>
+        );
+      })
+    }
+  </ol>
+  <ProjectDemoModal />
+  <QuasiDemoModal />
 </Layout>
+
+<script>
+  import '../lib/project-actions';
+</script>
+
+<style>
+  .projects-intro {
+    margin-bottom: clamp(3.5rem, 7vw, 5rem);
+  }
+
+  .project-journey {
+    display: grid;
+    gap: 0;
+    margin: 0 0 6rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .journey-entry {
+    position: relative;
+  }
+
+  .journey-entry--project {
+    z-index: 1;
+  }
+
+  .journey-entry--project + .journey-entry--project {
+    margin-top: 2rem;
+  }
+
+  .journey-entry--milestone,
+  .journey-entry--career {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3rem minmax(0, 1fr);
+    align-items: center;
+    min-height: 4rem;
+    padding: 0.35rem 0;
+  }
+
+  .journey-entry--project + .journey-entry--milestone,
+  .journey-entry--project + .journey-entry--career {
+    margin-top: 1.5rem;
+  }
+
+  .journey-entry--milestone:has(+ .journey-entry--project),
+  .journey-entry--career:has(+ .journey-entry--project) {
+    margin-bottom: 1.5rem;
+  }
+
+  .journey-entry--milestone::before,
+  .journey-entry--career::before {
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: oklch(72% 0 0);
+    content: '';
+  }
+
+  .journey-entry--project + .journey-entry--milestone::before,
+  .journey-entry--project + .journey-entry--career::before {
+    top: -1.5rem;
+  }
+
+  .journey-entry--milestone:has(+ .journey-entry--project)::before,
+  .journey-entry--career:has(+ .journey-entry--project)::before {
+    bottom: -1.5rem;
+  }
+
+  .journey-entry--left .journey-entry__content {
+    grid-column: 1;
+  }
+
+  .journey-entry--right .journey-entry__content {
+    grid-column: 3;
+  }
+
+  .journey-entry__node {
+    position: absolute;
+    z-index: 3;
+    top: 50%;
+    left: 50%;
+    width: 0.42rem;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--blue);
+  }
+
+  .journey-entry--career .journey-entry__node {
+    background: var(--red);
+  }
+
+  .milestone {
+    position: relative;
+    padding: 0.25rem 0;
+  }
+
+  .journey-entry--left .milestone {
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .milestone__date {
+    display: block;
+    color: var(--muted);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+  }
+
+  .milestone h2 {
+    margin: 0.18rem 0 0;
+    font-size: 1rem;
+    line-height: 1.18;
+  }
+
+  @media (max-width: 52rem) {
+    .projects-intro {
+      margin-bottom: 3rem;
+    }
+
+    .journey-entry--milestone,
+    .journey-entry--career {
+      display: block;
+      min-height: 0;
+      padding: 0.7rem 0 0.7rem 2rem;
+    }
+
+    .journey-entry--milestone::before,
+    .journey-entry--career::before {
+      left: 0.65rem;
+    }
+
+    .journey-entry__node {
+      left: 0.65rem;
+    }
+
+    .journey-entry--left .milestone,
+    .journey-entry--right .milestone {
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 30rem) {
+    .journey-entry--project {
+      margin-right: -1rem;
+      margin-left: -1rem;
+    }
+  }
+</style>
