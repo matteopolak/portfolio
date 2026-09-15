@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format, lint, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: check out repository
+        uses: actions/checkout@v7
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: install node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: install typst
+        uses: typst-community/setup-typst@v5
+
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: check formatting
+        run: pnpm format:check
+
+      - name: lint
+        run: pnpm lint
+
+      - name: run tests
+        run: pnpm test:resume
+
+      - name: build static site
+        run: pnpm build

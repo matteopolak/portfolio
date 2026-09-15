@@ -5,4 +5,4 @@ tags: [rust, game engine, wgpu, wgsl]
 repository: https://github.com/matteopolak/ira
 ---
 
-Ira is a game engine written in Rust with a focus on performance, simplicity, and ease of use. It is designed to be code-first, with a powerful API that allows developers to create games quickly and efficiently.
+A code-first 3D game engine integrating rendering, physics, asset packaging, multiplayer networking, and dedicated client/server runtimes behind one cohesive API.

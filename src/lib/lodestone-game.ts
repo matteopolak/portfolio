@@ -1,9 +1,54 @@
-const DEFAULT_GAME_URL = '/lodestone/index.html';
+const SDK_ROOT = '/lodestone/';
+const SDK_MANIFEST_URL = `${SDK_ROOT}lodestone-web-sdk.manifest.json`;
+const STAGE_COUNT = 6;
+
+interface LodestoneProgressEvent {
+  type?: string;
+  phase?: string;
+  fraction: number;
+  message: string;
+  assetName?: string;
+  loadedBytes?: number;
+  totalBytes?: number;
+}
+
+interface LodestoneHostAction {
+  type: 'pointer-lock';
+  locked: boolean;
+}
+
+type LodestoneWorkerMessage =
+  | { kind: 'progress'; event: LodestoneProgressEvent }
+  | { kind: 'host-action'; action: LodestoneHostAction }
+  | { kind: 'ready' }
+  | { kind: 'error'; message: string };
+
+interface SdkFile {
+  path: string;
+  size: number;
+  sha256: string;
+}
+
+interface SdkManifest {
+  schema: 'lodestone-web-sdk';
+  schema_version: 2;
+  entrypoint: string;
+  worker_entrypoint: string;
+  files: SdkFile[];
+}
 
 class LodestoneGameElement extends HTMLElement {
-  #frame: HTMLIFrameElement | undefined;
   #status: HTMLElement | undefined;
   #startButton: HTMLButtonElement | undefined;
+  #canvas: HTMLCanvasElement | undefined;
+  #worker: Worker | undefined;
+  #abortController: AbortController | undefined;
+  #startPromise: Promise<void> | undefined;
+  #resizeObserver: ResizeObserver | undefined;
+  #canvasTransferred = false;
+  #canvasRevealed = false;
+  #pointerLockRequested = false;
+  #stageProgress = Array<number>(STAGE_COUNT).fill(0);
 
   connectedCallback() {
     if (this.shadowRoot) return;
@@ -15,7 +60,12 @@ class LodestoneGameElement extends HTMLElement {
           display: block;
           margin: 2rem 0;
           color: #151515;
-          font-family: 'Open Sans Local', 'Helvetica Neue', Arial, sans-serif;
+          font-family: 'Open Sans Variable', 'Helvetica Neue', Arial, sans-serif;
+        }
+        :host([mode='modal']) {
+          position: relative;
+          height: 100%;
+          margin: 0;
         }
         .shell {
           position: relative;
@@ -28,6 +78,35 @@ class LodestoneGameElement extends HTMLElement {
             linear-gradient(135deg, transparent 65%, rgb(242 189 36 / 0.55) 65%),
             #fffdf7;
         }
+        :host([mode='modal']) .shell {
+          height: 100%;
+          min-height: 0;
+          border: 0;
+          border-left: 0;
+        }
+        .shell:fullscreen {
+          width: 100vw;
+          height: 100vh;
+          min-height: 0;
+          border: 0;
+          outline: 0;
+          aspect-ratio: auto;
+        }
+        .fullscreen-hint {
+          position: absolute;
+          top: .75rem;
+          right: .75rem;
+          z-index: 5;
+          display: none;
+          padding: .55rem .75rem;
+          color: #fffdf7;
+          background: rgb(10 10 18 / .76);
+          font-size: .72rem;
+          font-weight: 700;
+          backdrop-filter: blur(7px);
+          pointer-events: none;
+        }
+        .shell:fullscreen .fullscreen-hint { display: block; }
         .prompt {
           position: absolute;
           inset: 0;
@@ -38,9 +117,34 @@ class LodestoneGameElement extends HTMLElement {
           gap: 0.75rem;
           padding: 1.5rem;
           text-align: center;
+          transition: opacity 180ms ease;
         }
+        .prompt[data-mounted='true'] { pointer-events: none; }
+        .prompt[data-ready='true'] { opacity: 0; pointer-events: none; }
         .title { margin: 0; color: #151515; font-size: 1.1rem; font-weight: 800; }
         .status { margin: 0; max-width: 40rem; color: #625f58; font-size: 0.82rem; }
+        .progress {
+          display: grid;
+          grid-template-columns: .35fr 2.4fr 1fr 1.15fr .55fr .55fr;
+          gap: .2rem;
+          width: min(25rem, 80%);
+          height: .55rem;
+        }
+        .progress span { overflow: hidden; background: rgb(21 21 21 / .12); }
+        .progress i {
+          display: block;
+          width: 100%;
+          height: 100%;
+          transform: scaleX(var(--fill, 0));
+          transform-origin: left;
+          transition: transform 140ms linear;
+        }
+        .progress span:nth-child(1) i { background: #e5372f; }
+        .progress span:nth-child(2) i { background: #1758c7; }
+        .progress span:nth-child(3) i { background: #f2bd24; }
+        .progress span:nth-child(4) i { background: #151515; }
+        .progress span:nth-child(5) i { background: #e5372f; }
+        .progress span:nth-child(6) i { background: #1758c7; }
         button {
           border: 1px solid #151515;
           padding: 0.6rem 1rem;
@@ -52,13 +156,16 @@ class LodestoneGameElement extends HTMLElement {
         }
         button:hover { background: #1758c7; }
         button:focus-visible { outline: 3px solid #1758c7; outline-offset: 3px; }
-        iframe {
+        canvas {
           display: block;
           width: 100%;
           height: 100%;
           border: 0;
+          outline: 0;
           background: #0a0a12;
         }
+        canvas:focus,
+        canvas:focus-visible { outline: 0; }
         .help {
           display: flex;
           justify-content: space-between;
@@ -75,6 +182,9 @@ class LodestoneGameElement extends HTMLElement {
           font-size: inherit;
           font-weight: 400;
         }
+        :host([mode='modal']) .help { display: none; }
+        :host([mode='modal']) .title,
+        :host([mode='modal']) .prompt > button { display: none; }
         @media (max-width: 42rem) {
           .shell { min-height: 14rem; }
           .help { display: block; }
@@ -82,10 +192,15 @@ class LodestoneGameElement extends HTMLElement {
         }
       </style>
       <div class="shell">
+        <span class="fullscreen-hint">Press and hold Esc to exit full screen</span>
+        <canvas tabindex="0" aria-label="Lodestone singleplayer game"></canvas>
         <div class="prompt">
           <p class="title">Play Lodestone in your browser</p>
-          <p class="status">Singleplayer only. The game downloads a large asset bundle after you start it.</p>
-          <button type="button">Load game</button>
+          <p class="status">The game loads only after you choose to start it.</p>
+          <div class="progress" role="progressbar" aria-label="Preparing Minecraft" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span>
+          </div>
+          <button type="button">Try in browser</button>
         </div>
       </div>
       <div class="help">
@@ -97,16 +212,26 @@ class LodestoneGameElement extends HTMLElement {
     this.#status = shadow.querySelector<HTMLElement>('.status') ?? undefined;
     this.#startButton =
       shadow.querySelector<HTMLButtonElement>('.prompt > button') ?? undefined;
-    this.#startButton?.addEventListener('click', () => this.#start());
+    this.#canvas =
+      shadow.querySelector<HTMLCanvasElement>('canvas') ?? undefined;
+    this.#startButton?.addEventListener('click', () => void this.start());
     shadow
       .querySelector<HTMLButtonElement>('.fullscreen')
-      ?.addEventListener('click', () => this.#enterFullscreen());
-
-    if (!('gpu' in navigator)) {
+      ?.addEventListener('click', () => void this.enterFullscreen());
+    if (
+      !('gpu' in navigator) ||
+      !('transferControlToOffscreen' in HTMLCanvasElement.prototype)
+    ) {
       this.#setUnavailable(
-        'WebGPU is unavailable in this browser. Try a current version of Chrome, Edge, Firefox, or Safari.'
+        'Worker-based WebGPU is unavailable in this browser. Try a current version of Chrome, Edge, Firefox, or Safari.'
       );
     }
+  }
+
+  disconnectedCallback() {
+    this.#abortController?.abort();
+    this.#abortController = undefined;
+    this.#stopWorker();
   }
 
   #setUnavailable(message: string) {
@@ -117,76 +242,392 @@ class LodestoneGameElement extends HTMLElement {
     }
   }
 
-  async #start() {
-    if (this.#frame) {
-      this.#frame.focus();
-      return;
+  start() {
+    if (this.#worker) {
+      this.#canvas?.focus();
+      return Promise.resolve();
+    }
+    if (this.#startPromise) return this.#startPromise;
+    if (
+      !('gpu' in navigator) ||
+      !('transferControlToOffscreen' in HTMLCanvasElement.prototype) ||
+      !this.#canvas
+    ) {
+      return Promise.resolve();
     }
 
-    const shell = this.shadowRoot?.querySelector<HTMLElement>('.shell');
+    this.#startPromise = this.#mount().finally(() => {
+      this.#startPromise = undefined;
+    });
+    return this.#startPromise;
+  }
+
+  async #mount() {
     const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
-    if (!shell || !prompt) return;
+    if (!prompt || !this.#canvas) return;
 
-    if (this.#status) this.#status.textContent = 'Loading the game…';
+    if (this.#canvasTransferred) this.#replaceCanvas();
+    const canvas = this.#canvas;
+    if (!canvas) return;
+
+    this.#abortController?.abort();
+    const controller = new AbortController();
+    this.#abortController = controller;
+    this.#canvasRevealed = false;
+    this.#stageProgress.fill(0);
+    delete prompt.dataset.mounted;
+    delete prompt.dataset.ready;
+    prompt.dataset.loading = 'true';
     if (this.#startButton) this.#startButton.hidden = true;
+    this.#setStageProgress(0, 0.15, 'Preparing browser downloads…');
 
-    const source = this.getAttribute('src') ?? DEFAULT_GAME_URL;
     try {
-      const response = await fetch(source, { method: 'HEAD' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    } catch {
+      const manifest = await this.#loadManifest(controller.signal);
+      if (!this.isConnected || controller.signal.aborted) return;
+
+      this.#setStageProgress(0, 1, 'Starting the renderer worker…');
+      this.#setStageProgress(1, 0.2, 'Starting the renderer worker…');
+      this.#launchWorker(canvas, manifest, controller.signal);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      this.#stopWorker();
+      console.error('Could not start the Lodestone browser demo', error);
+      delete prompt.dataset.mounted;
+      delete prompt.dataset.ready;
+      delete prompt.dataset.loading;
       if (this.#status) {
         this.#status.textContent =
-          'The game build is temporarily unavailable. Try again later.';
+          'The game could not be loaded. Check your connection and try again.';
       }
       if (this.#startButton) {
         this.#startButton.hidden = false;
         this.#startButton.textContent = 'Try again';
       }
-      return;
     }
-
-    const frame = document.createElement('iframe');
-    frame.title = this.getAttribute('title') ?? 'Lodestone singleplayer game';
-    frame.allow = 'fullscreen; gamepad';
-    frame.allowFullscreen = true;
-    frame.src = source;
-    frame.addEventListener(
-      'load',
-      () => {
-        prompt.remove();
-        frame.focus();
-      },
-      { once: true }
-    );
-    frame.addEventListener(
-      'error',
-      () => {
-        if (this.#status) {
-          this.#status.textContent =
-            'The game could not be loaded. Try refreshing the page.';
-        }
-        if (this.#startButton) {
-          this.#startButton.hidden = false;
-          this.#startButton.textContent = 'Try again';
-        }
-        frame.remove();
-        this.#frame = undefined;
-      },
-      { once: true }
-    );
-
-    this.#frame = frame;
-    shell.append(frame);
   }
 
-  async #enterFullscreen() {
+  async #loadManifest(signal: AbortSignal) {
+    const response = await fetch(SDK_MANIFEST_URL, {
+      signal,
+      cache: 'no-store',
+    });
+    if (!response.ok)
+      throw new Error(`SDK manifest returned HTTP ${response.status}`);
+    const manifest = (await response.json()) as SdkManifest;
+    if (
+      manifest.schema !== 'lodestone-web-sdk' ||
+      manifest.schema_version !== 2 ||
+      !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
+      !/^[\w.-]+\.js$/.test(manifest.worker_entrypoint) ||
+      !Array.isArray(manifest.files) ||
+      ![
+        manifest.entrypoint,
+        `${manifest.entrypoint.slice(0, -3)}_bg.wasm`,
+        manifest.worker_entrypoint,
+        'client.jar',
+        'blocks.json',
+        ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
+      ].every((path) => manifest.files.some((entry) => entry.path === path))
+    ) {
+      throw new Error('The Lodestone SDK manifest is not supported.');
+    }
+    return manifest;
+  }
+
+  #launchWorker(
+    canvas: HTMLCanvasElement,
+    manifest: SdkManifest,
+    signal: AbortSignal
+  ) {
+    this.#resizeCanvas(canvas);
+    const offscreen = canvas.transferControlToOffscreen();
+    this.#canvasTransferred = true;
+    const worker = new Worker(
+      new URL(manifest.worker_entrypoint, location.origin + SDK_ROOT),
+      { type: 'module', name: 'lodestone-renderer' }
+    );
+    this.#worker = worker;
+
+    worker.addEventListener(
+      'message',
+      (event: MessageEvent<LodestoneWorkerMessage>) => {
+        const message = event.data;
+        if (message.kind === 'progress') {
+          this.#handleProgress(message.event);
+        } else if (message.kind === 'host-action') {
+          this.#handleHostAction(message.action);
+        } else if (message.kind === 'ready') {
+          this.#setStageProgress(1, 1, 'Building the first frame…');
+        } else if (message.kind === 'error') {
+          this.#handleWorkerError(message.message);
+        }
+      },
+      { signal }
+    );
+    worker.addEventListener(
+      'error',
+      (event) => this.#handleWorkerError(event.message),
+      { signal }
+    );
+    this.#installInputBridge(canvas, worker, signal);
+    worker.postMessage({ kind: 'mount', canvas: offscreen, manifest }, [
+      offscreen,
+    ]);
+  }
+
+  #installInputBridge(
+    canvas: HTMLCanvasElement,
+    worker: Worker,
+    signal: AbortSignal
+  ) {
+    const sendInput = (input: Record<string, unknown>) => {
+      worker.postMessage({ kind: 'input', input });
+    };
+
+    canvas.addEventListener(
+      'pointermove',
+      (event) => {
+        sendInput({ type: 'pointerMove', x: event.offsetX, y: event.offsetY });
+        if (event.movementX || event.movementY) {
+          sendInput({
+            type: 'mouseMotion',
+            dx: event.movementX,
+            dy: event.movementY,
+          });
+        }
+      },
+      { signal }
+    );
+    for (const eventName of ['mousedown', 'mouseup'] as const) {
+      canvas.addEventListener(
+        eventName,
+        (event) => {
+          canvas.focus({ preventScroll: true });
+          sendInput({
+            type: 'mouseButton',
+            button: event.button,
+            pressed: eventName === 'mousedown',
+          });
+          if (
+            eventName === 'mousedown' &&
+            this.#pointerLockRequested &&
+            document.pointerLockElement !== canvas
+          ) {
+            void canvas.requestPointerLock();
+          }
+        },
+        { signal }
+      );
+    }
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        sendInput({ type: 'wheel', dx: event.deltaX, dy: event.deltaY });
+        event.preventDefault();
+      },
+      { passive: false, signal }
+    );
+    for (const eventName of ['keydown', 'keyup'] as const) {
+      canvas.addEventListener(
+        eventName,
+        (event) => {
+          let modifiers = 0;
+          if (event.shiftKey) modifiers |= 1;
+          if (event.ctrlKey) modifiers |= 2;
+          if (event.altKey) modifiers |= 4;
+          if (event.metaKey) modifiers |= 8;
+          sendInput({
+            type: 'key',
+            code: event.code,
+            pressed: eventName === 'keydown',
+            text: event.key || undefined,
+            modifiers,
+          });
+          event.preventDefault();
+        },
+        { signal }
+      );
+    }
+    for (const eventName of ['focus', 'blur'] as const) {
+      canvas.addEventListener(
+        eventName,
+        () => sendInput({ type: 'focus', focused: eventName === 'focus' }),
+        { signal }
+      );
+    }
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault(), {
+      signal,
+    });
+    document.addEventListener(
+      'pointerlockchange',
+      () => {
+        const locked = document.pointerLockElement === canvas;
+        sendInput({ type: 'pointerLock', locked });
+        if (!locked) this.#pointerLockRequested = false;
+      },
+      { signal }
+    );
+
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = new ResizeObserver(() => {
+      const { width, height } = this.#canvasSize(canvas);
+      sendInput({ type: 'resize', width, height });
+    });
+    this.#resizeObserver.observe(canvas);
+  }
+
+  #canvasSize(canvas: HTMLCanvasElement) {
+    const scale = window.devicePixelRatio || 1;
+    return {
+      width: Math.max(1, Math.round(canvas.clientWidth * scale)),
+      height: Math.max(1, Math.round(canvas.clientHeight * scale)),
+    };
+  }
+
+  #resizeCanvas(canvas: HTMLCanvasElement) {
+    const { width, height } = this.#canvasSize(canvas);
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  #replaceCanvas() {
+    if (!this.#canvas) return;
+    const replacement = this.#canvas.cloneNode(false) as HTMLCanvasElement;
+    this.#canvas.replaceWith(replacement);
+    this.#canvas = replacement;
+    this.#canvasTransferred = false;
+  }
+
+  #stopWorker() {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = undefined;
+    this.#pointerLockRequested = false;
+    if (document.pointerLockElement === this.#canvas) {
+      document.exitPointerLock();
+    }
+    const worker = this.#worker;
+    this.#worker = undefined;
+    if (!worker) return;
+    try {
+      worker.postMessage({ kind: 'destroy' });
+    } catch {
+      // A failed worker no longer needs a graceful destroy request.
+    }
+    window.setTimeout(() => worker.terminate(), 250);
+  }
+
+  #handleWorkerError(message: string) {
+    console.error('Lodestone renderer worker failed', message);
+    this.#abortController?.abort();
+    this.#stopWorker();
+    const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+    if (prompt) {
+      delete prompt.dataset.mounted;
+      delete prompt.dataset.ready;
+      delete prompt.dataset.loading;
+    }
+    if (this.#status) {
+      this.#status.textContent =
+        'The game could not be started. Close this window and try again.';
+    }
+    if (this.#startButton) {
+      this.#startButton.hidden = false;
+      this.#startButton.textContent = 'Try again';
+    }
+  }
+
+  #handleHostAction(action: LodestoneHostAction) {
+    if (action.type !== 'pointer-lock') return;
+    this.#pointerLockRequested = action.locked;
+    if (!action.locked && document.pointerLockElement === this.#canvas) {
+      document.exitPointerLock();
+    }
+  }
+
+  #handleProgress(event: LodestoneProgressEvent) {
+    const type = event.type ?? event.phase;
+    if (type === 'asset-start') {
+      const stage = event.assetName === 'clientJar' ? 2 : 3;
+      this.#setStageProgress(stage, 0.1, 'Downloading game files…');
+    } else if (type === 'asset-ready') {
+      const stage = event.assetName === 'clientJar' ? 2 : 3;
+      this.#setStageProgress(stage, 1, 'Downloading game files…');
+    } else if (type === 'starting') {
+      this.#setStageProgress(1, 1, 'Starting Minecraft…');
+      this.#setStageProgress(
+        4,
+        Math.max(0.2, event.fraction),
+        'Starting Minecraft…'
+      );
+    } else if (type === 'started') {
+      this.#setStageProgress(4, 1, 'Building the first frame…');
+      this.#setStageProgress(5, 0.25, 'Building the first frame…');
+      const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+      if (prompt) prompt.dataset.mounted = 'true';
+    } else if (type === 'first-frame') {
+      this.#setStageProgress(5, 1, 'Ready');
+      this.#revealCanvas();
+    } else if (type === 'first-frame-timeout') {
+      const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+      if (prompt) delete prompt.dataset.mounted;
+      this.#setStageProgress(
+        5,
+        0,
+        'The renderer could not start. Close this window and try again.'
+      );
+    } else if (type === 'asset-error') {
+      this.#setStageProgress(
+        4,
+        0,
+        'A required game file could not be installed.'
+      );
+    }
+  }
+
+  #revealCanvas() {
+    if (this.#canvasRevealed) return;
+    this.#canvasRevealed = true;
+    const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+    if (prompt) {
+      prompt.dataset.ready = 'true';
+      window.setTimeout(() => prompt.remove(), 180);
+    }
+    this.#canvas?.focus();
+  }
+
+  #setStageProgress(stage: number, fraction: number, message: string) {
+    const bounded = Math.max(0, Math.min(1, fraction));
+    this.#stageProgress[stage] = bounded;
+    if (this.#status) this.#status.textContent = message;
+    const progress = this.shadowRoot?.querySelector<HTMLElement>('.progress');
+    progress
+      ?.querySelectorAll<HTMLElement>('i')
+      .item(stage)
+      ?.style.setProperty('--fill', String(bounded));
+    const total = this.#stageProgress.reduce((sum, value) => sum + value, 0);
+    progress?.setAttribute(
+      'aria-valuenow',
+      String(Math.round((total / STAGE_COUNT) * 100))
+    );
+  }
+
+  async enterFullscreen() {
     const shell = this.shadowRoot?.querySelector<HTMLElement>('.shell');
     if (!shell) return;
 
     try {
       await shell.requestFullscreen();
-      this.#frame?.focus();
+      try {
+        const keyboard = (
+          navigator as Navigator & {
+            keyboard?: { lock?: (keys: string[]) => Promise<void> };
+          }
+        ).keyboard;
+        await keyboard?.lock?.(['Escape']);
+      } catch {
+        // Keyboard Lock is a progressive enhancement; fullscreen still works.
+      }
+      this.#canvas?.focus();
     } catch {
       if (this.#status) {
         this.#status.textContent =
