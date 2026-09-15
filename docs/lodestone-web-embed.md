@@ -14,8 +14,9 @@ populates its Minecraft 26.2 build cache, installs the `wasm-bindgen` CLI versio
 matching Lodestone's locked Rust crate, and runs `just wasm-sdk`. That command is
 Lodestone's canonical packaging recipe and emits
 `lodestone-web-sdk.tar.gz` plus `lodestone-web-sdk.manifest.json`; the portfolio
-uploads both files unchanged. The manifest records the source commit, hashed
-ESM entrypoint, archive digest and size, and every member's digest and size.
+uploads both files unchanged. The schema-v2 manifest records the source commit,
+content-versioned ESM and render-worker entrypoints, archive digest and size,
+and every member's digest and size.
 
 The workflow writes a small `lodestone-web-release.json` deployment pointer.
 `scripts/sync-lodestone-web.mjs` first verifies the pointer-pinned manifest,
@@ -29,24 +30,26 @@ Release downloads retry transient HTTP and network failures with bounded
 exponential backoff. Permanent HTTP errors still fail immediately, and a retry
 never weakens the manifest, archive, or per-file digest checks.
 
-`src/lib/lodestone-game.ts` reads the staged manifest and downloads the filtered
-resource pack and block report in parallel. The buffers are assembled through
-`Blob` rather than a large JavaScript copy loop, and progress DOM writes are
-limited to one animation frame. It sizes a fresh HTML canvas, transfers its
-`OffscreenCanvas` plus both asset buffers to the package's canonical
-`lodestone-render-worker.js`, and then relinquishes those transferable objects.
+`src/lib/lodestone-game.ts` reads the staged manifest with `cache: 'no-store'`,
+creates the manifest's content-versioned render worker, and transfers a freshly
+sized `OffscreenCanvas` with the same manifest object. The worker verifies its
+own filename against `worker_entrypoint`, imports the matching versioned ESM,
+derives its matching Wasm URL, and fetches the packaged assets. Keeping the
+module, Wasm, and worker cache keys on one release prevents older glue from
+instantiating a newer Wasm binary after an SDK update.
+
 The worker initializes wasm-bindgen and calls
-`mount({ canvas, clientJar, blocksJson, onProgress, onHostAction })`, keeping
-Wasm compilation, resource installation, renderer initialization, simulation,
-and rendering away from the page's main thread.
+`mount({ canvas, assetProvider, onProgress, onHostAction })`, keeping asset
+installation, Wasm compilation, renderer initialization, simulation, and
+rendering away from the page's main thread. Stable worker/module aliases are
+deliberately absent from schema-v2 bundles.
 
 The portfolio owns the loading surface, fullscreen controls, and canvas; the SDK
 supplies structured lifecycle events and never inserts its own iframe, loader,
 CSS, or service worker. The loading surface stops accepting pointer input as
-soon as the SDK reports `started`, then fades away after `first-frame`. The
-current SDK can conservatively emit `first-frame-timeout` after an interactive
-WebGPU frame is already visible, so that fallback also releases the overlay;
-explicit worker errors remain visible.
+soon as the SDK reports `started`, then fades away only after `first-frame`,
+which the worker SDK emits from the actual presentation path. A
+`first-frame-timeout` remains visible as an actionable renderer failure.
 
 The render worker retains the SDK handle for exactly one mounted custom element.
 Closing the project modal, navigating away, or otherwise disconnecting the
@@ -104,6 +107,5 @@ GitHub Actions, Lodestone's wasm-bindgen SDK and matching CLI, Rust nightly with
 `rust-src`, Trunk, Java 25, and Minecraft 26.2 build inputs. `rust-src` is
 required because Lodestone's threaded Wasm worker builds its standard library
 for the browser target. The SDK archive contains Lodestone's canonical render
-worker, filtered render resource pack, and generated block report; optional
-title panorama, sound assets, standalone page, diagnostics, and consumer
-presentation are excluded.
+worker, filtered render resource pack, generated block report, and staged title
+panorama. Standalone pages, diagnostics, and consumer presentation are excluded.
