@@ -7,7 +7,7 @@ interface LodestoneProgressEvent {
   phase?: string;
   fraction: number;
   message: string;
-  assetName?: 'clientJar' | 'blocksJson';
+  assetName?: string;
   loadedBytes?: number;
   totalBytes?: number;
 }
@@ -31,8 +31,9 @@ interface SdkFile {
 
 interface SdkManifest {
   schema: 'lodestone-web-sdk';
-  schema_version: 1;
+  schema_version: 2;
   entrypoint: string;
+  worker_entrypoint: string;
   files: SdkFile[];
 }
 
@@ -43,13 +44,11 @@ class LodestoneGameElement extends HTMLElement {
   #worker: Worker | undefined;
   #abortController: AbortController | undefined;
   #startPromise: Promise<void> | undefined;
-  #downloadProgressFrame: number | undefined;
   #resizeObserver: ResizeObserver | undefined;
   #canvasTransferred = false;
   #canvasRevealed = false;
   #pointerLockRequested = false;
   #stageProgress = Array<number>(STAGE_COUNT).fill(0);
-  #downloads = new Map<number, { loaded: number; total: number }>();
 
   connectedCallback() {
     if (this.shadowRoot) return;
@@ -230,7 +229,6 @@ class LodestoneGameElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.#cancelScheduledWork();
     this.#abortController?.abort();
     this.#abortController = undefined;
     this.#stopWorker();
@@ -275,10 +273,8 @@ class LodestoneGameElement extends HTMLElement {
     this.#abortController?.abort();
     const controller = new AbortController();
     this.#abortController = controller;
-    this.#cancelScheduledWork();
     this.#canvasRevealed = false;
     this.#stageProgress.fill(0);
-    this.#downloads.clear();
     delete prompt.dataset.mounted;
     delete prompt.dataset.ready;
     prompt.dataset.loading = 'true';
@@ -287,19 +283,13 @@ class LodestoneGameElement extends HTMLElement {
 
     try {
       const manifest = await this.#loadManifest(controller.signal);
-      this.#setStageProgress(0, 1, 'Downloading game files…');
-      this.#setStageProgress(1, 0.1, 'Downloading game files…');
-      const [clientJar, blocksJson] = await Promise.all([
-        this.#fetchSdkFile(manifest, 'client.jar', 2, controller.signal),
-        this.#fetchSdkFile(manifest, 'blocks.json', 3, controller.signal),
-      ]);
       if (!this.isConnected || controller.signal.aborted) return;
 
+      this.#setStageProgress(0, 1, 'Starting the renderer worker…');
       this.#setStageProgress(1, 0.2, 'Starting the renderer worker…');
-      this.#launchWorker(canvas, clientJar, blocksJson, controller.signal);
+      this.#launchWorker(canvas, manifest, controller.signal);
     } catch (error) {
       if (controller.signal.aborted) return;
-      this.#cancelScheduledWork();
       this.#stopWorker();
       console.error('Could not start the Lodestone browser demo', error);
       delete prompt.dataset.mounted;
@@ -317,74 +307,43 @@ class LodestoneGameElement extends HTMLElement {
   }
 
   async #loadManifest(signal: AbortSignal) {
-    const response = await fetch(SDK_MANIFEST_URL, { signal });
+    const response = await fetch(SDK_MANIFEST_URL, {
+      signal,
+      cache: 'no-store',
+    });
     if (!response.ok)
       throw new Error(`SDK manifest returned HTTP ${response.status}`);
     const manifest = (await response.json()) as SdkManifest;
     if (
       manifest.schema !== 'lodestone-web-sdk' ||
-      manifest.schema_version !== 1 ||
+      manifest.schema_version !== 2 ||
       !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
+      !/^[\w.-]+\.js$/.test(manifest.worker_entrypoint) ||
       !Array.isArray(manifest.files) ||
-      !['lodestone-render-worker.js', 'client.jar', 'blocks.json'].every(
-        (path) => manifest.files.some((entry) => entry.path === path)
-      )
+      ![
+        manifest.entrypoint,
+        `${manifest.entrypoint.slice(0, -3)}_bg.wasm`,
+        manifest.worker_entrypoint,
+        'client.jar',
+        'blocks.json',
+        ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
+      ].every((path) => manifest.files.some((entry) => entry.path === path))
     ) {
       throw new Error('The Lodestone SDK manifest is not supported.');
     }
     return manifest;
   }
 
-  async #fetchSdkFile(
-    manifest: SdkManifest,
-    path: string,
-    stage: number,
-    signal: AbortSignal
-  ) {
-    const expected = manifest.files.find((entry) => entry.path === path);
-    if (!expected) throw new Error(`SDK manifest does not contain ${path}`);
-    const response = await fetch(new URL(path, location.origin + SDK_ROOT), {
-      signal,
-    });
-    if (!response.ok)
-      throw new Error(`${path} returned HTTP ${response.status}`);
-
-    const total = expected.size;
-    const reader = response.body?.getReader();
-    if (!reader) {
-      const bytes = await response.arrayBuffer();
-      this.#recordDownload(stage, bytes.byteLength, total);
-      return bytes;
-    }
-
-    const chunks: Uint8Array[] = [];
-    let loaded = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(new Uint8Array(value));
-      loaded += value.byteLength;
-      this.#recordDownload(stage, loaded, total);
-    }
-    if (loaded !== expected.size) {
-      throw new Error(`${path} has ${loaded} bytes, expected ${expected.size}`);
-    }
-    const bytes = await new Blob(chunks).arrayBuffer();
-    this.#recordDownload(stage, loaded, total);
-    return bytes;
-  }
-
   #launchWorker(
     canvas: HTMLCanvasElement,
-    clientJar: ArrayBuffer,
-    blocksJson: ArrayBuffer,
+    manifest: SdkManifest,
     signal: AbortSignal
   ) {
     this.#resizeCanvas(canvas);
     const offscreen = canvas.transferControlToOffscreen();
     this.#canvasTransferred = true;
     const worker = new Worker(
-      new URL('lodestone-render-worker.js', location.origin + SDK_ROOT),
+      new URL(manifest.worker_entrypoint, location.origin + SDK_ROOT),
       { type: 'module', name: 'lodestone-renderer' }
     );
     this.#worker = worker;
@@ -411,10 +370,9 @@ class LodestoneGameElement extends HTMLElement {
       { signal }
     );
     this.#installInputBridge(canvas, worker, signal);
-    worker.postMessage(
-      { kind: 'mount', canvas: offscreen, clientJar, blocksJson },
-      [offscreen, clientJar, blocksJson]
-    );
+    worker.postMessage({ kind: 'mount', canvas: offscreen, manifest }, [
+      offscreen,
+    ]);
   }
 
   #installInputBridge(
@@ -586,36 +544,15 @@ class LodestoneGameElement extends HTMLElement {
     }
   }
 
-  #recordDownload(stage: number, loaded: number, total: number) {
-    this.#downloads.set(stage, { loaded, total });
-    if (this.#downloadProgressFrame !== undefined) return;
-    this.#downloadProgressFrame = requestAnimationFrame(() => {
-      this.#downloadProgressFrame = undefined;
-      this.#renderDownloadProgress();
-    });
-  }
-
-  #renderDownloadProgress() {
-    const totals = [...this.#downloads.values()].reduce(
-      (sum, current) => ({
-        loaded: sum.loaded + current.loaded,
-        total: sum.total + current.total,
-      }),
-      { loaded: 0, total: 0 }
-    );
-    const message = `Downloading game files… ${formatMiB(totals.loaded)} / ${formatMiB(totals.total)}`;
-    for (const [stage, current] of this.#downloads) {
-      this.#setStageProgress(
-        stage,
-        current.total ? current.loaded / current.total : 0,
-        message
-      );
-    }
-  }
-
   #handleProgress(event: LodestoneProgressEvent) {
     const type = event.type ?? event.phase;
-    if (type === 'starting') {
+    if (type === 'asset-start') {
+      const stage = event.assetName === 'clientJar' ? 2 : 3;
+      this.#setStageProgress(stage, 0.1, 'Downloading game files…');
+    } else if (type === 'asset-ready') {
+      const stage = event.assetName === 'clientJar' ? 2 : 3;
+      this.#setStageProgress(stage, 1, 'Downloading game files…');
+    } else if (type === 'starting') {
       this.#setStageProgress(1, 1, 'Starting Minecraft…');
       this.#setStageProgress(
         4,
@@ -631,11 +568,13 @@ class LodestoneGameElement extends HTMLElement {
       this.#setStageProgress(5, 1, 'Ready');
       this.#revealCanvas();
     } else if (type === 'first-frame-timeout') {
-      // The page cannot inspect a WebGPU frame once its canvas is off-thread.
-      // Lodestone can already be interactive when its conservative watchdog
-      // expires, so never leave the fallback overlay intercepting input.
-      this.#setStageProgress(5, 1, 'Ready');
-      this.#revealCanvas();
+      const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
+      if (prompt) delete prompt.dataset.mounted;
+      this.#setStageProgress(
+        5,
+        0,
+        'The renderer could not start. Close this window and try again.'
+      );
     } else if (type === 'asset-error') {
       this.#setStageProgress(
         4,
@@ -654,13 +593,6 @@ class LodestoneGameElement extends HTMLElement {
       window.setTimeout(() => prompt.remove(), 180);
     }
     this.#canvas?.focus();
-  }
-
-  #cancelScheduledWork() {
-    if (this.#downloadProgressFrame !== undefined) {
-      cancelAnimationFrame(this.#downloadProgressFrame);
-      this.#downloadProgressFrame = undefined;
-    }
   }
 
   #setStageProgress(stage: number, fraction: number, message: string) {
@@ -703,10 +635,6 @@ class LodestoneGameElement extends HTMLElement {
       }
     }
   }
-}
-
-function formatMiB(bytes: number) {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
 
 if (!customElements.get('lodestone-game')) {

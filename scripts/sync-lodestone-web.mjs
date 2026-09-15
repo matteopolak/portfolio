@@ -167,13 +167,14 @@ function delay(milliseconds) {
 
 function parseManifest(bytes) {
   const manifest = JSON.parse(bytes.toString('utf8'));
-  if (manifest.schema !== 'lodestone-web-sdk' || manifest.schema_version !== 1) {
+  if (manifest.schema !== 'lodestone-web-sdk' || manifest.schema_version !== 2) {
     throw new Error('unsupported Lodestone SDK manifest schema');
   }
   if (
     manifest.dirty_checkout !== false ||
     !/^[a-f0-9]{40}$/.test(manifest.commit) ||
     !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
+    !/^[\w.-]+\.js$/.test(manifest.worker_entrypoint) ||
     manifest.archive?.path !== 'lodestone-web-sdk.tar.gz' ||
     manifest.archive?.format !== 'tar.gz' ||
     !Number.isSafeInteger(manifest.archive?.size) ||
@@ -205,13 +206,22 @@ function parseManifest(bytes) {
   }
   for (const required of [
     manifest.entrypoint,
+    `${manifest.entrypoint.slice(0, -3)}_bg.wasm`,
+    manifest.worker_entrypoint,
+    'client.jar',
+    'blocks.json',
+    ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
+  ]) {
+    if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
+  }
+  for (const forbidden of [
     'lodestone-web-entry.js',
     'lodestone-web-entry_bg.wasm',
     'lodestone-render-worker.js',
-    'client.jar',
-    'blocks.json',
   ]) {
-    if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
+    if (seen.has(forbidden)) {
+      throw new Error(`Lodestone SDK contains obsolete stable alias ${forbidden}`);
+    }
   }
   return manifest;
 }
