@@ -1,8 +1,8 @@
 {
-  "enabled": false,
+  "enabled": true,
   "repository": "matteopolak/portfolio",
   "tag": "baerscript-web-latest",
-  "bundleAsset": "",
-  "sha256": "",
-  "baerscriptRevision": ""
+  "bundleAsset": "baerscript-web-8fa3054097eb.tar.gz",
+  "sha256": "d5c1dc1c7ff347de9b257e1f7826665373b2c6e850a5c9658ced188cd402ce68",
+  "baerscriptRevision": "8fa3054097ebfac437e49c2c219e50ffbe964d98"
 }
