@@ -1,8 +1,37 @@
+---
+import { generateBauhausPattern } from '../lib/bauhaus';
+import BauhausPattern from './BauhausPattern.astro';
+
+interface Props {
+  seed: string;
+}
+
+const { seed } = Astro.props;
+
+const completePatternSeed = (set: number) => {
+  for (let attempt = 0; attempt < 10_000; attempt += 1) {
+    const candidate = `demo-loader-${seed}-${set}-${attempt}`;
+    const pattern = generateBauhausPattern({
+      columns: 6,
+      rows: 6,
+      seed: candidate,
+      density: 1,
+    });
+    if (pattern.shapes.every((shape) => shape.kind !== 'empty')) {
+      return candidate;
+    }
+  }
+  throw new Error(`Could not generate a complete loader pattern for ${seed}`);
+};
+
+const patternSeeds = Array.from({ length: 3 }, (_, set) =>
+  completePatternSeed(set)
+);
+---
+
 <div class="project-demo-loading" data-project-demo-loading data-state="loading" aria-live="polite">
-  <div class="project-demo-loading__mark" aria-hidden="true">M</div>
-  <p data-project-demo-loading-label>Loading demo…</p>
   <div
-    class="project-demo-loading__progress"
+    class="project-demo-loading__mosaic"
     data-project-demo-loading-progress
     role="progressbar"
     aria-label="Loading demo"
@@ -10,8 +39,25 @@
     aria-valuemax="100"
     aria-valuenow="0"
   >
-    <i data-project-demo-loading-bar></i>
+    {
+      patternSeeds.map((patternSeed, index) => (
+        <div
+          class="project-demo-loading__pattern"
+          style={`--pattern-delay: ${index * 2.4}s`}
+          aria-hidden="true"
+        >
+          <BauhausPattern
+            columns={6}
+            rows={6}
+            seed={patternSeed}
+            density={1}
+            cropEdges={false}
+          />
+        </div>
+      ))
+    }
   </div>
+  <p data-project-demo-loading-label>Loading demo…</p>
 </div>
 
 <style>
@@ -38,16 +84,75 @@
     pointer-events: none;
   }
 
-  .project-demo-loading__mark {
-    display: grid;
-    width: 3.35rem;
+  .project-demo-loading__mosaic {
+    position: relative;
+    width: 5.4rem;
     aspect-ratio: 1;
-    place-items: center;
-    color: var(--paper);
-    background: var(--ink);
-    font-size: 1.4rem;
-    font-weight: 900;
-    line-height: 1;
+  }
+
+  .project-demo-loading__pattern {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .project-demo-loading__pattern :global(.pattern-region) {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.82);
+    animation: project-demo-cell-cycle 7.2s ease-in-out infinite both;
+    animation-delay: calc(var(--pattern-delay) + var(--cell-delay, 0ms));
+  }
+
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='0'][data-row='0']) {
+    --cell-delay: 0ms;
+  }
+
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='2'][data-row='0']),
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='0'][data-row='2']) {
+    --cell-delay: 70ms;
+  }
+
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='4'][data-row='0']),
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='2'][data-row='2']),
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='0'][data-row='4']) {
+    --cell-delay: 140ms;
+  }
+
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='4'][data-row='2']),
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='2'][data-row='4']) {
+    --cell-delay: 210ms;
+  }
+
+  .project-demo-loading__pattern
+    :global(.pattern-region[data-column='4'][data-row='4']) {
+    --cell-delay: 280ms;
+  }
+
+  @keyframes project-demo-cell-cycle {
+    0%,
+    3% {
+      opacity: 0;
+      transform: scale(0.82);
+    }
+    10%,
+    25% {
+      opacity: 1;
+      transform: none;
+    }
+    33%,
+    100% {
+      opacity: 0;
+      transform: scale(0.94);
+    }
   }
 
   .project-demo-loading p {
@@ -58,31 +163,18 @@
     font-weight: 700;
   }
 
-  .project-demo-loading__progress {
-    width: min(20rem, 62vw);
-    height: 0.5rem;
-    overflow: hidden;
-    background: color-mix(in oklch, var(--ink), transparent 88%);
-  }
-
-  .project-demo-loading__progress i {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: var(--blue);
-    transform: scaleX(var(--project-demo-progress, 0));
-    transform-origin: left;
-    transition: transform 160ms ease-out;
-  }
-
-  .project-demo-loading[data-state='error'] .project-demo-loading__progress i {
-    background: var(--red);
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .project-demo-loading,
-    .project-demo-loading__progress i {
+    .project-demo-loading {
       transition: none;
+    }
+
+    .project-demo-loading__pattern :global(.pattern-region) {
+      animation: none;
+    }
+
+    .project-demo-loading__pattern:first-child :global(.pattern-region) {
+      opacity: 1;
+      transform: none;
     }
   }
 </style>

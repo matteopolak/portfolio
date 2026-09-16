@@ -11,15 +11,16 @@ interface Props {
   seed: string;
   density?: number;
   ambient?: boolean;
+  cropEdges?: boolean;
 }
 
-const { columns, rows, seed, density, ambient = false } = Astro.props;
+const { columns, rows, seed, density, ambient = false, cropEdges } = Astro.props;
 const unit = 80;
 const pattern = ambient
   ? { columns, rows, seed, shapes: [] as BauhausShape[] }
   : generateBauhausPattern({ columns, rows, seed, density });
 const patternId = `bauhaus-${seed.replace(/[^a-z0-9]/gi, '').slice(-24)}-${columns}-${rows}`;
-const cropsOuterRing = columns >= 5 && rows >= 5;
+const cropsOuterRing = cropEdges ?? (columns >= 5 && rows >= 5);
 const edgeInset = cropsOuterRing ? unit : 0;
 const viewWidth = columns * unit - edgeInset * 2;
 const viewHeight = rows * unit - edgeInset * 2;
