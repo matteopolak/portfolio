@@ -48,6 +48,7 @@ class LodestoneGameElement extends HTMLElement {
   #abortController: AbortController | undefined;
   #startPromise: Promise<void> | undefined;
   #resizeObserver: ResizeObserver | undefined;
+  #sendInput: ((input: Record<string, unknown>) => void) | undefined;
   #canvasTransferred = false;
   #canvasRevealed = false;
   #pointerLockRequested = false;
@@ -383,6 +384,7 @@ class LodestoneGameElement extends HTMLElement {
     const sendInput = (input: Record<string, unknown>) => {
       worker.postMessage({ kind: 'input', input });
     };
+    this.#sendInput = sendInput;
 
     canvas.addEventListener(
       'pointermove',
@@ -403,6 +405,10 @@ class LodestoneGameElement extends HTMLElement {
         eventName,
         (event) => {
           canvas.focus({ preventScroll: true });
+          // DOM focus may predate the worker bridge. Always synchronize the
+          // renderer before forwarding the press so activation never consumes
+          // the user's first intended click.
+          sendInput({ type: 'focus', focused: true });
           // The loading layer can disappear underneath an already-stationary
           // pointer, so the canvas may never receive a pointermove before the
           // first click. Seed the renderer with the press location first.
@@ -426,6 +432,9 @@ class LodestoneGameElement extends HTMLElement {
         },
         { signal }
       );
+    }
+    if (this.shadowRoot?.activeElement === canvas) {
+      sendInput({ type: 'focus', focused: true });
     }
     canvas.addEventListener(
       'wheel',
@@ -510,6 +519,7 @@ class LodestoneGameElement extends HTMLElement {
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = undefined;
     this.#pointerLockRequested = false;
+    this.#sendInput = undefined;
     if (document.pointerLockElement === this.#canvas) {
       document.exitPointerLock();
     }
@@ -602,7 +612,7 @@ class LodestoneGameElement extends HTMLElement {
     this.dispatchEvent(
       new CustomEvent('project-demo-ready', { bubbles: true, composed: true })
     );
-    requestAnimationFrame(() => this.#canvas?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => this.focusGame());
   }
 
   #currentAssetProgress() {
@@ -639,6 +649,7 @@ class LodestoneGameElement extends HTMLElement {
 
   focusGame() {
     this.#canvas?.focus({ preventScroll: true });
+    this.#sendInput?.({ type: 'focus', focused: true });
   }
 
   async enterFullscreen() {

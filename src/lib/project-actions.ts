@@ -18,6 +18,7 @@ interface DemoProgressEvent extends CustomEvent {
 
 interface CodePlayground {
   prepare(): Promise<void>;
+  isReady(): boolean;
   destroy(): void;
 }
 
@@ -49,7 +50,15 @@ function setDemoLoading(
   loader
     ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
     ?.replaceChildren(message);
-  loader?.style.setProperty('--project-demo-progress', String(bounded));
+  const filledTiles = Math.ceil(
+    bounded *
+      (loader?.querySelectorAll('[data-project-demo-loading-tile]').length ?? 0)
+  );
+  loader
+    ?.querySelectorAll<HTMLElement>('[data-project-demo-loading-tile]')
+    .forEach((tile, index) =>
+      tile.toggleAttribute('data-filled', index < filledTiles)
+    );
   progressElement?.setAttribute(
     'aria-valuenow',
     String(Math.round(bounded * 100))
@@ -165,13 +174,20 @@ function initializeProjectActions() {
   for (const demo of codeDemos) {
     registerProjectAction(demo.actionId, async (trigger) => {
       activeTrigger = trigger;
-      setDemoLoading(demo.dialog, 0, 'Loading demo…');
+      const ready = demo.playground.isReady();
+      setDemoLoading(
+        demo.dialog,
+        ready ? 1 : 0,
+        ready ? 'Ready' : 'Loading demo…',
+        ready ? 'ready' : 'loading'
+      );
       document.documentElement.classList.add('has-project-demo');
       demo.dialog.showModal();
       demo.panel?.scrollTo(0, 0);
       try {
         await demo.playground.prepare();
         if (!demo.dialog.open) return;
+        setDemoLoading(demo.dialog, 1, 'Ready', 'ready');
         demo.dialog
           .querySelector<HTMLTextAreaElement>('[data-code-source]')
           ?.focus({ preventScroll: true });
@@ -210,7 +226,6 @@ function initializeProjectActions() {
     demo.dialog.addEventListener(
       'close',
       () => {
-        demo.playground.destroy();
         document.documentElement.classList.remove('has-project-demo');
         activeTrigger?.focus();
         activeTrigger = undefined;
