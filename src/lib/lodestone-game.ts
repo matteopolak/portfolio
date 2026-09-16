@@ -403,6 +403,14 @@ class LodestoneGameElement extends HTMLElement {
         eventName,
         (event) => {
           canvas.focus({ preventScroll: true });
+          // The loading layer can disappear underneath an already-stationary
+          // pointer, so the canvas may never receive a pointermove before the
+          // first click. Seed the renderer with the press location first.
+          sendInput({
+            type: 'pointerMove',
+            x: event.offsetX,
+            y: event.offsetY,
+          });
           sendInput({
             type: 'mouseButton',
             button: event.button,
@@ -594,7 +602,7 @@ class LodestoneGameElement extends HTMLElement {
     this.dispatchEvent(
       new CustomEvent('project-demo-ready', { bubbles: true, composed: true })
     );
-    this.#canvas?.focus();
+    requestAnimationFrame(() => this.#canvas?.focus({ preventScroll: true }));
   }
 
   #currentAssetProgress() {

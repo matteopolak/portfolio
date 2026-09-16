@@ -49,7 +49,9 @@ function setDemoLoading(
     ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
     ?.replaceChildren(message);
   loader?.style.setProperty('--project-demo-progress', String(bounded));
-  loader?.style.setProperty('--project-demo-fill', `${bounded * 100}%`);
+  loader?.style.setProperty('--project-demo-fill-red', `${bounded * 100}%`);
+  loader?.style.setProperty('--project-demo-fill-blue', `${bounded * 68}%`);
+  loader?.style.setProperty('--project-demo-fill-yellow', `${bounded * 36}%`);
   progressElement?.setAttribute(
     'aria-valuenow',
     String(Math.round(bounded * 100))
