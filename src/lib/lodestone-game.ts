@@ -398,7 +398,7 @@ class LodestoneGameElement extends HTMLElement {
       },
       { signal }
     );
-    for (const eventName of ['mousedown', 'mouseup'] as const) {
+    for (const eventName of ['pointerdown', 'pointerup'] as const) {
       canvas.addEventListener(
         eventName,
         (event) => {
@@ -414,10 +414,10 @@ class LodestoneGameElement extends HTMLElement {
           sendInput({
             type: 'mouseButton',
             button: event.button,
-            pressed: eventName === 'mousedown',
+            pressed: eventName === 'pointerdown',
           });
           if (
-            eventName === 'mousedown' &&
+            eventName === 'pointerdown' &&
             this.#pointerLockRequested &&
             document.pointerLockElement !== canvas
           ) {
@@ -635,6 +635,10 @@ class LodestoneGameElement extends HTMLElement {
         composed: true,
       })
     );
+  }
+
+  focusGame() {
+    this.#canvas?.focus({ preventScroll: true });
   }
 
   async enterFullscreen() {
