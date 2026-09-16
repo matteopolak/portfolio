@@ -95,7 +95,7 @@ jobs:
           node --input-type=module -e "
             import { readFile } from 'node:fs/promises';
             import init, { execute } from './.build/baerscript-dist/baerscript_wasm.js';
-            await init(await readFile('./.build/baerscript-dist/baerscript_wasm_bg.wasm'));
+            await init({ module_or_path: await readFile('./.build/baerscript-dist/baerscript_wasm_bg.wasm') });
             const result = execute('+v\n+v\n>v', '', false, 100);
             if (!result.ok || result.stdout !== '2') throw new Error('unexpected result: ' + JSON.stringify(result));
           "
@@ -120,7 +120,7 @@ jobs:
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: retain workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: baerscript-web-${{ steps.bundle.outputs.revision }}
           path: |

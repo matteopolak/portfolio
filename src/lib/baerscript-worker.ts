@@ -7,15 +7,15 @@ interface BaerscriptResult {
 }
 
 interface BaerscriptModule {
-  default: (
-    input?:
+  default: (input?: {
+    module_or_path:
       | string
       | URL
       | Request
       | Response
       | BufferSource
-      | WebAssembly.Module
-  ) => Promise<unknown>;
+      | WebAssembly.Module;
+  }) => Promise<unknown>;
   execute: (
     source: string,
     input: string,
@@ -54,7 +54,7 @@ async function boot() {
       URL.revokeObjectURL(blobUrl);
     }
     scope.postMessage({ type: 'progress', progress: 0.72 });
-    await baerscript.default(wasmResponse);
+    await baerscript.default({ module_or_path: wasmResponse });
     scope.postMessage({ type: 'progress', progress: 1 });
     scope.postMessage({ type: 'ready' });
   } catch (error) {

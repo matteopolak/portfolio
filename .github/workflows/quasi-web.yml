@@ -34,12 +34,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: check out portfolio default branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
 
       - name: check out quasi
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.QUASI_REPOSITORY }}
           ref: ${{ inputs.quasi_ref }}
@@ -117,7 +117,7 @@ jobs:
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: retain workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: quasi-web-${{ steps.bundle.outputs.revision }}
           path: |
@@ -140,14 +140,14 @@ jobs:
 
       - name: install pnpm
         if: ${{ inputs.update_repository != 'none' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.32.1
           run_install: false
 
       - name: install node.js
         if: ${{ inputs.update_repository != 'none' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
