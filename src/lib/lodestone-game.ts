@@ -1,7 +1,5 @@
 const SDK_ROOT = '/lodestone/';
 const SDK_MANIFEST_URL = `${SDK_ROOT}lodestone-web-sdk.manifest.json`;
-const STAGE_COUNT = 6;
-
 interface LodestoneProgressEvent {
   type?: string;
   phase?: string;
@@ -37,6 +35,11 @@ interface SdkManifest {
   files: SdkFile[];
 }
 
+interface DemoProgressDetail {
+  progress: number;
+  message: string;
+}
+
 class LodestoneGameElement extends HTMLElement {
   #status: HTMLElement | undefined;
   #startButton: HTMLButtonElement | undefined;
@@ -48,7 +51,7 @@ class LodestoneGameElement extends HTMLElement {
   #canvasTransferred = false;
   #canvasRevealed = false;
   #pointerLockRequested = false;
-  #stageProgress = Array<number>(STAGE_COUNT).fill(0);
+  #readyAssets = new Set<string>();
 
   connectedCallback() {
     if (this.shadowRoot) return;
@@ -124,13 +127,11 @@ class LodestoneGameElement extends HTMLElement {
         .title { margin: 0; color: #151515; font-size: 1.1rem; font-weight: 800; }
         .status { margin: 0; max-width: 40rem; color: #625f58; font-size: 0.82rem; }
         .progress {
-          display: grid;
-          grid-template-columns: .35fr 2.4fr 1fr 1.15fr .55fr .55fr;
-          gap: .2rem;
           width: min(25rem, 80%);
           height: .55rem;
+          overflow: hidden;
+          background: rgb(21 21 21 / .12);
         }
-        .progress span { overflow: hidden; background: rgb(21 21 21 / .12); }
         .progress i {
           display: block;
           width: 100%;
@@ -138,13 +139,8 @@ class LodestoneGameElement extends HTMLElement {
           transform: scaleX(var(--fill, 0));
           transform-origin: left;
           transition: transform 140ms linear;
+          background: #1758c7;
         }
-        .progress span:nth-child(1) i { background: #e5372f; }
-        .progress span:nth-child(2) i { background: #1758c7; }
-        .progress span:nth-child(3) i { background: #f2bd24; }
-        .progress span:nth-child(4) i { background: #151515; }
-        .progress span:nth-child(5) i { background: #e5372f; }
-        .progress span:nth-child(6) i { background: #1758c7; }
         button {
           border: 1px solid #151515;
           padding: 0.6rem 1rem;
@@ -185,6 +181,7 @@ class LodestoneGameElement extends HTMLElement {
         :host([mode='modal']) .help { display: none; }
         :host([mode='modal']) .title,
         :host([mode='modal']) .prompt > button { display: none; }
+        :host([mode='modal']) .prompt { display: none; }
         @media (max-width: 42rem) {
           .shell { min-height: 14rem; }
           .help { display: block; }
@@ -198,7 +195,7 @@ class LodestoneGameElement extends HTMLElement {
           <p class="title">Play Lodestone in your browser</p>
           <p class="status">The game loads only after you choose to start it.</p>
           <div class="progress" role="progressbar" aria-label="Preparing Minecraft" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span><span><i></i></span>
+            <i></i>
           </div>
           <button type="button">Try in browser</button>
         </div>
@@ -240,6 +237,7 @@ class LodestoneGameElement extends HTMLElement {
       this.#startButton.disabled = true;
       this.#startButton.textContent = 'WebGPU unavailable';
     }
+    this.#reportError(message);
   }
 
   start() {
@@ -274,19 +272,18 @@ class LodestoneGameElement extends HTMLElement {
     const controller = new AbortController();
     this.#abortController = controller;
     this.#canvasRevealed = false;
-    this.#stageProgress.fill(0);
+    this.#readyAssets.clear();
     delete prompt.dataset.mounted;
     delete prompt.dataset.ready;
     prompt.dataset.loading = 'true';
     if (this.#startButton) this.#startButton.hidden = true;
-    this.#setStageProgress(0, 0.15, 'Preparing browser downloads…');
+    this.#setProgress(0.04, 'Preparing demo…');
 
     try {
       const manifest = await this.#loadManifest(controller.signal);
       if (!this.isConnected || controller.signal.aborted) return;
 
-      this.#setStageProgress(0, 1, 'Starting the renderer worker…');
-      this.#setStageProgress(1, 0.2, 'Starting the renderer worker…');
+      this.#setProgress(0.1, 'Starting demo…');
       this.#launchWorker(canvas, manifest, controller.signal);
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -303,6 +300,9 @@ class LodestoneGameElement extends HTMLElement {
         this.#startButton.hidden = false;
         this.#startButton.textContent = 'Try again';
       }
+      this.#reportError(
+        'The demo could not be loaded. Check your connection and try again.'
+      );
     }
   }
 
@@ -357,7 +357,7 @@ class LodestoneGameElement extends HTMLElement {
         } else if (message.kind === 'host-action') {
           this.#handleHostAction(message.action);
         } else if (message.kind === 'ready') {
-          this.#setStageProgress(1, 1, 'Building the first frame…');
+          this.#setProgress(0.92, 'Preparing demo…');
         } else if (message.kind === 'error') {
           this.#handleWorkerError(message.message);
         }
@@ -534,6 +534,9 @@ class LodestoneGameElement extends HTMLElement {
       this.#startButton.hidden = false;
       this.#startButton.textContent = 'Try again';
     }
+    this.#reportError(
+      'The demo could not be started. Close this window and try again.'
+    );
   }
 
   #handleHostAction(action: LodestoneHostAction) {
@@ -547,40 +550,36 @@ class LodestoneGameElement extends HTMLElement {
   #handleProgress(event: LodestoneProgressEvent) {
     const type = event.type ?? event.phase;
     if (type === 'asset-start') {
-      const stage = event.assetName === 'clientJar' ? 2 : 3;
-      this.#setStageProgress(stage, 0.1, 'Downloading game files…');
+      this.#setProgress(
+        Math.max(0.12, this.#currentAssetProgress()),
+        'Loading demo…'
+      );
     } else if (type === 'asset-ready') {
-      const stage = event.assetName === 'clientJar' ? 2 : 3;
-      this.#setStageProgress(stage, 1, 'Downloading game files…');
+      if (event.assetName) this.#readyAssets.add(event.assetName);
+      this.#setProgress(this.#currentAssetProgress(), 'Loading demo…');
     } else if (type === 'starting') {
-      this.#setStageProgress(1, 1, 'Starting Minecraft…');
-      this.#setStageProgress(
-        4,
-        Math.max(0.2, event.fraction),
-        'Starting Minecraft…'
+      this.#setProgress(
+        0.78 + Math.max(0, event.fraction) * 0.1,
+        'Preparing demo…'
       );
     } else if (type === 'started') {
-      this.#setStageProgress(4, 1, 'Building the first frame…');
-      this.#setStageProgress(5, 0.25, 'Building the first frame…');
+      this.#setProgress(0.9, 'Preparing demo…');
       const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
       if (prompt) prompt.dataset.mounted = 'true';
     } else if (type === 'first-frame') {
-      this.#setStageProgress(5, 1, 'Ready');
+      this.#setProgress(1, 'Ready');
       this.#revealCanvas();
     } else if (type === 'first-frame-timeout') {
       const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
       if (prompt) delete prompt.dataset.mounted;
-      this.#setStageProgress(
-        5,
-        0,
-        'The renderer could not start. Close this window and try again.'
-      );
+      const message =
+        'The renderer could not start. Close this window and try again.';
+      this.#setProgress(0, message);
+      this.#reportError(message);
     } else if (type === 'asset-error') {
-      this.#setStageProgress(
-        4,
-        0,
-        'A required game file could not be installed.'
-      );
+      const message = 'A required demo file could not be installed.';
+      this.#setProgress(0, message);
+      this.#reportError(message);
     }
   }
 
@@ -592,22 +591,41 @@ class LodestoneGameElement extends HTMLElement {
       prompt.dataset.ready = 'true';
       window.setTimeout(() => prompt.remove(), 180);
     }
+    this.dispatchEvent(
+      new CustomEvent('project-demo-ready', { bubbles: true, composed: true })
+    );
     this.#canvas?.focus();
   }
 
-  #setStageProgress(stage: number, fraction: number, message: string) {
+  #currentAssetProgress() {
+    return 0.12 + Math.min(this.#readyAssets.size, 8) * 0.08;
+  }
+
+  #setProgress(fraction: number, message: string) {
     const bounded = Math.max(0, Math.min(1, fraction));
-    this.#stageProgress[stage] = bounded;
     if (this.#status) this.#status.textContent = message;
     const progress = this.shadowRoot?.querySelector<HTMLElement>('.progress');
     progress
-      ?.querySelectorAll<HTMLElement>('i')
-      .item(stage)
+      ?.querySelector<HTMLElement>('i')
       ?.style.setProperty('--fill', String(bounded));
-    const total = this.#stageProgress.reduce((sum, value) => sum + value, 0);
-    progress?.setAttribute(
-      'aria-valuenow',
-      String(Math.round((total / STAGE_COUNT) * 100))
+    progress?.setAttribute('aria-valuenow', String(Math.round(bounded * 100)));
+    const detail: DemoProgressDetail = { progress: bounded, message };
+    this.dispatchEvent(
+      new CustomEvent('project-demo-progress', {
+        detail,
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  #reportError(message: string) {
+    this.dispatchEvent(
+      new CustomEvent('project-demo-error', {
+        detail: { message },
+        bubbles: true,
+        composed: true,
+      })
     );
   }
 

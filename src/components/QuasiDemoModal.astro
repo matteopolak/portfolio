@@ -1,4 +1,6 @@
 ---
+import ProjectDemoLoading from './ProjectDemoLoading.astro';
+
 const starter = `# Sum the squares from 1 through 10
 let total = 0;
 
@@ -10,7 +12,12 @@ print "sum of squares:";
 print total;`;
 ---
 
-<dialog class="quasi-demo-modal" data-project-demo="quasi" aria-label="Quasi language playground">
+<dialog
+  class="quasi-demo-modal"
+  data-project-demo="quasi"
+  data-demo-state="loading"
+  aria-label="Quasi language playground"
+>
   <div class="quasi-demo-modal__panel" data-quasi-fullscreen-target>
     <div class="quasi-demo-modal__controls">
       <button type="button" data-quasi-fullscreen aria-label="Enter full screen" title="Full screen">
@@ -44,6 +51,7 @@ print total;`;
         <pre data-quasi-output data-project-demo-scroll aria-live="polite">Run the program to see its output.</pre>
       </section>
     </div>
+    <ProjectDemoLoading />
   </div>
 </dialog>
 

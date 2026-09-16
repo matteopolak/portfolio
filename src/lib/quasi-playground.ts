@@ -4,6 +4,7 @@ import 'prismjs/components/prism-rust';
 const EXECUTION_TIMEOUT_MS = 1_000;
 
 type WorkerResponse =
+  | { type: 'progress'; progress: number }
   | { type: 'ready' }
   | { type: 'boot-error'; error: string }
   | { type: 'result'; output?: string; error?: string };
@@ -19,6 +20,16 @@ export function initializeQuasiPlayground(
   const runButton = root.querySelector<HTMLButtonElement>('[data-quasi-run]');
   let worker: Worker | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let bootPromise: Promise<void> | undefined;
+  let resolveBoot: (() => void) | undefined;
+  let rejectBoot: ((error: Error) => void) | undefined;
+  let ready = false;
+  let running = false;
+
+  const emit = (
+    type: 'project-demo-progress' | 'project-demo-ready' | 'project-demo-error',
+    detail?: object
+  ) => root.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
 
   const renderEditor = () => {
     if (!source || !highlight || !lines) return;
@@ -36,21 +47,20 @@ export function initializeQuasiPlayground(
     lines.scrollTop = source.scrollTop;
   };
 
-  const setRunning = (running: boolean) => {
+  const setRunning = (nextRunning: boolean) => {
+    running = nextRunning;
     if (!runButton) return;
-    runButton.disabled = running;
-    runButton.toggleAttribute('data-running', running);
+    runButton.disabled = nextRunning;
+    runButton.toggleAttribute('data-running', nextRunning);
     runButton.setAttribute(
       'aria-label',
-      running ? 'Running program' : 'Run program'
+      nextRunning ? 'Running program' : 'Run program'
     );
   };
 
   const finish = (message: string, stream: 'stdout' | 'stderr' = 'stdout') => {
     if (timeout) clearTimeout(timeout);
     timeout = undefined;
-    worker?.terminate();
-    worker = undefined;
     if (output)
       output.textContent = message || '(program completed without output)';
     if (output) output.dataset.stream = stream;
@@ -58,32 +68,50 @@ export function initializeQuasiPlayground(
     setRunning(false);
   };
 
-  const run = () => {
-    if (!source || !output || !runButton || worker) return;
+  const stopWorker = (reason?: Error) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = undefined;
+    if (reason) rejectBoot?.(reason);
+    worker?.terminate();
+    worker = undefined;
+    bootPromise = undefined;
+    resolveBoot = undefined;
+    rejectBoot = undefined;
+    ready = false;
+  };
 
-    output.setAttribute('aria-busy', 'true');
-    setRunning(true);
-    worker = new Worker(new URL('./quasi-worker.ts', import.meta.url), {
+  const prepare = () => {
+    if (ready) return Promise.resolve();
+    if (bootPromise) return bootPromise;
+
+    const current = new Worker(new URL('./quasi-worker.ts', import.meta.url), {
       type: 'module',
       name: 'quasi-interpreter',
     });
+    worker = current;
+    bootPromise = new Promise<void>((resolve, reject) => {
+      resolveBoot = resolve;
+      rejectBoot = reject;
+    });
 
-    worker.addEventListener(
+    current.addEventListener(
       'message',
       (event: MessageEvent<WorkerResponse>) => {
-        if (event.data.type === 'ready') {
-          worker?.postMessage({ source: source.value });
-          timeout = setTimeout(() => {
-            finish(
-              `Execution stopped after ${EXECUTION_TIMEOUT_MS.toLocaleString()} ms.`,
-              'stderr'
-            );
-          }, EXECUTION_TIMEOUT_MS);
+        if (worker !== current) return;
+        if (event.data.type === 'progress') {
+          emit('project-demo-progress', {
+            progress: event.data.progress,
+            message: 'Loading demo…',
+          });
+        } else if (event.data.type === 'ready') {
+          ready = true;
+          resolveBoot?.();
+          resolveBoot = undefined;
+          rejectBoot = undefined;
+          emit('project-demo-ready');
         } else if (event.data.type === 'boot-error') {
-          finish(
-            `The Quasi browser build is unavailable.\n\n${event.data.error}`,
-            'stderr'
-          );
+          emit('project-demo-error', { message: event.data.error });
+          stopWorker(new Error(event.data.error));
         } else if (event.data.error) {
           finish(event.data.error, 'stderr');
         } else {
@@ -91,9 +119,36 @@ export function initializeQuasiPlayground(
         }
       }
     );
-    worker.addEventListener('error', () => {
-      finish('The interpreter worker stopped unexpectedly.', 'stderr');
+    current.addEventListener('error', () => {
+      const error = new Error('The interpreter worker stopped unexpectedly.');
+      emit('project-demo-error', { message: error.message });
+      if (ready) finish(error.message, 'stderr');
+      stopWorker(error);
     });
+    return bootPromise;
+  };
+
+  const run = async () => {
+    if (!source || !output || !runButton || running) return;
+
+    output.setAttribute('aria-busy', 'true');
+    setRunning(true);
+    try {
+      await prepare();
+      worker?.postMessage({ source: source.value });
+      timeout = setTimeout(() => {
+        stopWorker();
+        finish(
+          `Execution stopped after ${EXECUTION_TIMEOUT_MS.toLocaleString()} ms.`,
+          'stderr'
+        );
+      }, EXECUTION_TIMEOUT_MS);
+    } catch (error) {
+      finish(
+        `The Quasi browser build is unavailable.\n\n${error instanceof Error ? error.message : String(error)}`,
+        'stderr'
+      );
+    }
   };
 
   runButton?.addEventListener('click', run, { signal });
@@ -112,12 +167,12 @@ export function initializeQuasiPlayground(
 
   renderEditor();
 
-  return () => {
-    if (timeout) clearTimeout(timeout);
-    timeout = undefined;
-    worker?.terminate();
-    worker = undefined;
-    output?.removeAttribute('aria-busy');
-    setRunning(false);
+  return {
+    prepare,
+    destroy() {
+      stopWorker(new Error('The playground was closed.'));
+      output?.removeAttribute('aria-busy');
+      setRunning(false);
+    },
   };
 }

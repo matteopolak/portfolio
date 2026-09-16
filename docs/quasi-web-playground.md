@@ -10,8 +10,9 @@ Minecraft demo while keeping arbitrary programs off the page's main thread.
 
 `QuasiDemoModal.astro` owns the unlabelled editor and console panes, the Run
 control anchored at the source pane's lower-right, responsive layout, and
-floating fullscreen/close controls. `src/lib/quasi-playground.ts` creates a
-fresh module Web Worker for each execution. The worker in
+floating fullscreen/close controls. It composes the same aggregate loading
+surface as the Minecraft modal. `src/lib/quasi-playground.ts` creates and
+prewarms a module Web Worker when the modal opens. The worker in
 `src/lib/quasi-worker.ts` fetches `/quasi/quasi.js` and
 `/quasi/quasi_bg.wasm` as opaque static assets, initializes the generated module
 inside the worker, and calls Quasi's exported `execute` function. The wrapper is
@@ -31,13 +32,14 @@ native textarea editing model. Successful output uses the console foreground;
 parser, runtime, worker, and timeout errors are marked as stderr and rendered in
 red.
 
-The one-second execution timer begins only after the worker reports that the
-WASM module is ready. While the worker boots and runs, the existing console
-output remains visible and the disabled Run control shows a spinner; the output
-is replaced only when execution succeeds, fails, or times out. If the program
-does not finish, the page terminates the entire worker, so an infinite Quasi
-loop cannot stall navigation or rendering. Closing the dialog or navigating
-away also terminates active work.
+The editor is revealed only after the worker has downloaded and compiled the
+Wasm module. The one-second execution timer begins only when a program is sent
+to that ready worker. While a program runs, the existing console output remains
+visible and the disabled Run control shows a spinner; the output is replaced
+only when execution succeeds, fails, or times out. Successful executions reuse
+the warm worker. If a program does not finish, the page terminates the worker,
+so an infinite Quasi loop cannot stall navigation or rendering. Closing the
+dialog or navigating away also terminates it.
 
 `.github/workflows/quasi-web.yml` checks out a requested revision of
 `matteopolak/quasi`, compiles the `wasm` library for `wasm32-unknown-unknown`
