@@ -1,4 +1,13 @@
-<dialog class="project-demo-modal" data-project-demo="minecraft" aria-label="Minecraft browser demo">
+---
+import ProjectDemoLoading from './ProjectDemoLoading.astro';
+---
+
+<dialog
+  class="project-demo-modal"
+  data-project-demo="minecraft"
+  data-demo-state="loading"
+  aria-label="Minecraft browser demo"
+>
   <div class="project-demo-modal__panel">
     <div class="project-demo-modal__actions">
       <button type="button" data-project-demo-fullscreen aria-label="Enter full screen" title="Full screen">
@@ -13,6 +22,7 @@
       </button>
     </div>
     <div class="project-demo-modal__game" data-project-demo-game></div>
+    <ProjectDemoLoading />
   </div>
 </dialog>
 

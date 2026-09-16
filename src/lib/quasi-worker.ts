@@ -21,6 +21,7 @@ let quasi: QuasiModule | undefined;
 
 async function boot() {
   try {
+    scope.postMessage({ type: 'progress', progress: 0.08 });
     const [moduleResponse, wasmResponse] = await Promise.all([
       fetch('/quasi/quasi.js'),
       fetch('/quasi/quasi_bg.wasm'),
@@ -30,6 +31,7 @@ async function boot() {
         `Quasi assets returned HTTP ${moduleResponse.status}/${wasmResponse.status}.`
       );
     }
+    scope.postMessage({ type: 'progress', progress: 0.45 });
 
     // Vite deliberately refuses to import ESM from public/. Fetching the
     // release-generated wrapper as an opaque asset keeps it out of Vite's
@@ -42,7 +44,9 @@ async function boot() {
     } finally {
       URL.revokeObjectURL(blobUrl);
     }
+    scope.postMessage({ type: 'progress', progress: 0.72 });
     await quasi.default(wasmResponse);
+    scope.postMessage({ type: 'progress', progress: 1 });
     scope.postMessage({ type: 'ready' });
   } catch (error) {
     scope.postMessage({ type: 'boot-error', error: errorMessage(error) });

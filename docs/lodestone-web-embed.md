@@ -44,12 +44,13 @@ installation, Wasm compilation, renderer initialization, simulation, and
 rendering away from the page's main thread. Stable worker/module aliases are
 deliberately absent from schema-v2 bundles.
 
-The portfolio owns the loading surface, fullscreen controls, and canvas; the SDK
-supplies structured lifecycle events and never inserts its own iframe, loader,
-CSS, or service worker. The loading surface stops accepting pointer input as
-soon as the SDK reports `started`, then fades away only after `first-frame`,
-which the worker SDK emits from the actual presentation path. A
-`first-frame-timeout` remains visible as an actionable renderer failure.
+The portfolio owns the shared project-modal loading surface, fullscreen
+controls, and canvas; the SDK supplies structured lifecycle events and never
+inserts its own iframe, loader, CSS, or service worker. Lodestone maps those
+events onto one aggregate modal progress value rather than rendering its old
+multi-stage loader. The surface fades away only after `first-frame`, which the
+worker SDK emits from the actual presentation path. A `first-frame-timeout`
+remains visible as an actionable renderer failure.
 
 The render worker retains the SDK handle for exactly one mounted custom element.
 Closing the project modal, navigating away, or otherwise disconnecting the
