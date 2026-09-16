@@ -1,9 +1,8 @@
 <div class="project-demo-loading" data-project-demo-loading data-state="loading" aria-live="polite">
   <div class="project-demo-loading__mark" aria-hidden="true">
-    <span class="project-demo-loading__mark-base">M</span>
-    <span class="project-demo-loading__paint project-demo-loading__paint--red">M</span>
-    <span class="project-demo-loading__paint project-demo-loading__paint--blue">M</span>
-    <span class="project-demo-loading__paint project-demo-loading__paint--yellow">M</span>
+    <svg viewBox="0 0 56 56">
+      <path d="M5 51V5H15L28 23L41 5H51V51H40V22L28 39L16 22V51Z"></path>
+    </svg>
   </div>
   <p data-project-demo-loading-label>Loading demo…</p>
   <div
@@ -48,78 +47,16 @@
     display: grid;
     width: 3.35rem;
     aspect-ratio: 1;
+    padding: 0.65rem;
     place-items: center;
-    overflow: hidden;
-    color: color-mix(in oklch, var(--paper), transparent 68%);
     background: var(--ink);
-    font-size: 1.4rem;
-    font-weight: 900;
-    line-height: 1;
   }
 
-  .project-demo-loading__mark-base,
-  .project-demo-loading__paint {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    font: inherit;
-  }
-
-  .project-demo-loading__paint {
-    --fill-top: calc(100% - var(--paint-fill, 0%));
-    clip-path: polygon(
-      0 calc(var(--fill-top) + 3%),
-      22% calc(var(--fill-top) - 2%),
-      48% calc(var(--fill-top) + 2%),
-      73% calc(var(--fill-top) - 3%),
-      100% calc(var(--fill-top) + 1%),
-      100% 100%,
-      0 100%
-    );
-    animation: project-demo-wave 1.5s ease-in-out infinite alternate;
-  }
-
-  .project-demo-loading__paint--red {
-    --paint-fill: var(--project-demo-fill-red, 0%);
-    color: var(--red);
-  }
-
-  .project-demo-loading__paint--blue {
-    --paint-fill: var(--project-demo-fill-blue, 0%);
-    color: var(--blue);
-    animation-delay: -0.55s;
-  }
-
-  .project-demo-loading__paint--yellow {
-    --paint-fill: var(--project-demo-fill-yellow, 0%);
-    color: var(--yellow);
-    animation-delay: -1.05s;
-  }
-
-  @keyframes project-demo-wave {
-    from {
-      clip-path: polygon(
-        0 calc(var(--fill-top) + 3%),
-        22% calc(var(--fill-top) - 2%),
-        48% calc(var(--fill-top) + 2%),
-        73% calc(var(--fill-top) - 3%),
-        100% calc(var(--fill-top) + 1%),
-        100% 100%,
-        0 100%
-      );
-    }
-    to {
-      clip-path: polygon(
-        0 calc(var(--fill-top) - 2%),
-        22% calc(var(--fill-top) + 2%),
-        48% calc(var(--fill-top) - 3%),
-        73% calc(var(--fill-top) + 2%),
-        100% calc(var(--fill-top) - 1%),
-        100% 100%,
-        0 100%
-      );
-    }
+  .project-demo-loading__mark svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    fill: var(--paper);
   }
 
   .project-demo-loading p {
@@ -151,21 +88,10 @@
     background: var(--red);
   }
 
-  .project-demo-loading[data-state='error'] .project-demo-loading__mark-base {
-    color: var(--red);
-  }
-
-  .project-demo-loading[data-state='error'] .project-demo-loading__paint {
-    display: none;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .project-demo-loading,
-    .project-demo-loading__progress i,
-    .project-demo-loading__paint {
+    .project-demo-loading__progress i {
       transition: none;
-      animation: none;
     }
-
   }
 </style>

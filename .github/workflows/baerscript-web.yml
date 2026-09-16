@@ -83,6 +83,7 @@ jobs:
           wasm-opt \
             .build/baerscript-dist/baerscript_wasm_bg.wasm \
             --enable-bulk-memory \
+            --enable-sign-ext \
             -Oz \
             -o .build/baerscript-dist/baerscript_wasm_bg.optimized.wasm
           mv \
