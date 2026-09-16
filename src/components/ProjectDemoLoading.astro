@@ -1,5 +1,10 @@
 <div class="project-demo-loading" data-project-demo-loading data-state="loading" aria-live="polite">
-  <div class="project-demo-loading__mark" aria-hidden="true">M</div>
+  <div class="project-demo-loading__mark" aria-hidden="true">
+    <span class="project-demo-loading__mark-base">M</span>
+    <span class="project-demo-loading__paint project-demo-loading__paint--red">M</span>
+    <span class="project-demo-loading__paint project-demo-loading__paint--blue">M</span>
+    <span class="project-demo-loading__paint project-demo-loading__paint--yellow">M</span>
+  </div>
   <p data-project-demo-loading-label>Loading demo…</p>
   <div
     class="project-demo-loading__progress"
@@ -52,21 +57,17 @@
     line-height: 1;
   }
 
-  .project-demo-loading__mark::before {
-    --fill-top: calc(100% - var(--project-demo-fill, 0%));
+  .project-demo-loading__mark-base,
+  .project-demo-loading__paint {
     position: absolute;
     inset: 0;
     display: grid;
     place-items: center;
-    color: transparent;
-    background: linear-gradient(
-      90deg,
-      var(--red) 0 28%,
-      var(--blue) 42% 68%,
-      var(--yellow) 82% 100%
-    );
-    background-clip: text;
-    background-size: 180% 100%;
+    font: inherit;
+  }
+
+  .project-demo-loading__paint {
+    --fill-top: calc(100% - var(--paint-fill, 0%));
     clip-path: polygon(
       0 calc(var(--fill-top) + 3%),
       22% calc(var(--fill-top) - 2%),
@@ -76,18 +77,48 @@
       100% 100%,
       0 100%
     );
-    content: 'M';
-    font: inherit;
-    animation: project-demo-paint 1.5s ease-in-out infinite alternate;
-    -webkit-background-clip: text;
+    animation: project-demo-wave 1.5s ease-in-out infinite alternate;
   }
 
-  @keyframes project-demo-paint {
+  .project-demo-loading__paint--red {
+    --paint-fill: var(--project-demo-fill-red, 0%);
+    color: var(--red);
+  }
+
+  .project-demo-loading__paint--blue {
+    --paint-fill: var(--project-demo-fill-blue, 0%);
+    color: var(--blue);
+    animation-delay: -0.55s;
+  }
+
+  .project-demo-loading__paint--yellow {
+    --paint-fill: var(--project-demo-fill-yellow, 0%);
+    color: var(--yellow);
+    animation-delay: -1.05s;
+  }
+
+  @keyframes project-demo-wave {
     from {
-      background-position: 0% 50%;
+      clip-path: polygon(
+        0 calc(var(--fill-top) + 3%),
+        22% calc(var(--fill-top) - 2%),
+        48% calc(var(--fill-top) + 2%),
+        73% calc(var(--fill-top) - 3%),
+        100% calc(var(--fill-top) + 1%),
+        100% 100%,
+        0 100%
+      );
     }
     to {
-      background-position: 100% 50%;
+      clip-path: polygon(
+        0 calc(var(--fill-top) - 2%),
+        22% calc(var(--fill-top) + 2%),
+        48% calc(var(--fill-top) - 3%),
+        73% calc(var(--fill-top) + 2%),
+        100% calc(var(--fill-top) - 1%),
+        100% 100%,
+        0 100%
+      );
     }
   }
 
@@ -120,18 +151,21 @@
     background: var(--red);
   }
 
-  .project-demo-loading[data-state='error'] .project-demo-loading__mark::before {
-    background: var(--red);
+  .project-demo-loading[data-state='error'] .project-demo-loading__mark-base {
+    color: var(--red);
+  }
+
+  .project-demo-loading[data-state='error'] .project-demo-loading__paint {
+    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .project-demo-loading,
-    .project-demo-loading__progress i {
+    .project-demo-loading__progress i,
+    .project-demo-loading__paint {
       transition: none;
-    }
-
-    .project-demo-loading__mark::before {
       animation: none;
     }
+
   }
 </style>

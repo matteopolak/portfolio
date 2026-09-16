@@ -59,7 +59,12 @@ jobs:
       - name: install wasm tools
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack,binaryen
+          tool: wasm-pack
+
+      - name: install binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes binaryen
 
       - name: build browser module
         env:
