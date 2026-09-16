@@ -84,6 +84,6 @@ Dates are formatted in UTC so date-only values cannot move into the preceding mo
 ## Dependencies
 
 - Astro content collections validate and load project frontmatter.
-- `ProjectDemoModal.astro`, `QuasiDemoModal.astro`, and `src/lib/project-actions.ts` provide the interactive project demos.
+- `ProjectDemoModal.astro`, `CodeDemoModal.astro`, and `src/lib/project-actions.ts` provide the interactive project demos.
 - `portfolio.toml` and `src/lib/config.ts` provide career milestones.
 - The shared Bauhaus color tokens and typography come from `src/styles/global.css`.

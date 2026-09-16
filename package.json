@@ -11,7 +11,7 @@
     "prebuild": "pnpm generate:favicons && pnpm sync:web-assets",
     "build": "astro build",
     "generate:favicons": "node scripts/generate-favicons.mjs",
-    "sync:web-assets": "node scripts/sync-lodestone-web.mjs && node scripts/sync-quasi-web.mjs",
+    "sync:web-assets": "node scripts/sync-lodestone-web.mjs && node scripts/sync-quasi-web.mjs && node scripts/sync-baerscript-web.mjs",
     "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
     "resume:job": "node scripts/build-job-resume.mjs",
     "resume:batch": "node scripts/resume/build-batch.mjs",

@@ -3,7 +3,7 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
-import QuasiDemoModal from '../components/QuasiDemoModal.astro';
+import CodeDemoModal from '../components/CodeDemoModal.astro';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
@@ -96,6 +96,19 @@ function milestoneDate(date: Date, includeDay: boolean): string {
 }
 
 let eventIndex = 0;
+const quasiStarter = `# Sum the squares from 1 through 10
+let total = 0;
+
+for let i = 1; i < 11; i = i + 1 [
+  total = total + i * i;
+]
+
+print "sum of squares:";
+print total;`;
+const baerscriptStarter = `# Increment the current column twice, then print it
++v
++v
+>v`;
 ---
 
 <Layout title="Projects" description="Selected software projects by Matthew Polak.">
@@ -130,15 +143,18 @@ let eventIndex = 0;
                       ? { id: 'play-minecraft', label: 'Try in browser' }
                       : item.project.id === 'quasi'
                         ? { id: 'try-quasi', label: 'Try in browser' }
+                        : item.project.id === 'baerscript'
+                          ? { id: 'try-baerscript', label: 'Try in browser' }
                         : undefined
                   }
                 />
               ) : item.kind === 'hackathon' ? (
                 <article class="hackathon-win">
-                  <time class="milestone__date" datetime={item.win.date}>
-                    {milestoneDate(item.date, true)}
-                  </time>
-                  <p class="hackathon-win__awards">{item.win.awards.join(' · ')}</p>
+                  <p class="hackathon-win__meta">
+                    <time datetime={item.win.date}>{milestoneDate(item.date, true)}</time>
+                    <span aria-hidden="true">·</span>
+                    <span>{item.win.awards.join(' · ')}</span>
+                  </p>
                   <h2>
                     {item.win.project}
                     <span> at {item.win.hackathon}</span>
@@ -164,7 +180,8 @@ let eventIndex = 0;
     }
   </ol>
   <ProjectDemoModal />
-  <QuasiDemoModal />
+  <CodeDemoModal id="quasi" label="Quasi" starter={quasiStarter} />
+  <CodeDemoModal id="baerscript" label="BaerScript" starter={baerscriptStarter} />
 </Layout>
 
 <script>
@@ -286,7 +303,7 @@ let eventIndex = 0;
 
   .hackathon-win {
     max-width: 25rem;
-    padding: 0.65rem 0;
+    padding: 0.45rem 0;
   }
 
   .journey-entry--left .hackathon-win {
@@ -294,37 +311,45 @@ let eventIndex = 0;
     text-align: right;
   }
 
-  .hackathon-win__awards {
-    margin: 0.24rem 0 0;
-    color: color-mix(in oklch, var(--red) 58%, var(--blue));
+  .hackathon-win__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.22rem;
+    margin: 0;
+    color: var(--muted);
     font-size: 0.68rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1.35;
   }
 
+  .journey-entry--left .hackathon-win__meta {
+    justify-content: flex-end;
+  }
+
   .hackathon-win h2 {
-    margin: 0.22rem 0 0;
-    font-size: clamp(1rem, 2vw, 1.22rem);
-    line-height: 1.14;
+    margin: 0.18rem 0 0;
+    font-size: 0.94rem;
+    line-height: 1.2;
   }
 
   .hackathon-win h2 span {
     color: var(--muted);
-    font-size: 0.78em;
-    font-weight: 650;
+    font-size: inherit;
+    font-weight: 600;
   }
 
   .hackathon-win__description {
-    margin: 0.45rem 0 0;
-    font-size: 0.78rem;
-    line-height: 1.45;
+    margin: 0.34rem 0 0;
+    color: color-mix(in oklch, var(--ink) 72%, var(--paper));
+    font-size: 0.74rem;
+    line-height: 1.4;
   }
 
   .hackathon-win__links {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin: 0.48rem 0 0;
+    margin: 0.36rem 0 0;
     font-size: 0.68rem;
     font-weight: 750;
   }
@@ -367,6 +392,10 @@ let eventIndex = 0;
     }
 
     .journey-entry--left .hackathon-win__links {
+      justify-content: flex-start;
+    }
+
+    .journey-entry--left .hackathon-win__meta {
       justify-content: flex-start;
     }
   }

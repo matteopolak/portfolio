@@ -8,11 +8,12 @@ Minecraft demo while keeping arbitrary programs off the page's main thread.
 
 ## How it works
 
-`QuasiDemoModal.astro` owns the unlabelled editor and console panes, the Run
+`CodeDemoModal.astro` owns the unlabelled editor and console panes, the Run
 control anchored at the source pane's lower-right, responsive layout, and
 floating fullscreen/close controls. It composes the same aggregate loading
-surface as the Minecraft modal. `src/lib/quasi-playground.ts` creates and
-prewarms a module Web Worker when the modal opens. The worker in
+surface as the Minecraft modal. `src/lib/quasi-playground.ts` configures the
+shared controller in `src/lib/code-playground.ts` and prewarms a module Web
+Worker when the modal opens. The worker in
 `src/lib/quasi-worker.ts` fetches `/quasi/quasi.js` and
 `/quasi/quasi_bg.wasm` as opaque static assets, initializes the generated module
 inside the worker, and calls Quasi's exported `execute` function. The wrapper is
@@ -67,9 +68,10 @@ runner.
 
 ## How to change it
 
-Edit the visual layout or starter program in `QuasiDemoModal.astro`. Change
-execution lifecycle, timeout messaging, or shortcuts in
-`src/lib/quasi-playground.ts`; change only the generated-module bridge in
+Edit the visual layout in `CodeDemoModal.astro` and the starter program in
+`src/pages/projects.astro`. Change shared execution lifecycle, timeout
+messaging, or shortcuts in `src/lib/code-playground.ts`; change only Quasi's
+highlighting and worker selection in `src/lib/quasi-playground.ts`, and the generated-module bridge in
 `src/lib/quasi-worker.ts`. Keep untrusted execution inside the disposable worker
 and never move `execute` onto the main thread.
 
@@ -81,13 +83,13 @@ commits generated files and should be used sparingly.
 
 ## Configuration
 
-- `EXECUTION_TIMEOUT_MS` in `src/lib/quasi-playground.ts` controls the hard
+- `EXECUTION_TIMEOUT_MS` in `src/lib/code-playground.ts` controls the hard
   per-program limit.
 - `quasi_ref` selects the Quasi branch, tag, or commit built by the workflow.
 - `update_repository` selects `pointer`, `assets`, or `none` publication mode.
 - `quasi-web-release.json` is generated deployment state. It remains disabled
   until the first workflow publication.
-- `pnpm sync:web-assets` hydrates both release-backed browser demos manually;
+- `pnpm sync:web-assets` hydrates all release-backed browser demos manually;
   normal `pnpm dev` and `pnpm build` runs invoke it automatically.
 
 ## Dependencies

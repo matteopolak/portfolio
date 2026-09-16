@@ -2,7 +2,7 @@
 
 ## What it is
 
-Minecraft and Quasi share one modal loading surface instead of implementing
+Minecraft, Quasi, and BaerScript share one modal loading surface instead of implementing
 their own spinners or staged loaders. The surface shows a short status and one
 aggregate progress bar until the imported demo reports that it is ready.
 
@@ -16,11 +16,11 @@ whether the underlying demo is a WebAssembly compiler, a renderer worker, or a
 future project runtime.
 
 Lodestone emits aggregate progress while its existing SDK worker mounts and
-hides the shared loader only after the first rendered frame. Quasi creates and
-compiles its worker when the modal opens, emits coarse total progress from the
-worker bootstrap, and reveals the editor only after wasm-bindgen is ready. The
-Quasi worker remains warm for runs during that modal session and is terminated
-when the modal closes.
+hides the shared loader only after the first rendered frame. The two code
+playgrounds create and compile their workers when a modal opens, emit coarse
+total progress from the worker bootstrap, and reveal the editor only after
+wasm-bindgen is ready. Each worker remains warm for runs during that modal
+session and is terminated when the modal closes.
 
 ## How to change it
 
@@ -33,8 +33,8 @@ first interaction, not merely that a script downloaded.
 ## Configuration
 
 There are no global flags. Each demo chooses how to map its own coarse phases
-onto the aggregate progress value. Quasi's execution timeout remains separate
-from modal loading and is configured by `EXECUTION_TIMEOUT_MS`.
+onto the aggregate progress value. Code execution timeouts remain separate from
+modal loading and are configured by `EXECUTION_TIMEOUT_MS`.
 
 ## Dependencies
 
