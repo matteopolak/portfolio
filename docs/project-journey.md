@@ -2,13 +2,15 @@
 
 ## What it is
 
-The Projects page is a newest-first timeline that mixes project launches with career starts and a small, hand-curated set of AI-tool milestones. It independently identifies how each project was developed and whether AI or machine learning is part of the product itself.
+The Projects page is a newest-first timeline that mixes project launches with career starts, hackathon wins, and a small, hand-curated set of AI-tool milestones. It independently identifies how each project was developed and whether AI or machine learning is part of the product itself.
 
 ## How it works
 
-Project entries still come from `src/content/projects/*.md`. `src/pages/projects.astro` merges those entries with enabled job start dates from `portfolio.toml` and the events in `src/data/project-milestones.ts`, then sorts the combined list by date. Events newer than the newest project remain in the curated data but are not rendered, keeping the visible journey anchored to completed project work.
+Project entries still come from `src/content/projects/*.md`. `src/pages/projects.astro` merges those entries with enabled job start dates from `portfolio.toml`, the events in `src/data/project-milestones.ts`, and team results from `src/data/hackathon-wins.ts`, then sorts the combined list by date. Contextual milestones newer than the newest project remain in the curated data but are not rendered, keeping the visible journey anchored to completed project work.
 
-Project cards remain full-width, centered rows. Contextual events are interleaved by date and alternate across a straight center rail. Each event displays only its date and title; descriptions, category labels, and source links remain in the data but are not rendered. The light-gray rail spans the full event interval, including a deliberate buffer before and after the event labels, and touches the project cards above and below. Two adjacent projects with no intervening events instead receive ordinary whitespace and no connector. Small solid dots distinguish career milestones in red from AI milestones in blue. On phones, event text moves to the right of a short left-side rail while project cards remain full-width.
+Hackathon wins use the event's final day as their timeline date. They are richer than ordinary milestones but deliberately smaller than full project cards: each entry names the project and event, lists the verified prize or sponsor challenge, gives a concise technical explanation, and links to both the official submission and source repository. They live outside the Astro project collection because these are collaborative weekend projects rather than the primary portfolio projects.
+
+Project cards remain full-width, centered rows. Contextual events are interleaved by date and alternate across a straight center rail. Ordinary career and AI milestones display only their date and title; their descriptions, category labels, and source links remain in the data but are not rendered. Hackathon results add their award, technical summary, and project links. The light-gray rail spans the full event interval, including a deliberate buffer before and after the event labels, and touches the project cards above and below. Two adjacent projects with no intervening events instead receive ordinary whitespace and no connector. Small solid dots distinguish career milestones in red, AI milestones in blue, and hackathon results in a red-blue blend. On phones, event text moves to the right of a short left-side rail while project cards remain full-width.
 
 Projects with a non-zero AI relationship receive an understated inline label.
 Workflow, model, and token metadata remains available in frontmatter but is
@@ -61,6 +63,8 @@ future use rather than displayed in the current interface.
 
 Edit `src/data/project-milestones.ts` to add, remove, or reword contextual events. These should be events that affected Matthew's work, not a general model-release feed. Use a stable `id`, an exact ISO date, concise first-person relevance, and an authoritative `sourceUrl` for researched claims. Career starts are automatic; change their source data in `portfolio.toml`.
 
+Edit `src/data/hackathon-wins.ts` to maintain competition results. Use the event's closing date, the official displayed project and hackathon names, exact award labels, a short technical description, the public repository, and the official Devpost, DoraHacks, or organizer submission URL. Keep multiple prizes on one result rather than creating duplicate timeline entries.
+
 The event layout, line, dots, and mobile cutoff live in `src/pages/projects.astro`. Keep project rows free of the rail and avoid adding client-side layout measurement; the timeline is intentionally CSS-only.
 
 To add another interactive project, pass an `{ id, label }` action to `ProjectCard.astro` and register the matching callback in `src/lib/project-actions.ts`. The ID crosses Astro's static HTML boundary; the callback remains in the client module. Keep ordinary Website and GitHub destinations as links.
@@ -72,6 +76,7 @@ There are no environment variables or remote runtime feeds. The relevant configu
 - project `date`, optional development `ai`, and optional `aiFeature` frontmatter;
 - enabled jobs and their `start` dates in `portfolio.toml`;
 - curated entries in `src/data/project-milestones.ts`;
+- curated team results in `src/data/hackathon-wins.ts`;
 - the `52rem` desktop/mobile journey breakpoint.
 
 Dates are formatted in UTC so date-only values cannot move into the preceding month in western time zones.
