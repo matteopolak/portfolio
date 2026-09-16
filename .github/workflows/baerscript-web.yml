@@ -56,10 +56,10 @@ jobs:
         with:
           workspaces: .build/baerscript -> target
 
-      - name: install wasm-pack
+      - name: install wasm tools
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack
+          tool: wasm-pack,binaryen
 
       - name: build browser module
         env:
@@ -73,7 +73,16 @@ jobs:
           wasm-pack build .build/baerscript/wasm \
             --target web \
             --release \
+            --no-opt \
             --out-dir "$GITHUB_WORKSPACE/.build/baerscript-dist"
+          wasm-opt \
+            .build/baerscript-dist/baerscript_wasm_bg.wasm \
+            --enable-bulk-memory \
+            -Oz \
+            -o .build/baerscript-dist/baerscript_wasm_bg.optimized.wasm
+          mv \
+            .build/baerscript-dist/baerscript_wasm_bg.optimized.wasm \
+            .build/baerscript-dist/baerscript_wasm_bg.wasm
 
       - name: smoke-test the generated interpreter
         run: |

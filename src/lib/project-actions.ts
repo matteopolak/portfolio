@@ -48,9 +48,8 @@ function setDemoLoading(
   loader
     ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
     ?.replaceChildren(message);
-  progressElement
-    ?.querySelector<HTMLElement>('[data-project-demo-loading-bar]')
-    ?.style.setProperty('--project-demo-progress', String(bounded));
+  loader?.style.setProperty('--project-demo-progress', String(bounded));
+  loader?.style.setProperty('--project-demo-fill', `${bounded * 100}%`);
   progressElement?.setAttribute(
     'aria-valuenow',
     String(Math.round(bounded * 100))
