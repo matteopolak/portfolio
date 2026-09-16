@@ -10,6 +10,10 @@ interface LodestoneGameElement extends HTMLElement {
   enterFullscreen(): Promise<void>;
 }
 
+interface DemoProgressEvent extends CustomEvent {
+  detail: { progress: number; message: string };
+}
+
 const callbacks = new Map<string, ProjectActionCallback>();
 let cleanup: (() => void) | undefined;
 
@@ -18,6 +22,33 @@ export function registerProjectAction(
   callback: ProjectActionCallback
 ) {
   callbacks.set(id, callback);
+}
+
+function setDemoLoading(
+  dialog: HTMLDialogElement,
+  progress: number,
+  message: string,
+  state: 'loading' | 'ready' | 'error' = 'loading'
+) {
+  const bounded = Math.max(0, Math.min(1, progress));
+  dialog.dataset.demoState = state;
+  const loader = dialog.querySelector<HTMLElement>(
+    '[data-project-demo-loading]'
+  );
+  const progressElement = dialog.querySelector<HTMLElement>(
+    '[data-project-demo-loading-progress]'
+  );
+  loader?.setAttribute('data-state', state);
+  loader
+    ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
+    ?.replaceChildren(message);
+  progressElement
+    ?.querySelector<HTMLElement>('[data-project-demo-loading-bar]')
+    ?.style.setProperty('--project-demo-progress', String(bounded));
+  progressElement?.setAttribute(
+    'aria-valuenow',
+    String(Math.round(bounded * 100))
+  );
 }
 
 function initializeProjectActions() {
@@ -41,9 +72,34 @@ function initializeProjectActions() {
     ...document.querySelectorAll<HTMLDialogElement>('[data-project-demo]'),
   ];
   let activeTrigger: HTMLButtonElement | undefined;
-  const cleanupQuasi = quasiDialog
+  const quasi = quasiDialog
     ? initializeQuasiPlayground(quasiDialog, signal)
     : undefined;
+
+  for (const dialog of projectDialogs) {
+    dialog.addEventListener(
+      'project-demo-progress',
+      (event) => {
+        const { progress, message } = (event as DemoProgressEvent).detail;
+        setDemoLoading(dialog, progress, message);
+      },
+      { signal }
+    );
+    dialog.addEventListener(
+      'project-demo-ready',
+      () => setDemoLoading(dialog, 1, 'Ready', 'ready'),
+      { signal }
+    );
+    dialog.addEventListener(
+      'project-demo-error',
+      (event) => {
+        const message = (event as CustomEvent<{ message: string }>).detail
+          .message;
+        setDemoLoading(dialog, 1, message, 'error');
+      },
+      { signal }
+    );
+  }
 
   const destroyGame = () => {
     gameHost?.replaceChildren();
@@ -79,21 +135,29 @@ function initializeProjectActions() {
       'lodestone-game'
     ) as LodestoneGameElement;
     game.setAttribute('mode', 'modal');
+    setDemoLoading(minecraftDialog, 0, 'Loading demo…');
     gameHost.replaceChildren(game);
     document.documentElement.classList.add('has-project-demo');
     minecraftDialog.showModal();
     void game.start();
   });
 
-  registerProjectAction('try-quasi', (trigger) => {
-    if (!quasiDialog) return;
+  registerProjectAction('try-quasi', async (trigger) => {
+    if (!quasiDialog || !quasi) return;
     activeTrigger = trigger;
+    setDemoLoading(quasiDialog, 0, 'Loading demo…');
     document.documentElement.classList.add('has-project-demo');
     quasiDialog.showModal();
     quasiPanel?.scrollTo(0, 0);
-    quasiDialog
-      .querySelector<HTMLTextAreaElement>('[data-quasi-source]')
-      ?.focus({ preventScroll: true });
+    try {
+      await quasi.prepare();
+      if (!quasiDialog.open) return;
+      quasiDialog
+        .querySelector<HTMLTextAreaElement>('[data-quasi-source]')
+        ?.focus({ preventScroll: true });
+    } catch {
+      // The shared modal loader receives the worker's error event.
+    }
   });
 
   document
@@ -219,7 +283,7 @@ function initializeProjectActions() {
   quasiDialog?.addEventListener(
     'close',
     () => {
-      cleanupQuasi?.();
+      quasi?.destroy();
       document.documentElement.classList.remove('has-project-demo');
       activeTrigger?.focus();
       activeTrigger = undefined;
@@ -229,7 +293,7 @@ function initializeProjectActions() {
 
   cleanup = () => {
     controller.abort();
-    cleanupQuasi?.();
+    quasi?.destroy();
     closeMinecraft();
     closeQuasi();
     destroyGame();
