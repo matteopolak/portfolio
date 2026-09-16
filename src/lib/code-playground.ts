@@ -173,6 +173,9 @@ export function initializeCodePlayground(
 
   return {
     prepare,
+    isReady() {
+      return ready;
+    },
     destroy() {
       stopWorker(new Error('The playground was closed.'));
       output?.removeAttribute('aria-busy');
