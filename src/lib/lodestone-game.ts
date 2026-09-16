@@ -51,6 +51,8 @@ class LodestoneGameElement extends HTMLElement {
   #sendInput: ((input: Record<string, unknown>) => void) | undefined;
   #canvasTransferred = false;
   #canvasRevealed = false;
+  #workerReady = false;
+  #firstFrameReady = false;
   #pointerLockRequested = false;
   #readyAssets = new Set<string>();
 
@@ -273,6 +275,8 @@ class LodestoneGameElement extends HTMLElement {
     const controller = new AbortController();
     this.#abortController = controller;
     this.#canvasRevealed = false;
+    this.#workerReady = false;
+    this.#firstFrameReady = false;
     this.#readyAssets.clear();
     delete prompt.dataset.mounted;
     delete prompt.dataset.ready;
@@ -358,7 +362,15 @@ class LodestoneGameElement extends HTMLElement {
         } else if (message.kind === 'host-action') {
           this.#handleHostAction(message.action);
         } else if (message.kind === 'ready') {
-          this.#setProgress(0.92, 'Preparing demo…');
+          this.#workerReady = true;
+          this.focusGame();
+          this.#reconcileVisibleGate();
+          if (this.#firstFrameReady) {
+            this.#setProgress(1, 'Ready');
+            this.#revealCanvas();
+          } else {
+            this.#setProgress(0.92, 'Preparing demo…');
+          }
         } else if (message.kind === 'error') {
           this.#handleWorkerError(message.message);
         }
@@ -468,7 +480,9 @@ class LodestoneGameElement extends HTMLElement {
     for (const eventName of ['focus', 'blur'] as const) {
       canvas.addEventListener(
         eventName,
-        () => sendInput({ type: 'focus', focused: eventName === 'focus' }),
+        () => {
+          sendInput({ type: 'focus', focused: eventName === 'focus' });
+        },
         { signal }
       );
     }
@@ -520,6 +534,8 @@ class LodestoneGameElement extends HTMLElement {
     this.#resizeObserver = undefined;
     this.#pointerLockRequested = false;
     this.#sendInput = undefined;
+    this.#workerReady = false;
+    this.#firstFrameReady = false;
     if (document.pointerLockElement === this.#canvas) {
       document.exitPointerLock();
     }
@@ -585,8 +601,13 @@ class LodestoneGameElement extends HTMLElement {
       const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
       if (prompt) prompt.dataset.mounted = 'true';
     } else if (type === 'first-frame') {
-      this.#setProgress(1, 'Ready');
-      this.#revealCanvas();
+      this.#firstFrameReady = true;
+      if (this.#workerReady) {
+        this.#setProgress(1, 'Ready');
+        this.#revealCanvas();
+      } else {
+        this.#setProgress(0.98, 'Preparing demo…');
+      }
     } else if (type === 'first-frame-timeout') {
       const prompt = this.shadowRoot?.querySelector<HTMLElement>('.prompt');
       if (prompt) delete prompt.dataset.mounted;
@@ -650,6 +671,17 @@ class LodestoneGameElement extends HTMLElement {
   focusGame() {
     this.#canvas?.focus({ preventScroll: true });
     this.#sendInput?.({ type: 'focus', focused: true });
+  }
+
+  #reconcileVisibleGate() {
+    const key = {
+      type: 'key',
+      code: 'ArrowLeft',
+      text: undefined,
+      modifiers: 0,
+    };
+    this.#sendInput?.({ ...key, pressed: true });
+    this.#sendInput?.({ ...key, pressed: false });
   }
 
   async enterFullscreen() {
