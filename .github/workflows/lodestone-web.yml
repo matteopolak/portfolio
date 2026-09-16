@@ -109,7 +109,7 @@ jobs:
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: retain workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lodestone-web-${{ steps.bundle.outputs.revision }}
           path: |
