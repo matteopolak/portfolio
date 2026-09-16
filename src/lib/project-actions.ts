@@ -1,4 +1,5 @@
 import './lodestone-game';
+import { initializeBaerscriptPlayground } from './baerscript-playground';
 import { initializeQuasiPlayground } from './quasi-playground';
 
 type ProjectActionCallback = (
@@ -12,6 +13,11 @@ interface LodestoneGameElement extends HTMLElement {
 
 interface DemoProgressEvent extends CustomEvent {
   detail: { progress: number; message: string };
+}
+
+interface CodePlayground {
+  prepare(): Promise<void>;
+  destroy(): void;
 }
 
 const callbacks = new Map<string, ProjectActionCallback>();
@@ -62,19 +68,37 @@ function initializeProjectActions() {
   const gameHost = minecraftDialog?.querySelector<HTMLElement>(
     '[data-project-demo-game]'
   );
-  const quasiDialog = document.querySelector<HTMLDialogElement>(
-    '[data-project-demo="quasi"]'
-  );
-  const quasiPanel = quasiDialog?.querySelector<HTMLElement>(
-    '[data-quasi-fullscreen-target]'
-  );
   const projectDialogs = [
     ...document.querySelectorAll<HTMLDialogElement>('[data-project-demo]'),
   ];
   let activeTrigger: HTMLButtonElement | undefined;
-  const quasi = quasiDialog
-    ? initializeQuasiPlayground(quasiDialog, signal)
-    : undefined;
+  const codeDemos = [
+    {
+      id: 'quasi',
+      actionId: 'try-quasi',
+      initialize: initializeQuasiPlayground,
+    },
+    {
+      id: 'baerscript',
+      actionId: 'try-baerscript',
+      initialize: initializeBaerscriptPlayground,
+    },
+  ]
+    .map(({ id, actionId, initialize }) => {
+      const dialog = document.querySelector<HTMLDialogElement>(
+        `[data-project-demo="${id}"]`
+      );
+      if (!dialog) return undefined;
+      return {
+        actionId,
+        dialog,
+        panel: dialog.querySelector<HTMLElement>(
+          '[data-code-fullscreen-target]'
+        ),
+        playground: initialize(dialog, signal) as CodePlayground,
+      };
+    })
+    .filter((demo) => demo !== undefined);
 
   for (const dialog of projectDialogs) {
     dialog.addEventListener(
@@ -123,10 +147,6 @@ function initializeProjectActions() {
     closeAnimated(minecraftDialog ?? null);
   };
 
-  const closeQuasi = () => {
-    closeAnimated(quasiDialog ?? null);
-  };
-
   registerProjectAction('play-minecraft', async (trigger) => {
     if (!minecraftDialog || !gameHost) return;
 
@@ -142,23 +162,62 @@ function initializeProjectActions() {
     void game.start();
   });
 
-  registerProjectAction('try-quasi', async (trigger) => {
-    if (!quasiDialog || !quasi) return;
-    activeTrigger = trigger;
-    setDemoLoading(quasiDialog, 0, 'Loading demo…');
-    document.documentElement.classList.add('has-project-demo');
-    quasiDialog.showModal();
-    quasiPanel?.scrollTo(0, 0);
-    try {
-      await quasi.prepare();
-      if (!quasiDialog.open) return;
-      quasiDialog
-        .querySelector<HTMLTextAreaElement>('[data-quasi-source]')
-        ?.focus({ preventScroll: true });
-    } catch {
-      // The shared modal loader receives the worker's error event.
-    }
-  });
+  for (const demo of codeDemos) {
+    registerProjectAction(demo.actionId, async (trigger) => {
+      activeTrigger = trigger;
+      setDemoLoading(demo.dialog, 0, 'Loading demo…');
+      document.documentElement.classList.add('has-project-demo');
+      demo.dialog.showModal();
+      demo.panel?.scrollTo(0, 0);
+      try {
+        await demo.playground.prepare();
+        if (!demo.dialog.open) return;
+        demo.dialog
+          .querySelector<HTMLTextAreaElement>('[data-code-source]')
+          ?.focus({ preventScroll: true });
+      } catch {
+        // The shared modal loader receives the worker's error event.
+      }
+    });
+
+    demo.dialog
+      .querySelector<HTMLButtonElement>('[data-code-close]')
+      ?.addEventListener('click', () => closeAnimated(demo.dialog), { signal });
+    demo.dialog
+      .querySelector<HTMLButtonElement>('[data-code-fullscreen]')
+      ?.addEventListener(
+        'click',
+        () => {
+          if (demo.panel) void demo.panel.requestFullscreen();
+        },
+        { signal }
+      );
+    demo.dialog.addEventListener(
+      'cancel',
+      (event) => {
+        event.preventDefault();
+        closeAnimated(demo.dialog);
+      },
+      { signal }
+    );
+    demo.dialog.addEventListener(
+      'click',
+      (event) => {
+        if (event.target === demo.dialog) closeAnimated(demo.dialog);
+      },
+      { signal }
+    );
+    demo.dialog.addEventListener(
+      'close',
+      () => {
+        demo.playground.destroy();
+        document.documentElement.classList.remove('has-project-demo');
+        activeTrigger?.focus();
+        activeTrigger = undefined;
+      },
+      { signal }
+    );
+  }
 
   document
     .querySelectorAll<HTMLButtonElement>('[data-project-action]')
@@ -253,49 +312,13 @@ function initializeProjectActions() {
     { signal }
   );
 
-  quasiDialog
-    ?.querySelector<HTMLButtonElement>('[data-quasi-close]')
-    ?.addEventListener('click', closeQuasi, { signal });
-  quasiDialog
-    ?.querySelector<HTMLButtonElement>('[data-quasi-fullscreen]')
-    ?.addEventListener(
-      'click',
-      () => {
-        if (quasiPanel) void quasiPanel.requestFullscreen();
-      },
-      { signal }
-    );
-  quasiDialog?.addEventListener(
-    'cancel',
-    (event) => {
-      event.preventDefault();
-      closeQuasi();
-    },
-    { signal }
-  );
-  quasiDialog?.addEventListener(
-    'click',
-    (event) => {
-      if (event.target === quasiDialog) closeQuasi();
-    },
-    { signal }
-  );
-  quasiDialog?.addEventListener(
-    'close',
-    () => {
-      quasi?.destroy();
-      document.documentElement.classList.remove('has-project-demo');
-      activeTrigger?.focus();
-      activeTrigger = undefined;
-    },
-    { signal }
-  );
-
   cleanup = () => {
     controller.abort();
-    quasi?.destroy();
+    for (const demo of codeDemos) {
+      demo.playground.destroy();
+      closeAnimated(demo.dialog);
+    }
     closeMinecraft();
-    closeQuasi();
     destroyGame();
   };
 }

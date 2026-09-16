@@ -1,6 +1,7 @@
 jobs/
 docs/*
 !docs/bauhaus-grid-state.md
+!docs/baerscript-web-playground.md
 !docs/continuous-integration.md
 !docs/favicon-pipeline.md
 !docs/logo-assets.md
@@ -13,6 +14,7 @@ scripts/*
 !scripts/generate-favicons.mjs
 !scripts/quasi-browser-worker.patch
 !scripts/sync-quasi-web.mjs
+!scripts/sync-baerscript-web.mjs
 tests/
 
 # build output
@@ -55,6 +57,7 @@ public/icon-*.png
 public/site*.webmanifest
 public/lodestone/
 public/quasi/
+public/baerscript/
 
 website/
 
