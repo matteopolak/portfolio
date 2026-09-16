@@ -19,10 +19,12 @@ const frontmatterAi = remarkPluginFrontmatter.ai as typeof project.data.ai;
 const ai = project.data.ai ?? frontmatterAi;
 const usage = ai?.usage ?? 'none';
 const usageLabel = {
-  none: 'No AI',
-  paired: 'AI-paired',
+  none: '',
+  paired: 'AI-assisted',
   'agent-led': 'Agent-led',
 }[usage];
+const aiFeature = project.data.aiFeature ?? remarkPluginFrontmatter.aiFeature === true;
+const aiLabel = [usageLabel, aiFeature && 'Uses AI'].filter(Boolean).join('; ');
 const date = project.data.date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
@@ -35,12 +37,16 @@ const date = project.data.date.toLocaleDateString('en-US', {
     <a class="project-card__title" href={project.data.website ?? project.data.repository}>
       {project.data.title}
     </a>
-    <span class:list={['ai-badge', `ai-badge--${usage}`]} aria-label={`AI usage: ${usageLabel}`}>
-      <span class="ai-badge__meter" aria-hidden="true">
-        <i></i><i></i><i></i>
+    {aiLabel && (
+      <span class="project-ai" aria-label={`AI usage: ${aiLabel}`}>
+        {usage !== 'none' && (
+          <span class:list={['project-ai__development', `project-ai__development--${usage}`]}>
+            {usageLabel}
+          </span>
+        )}
+        {aiFeature && <span class="project-ai__feature">Uses AI</span>}
       </span>
-      <span>{usageLabel}</span>
-    </span>
+    )}
   </h2>
   <div class="tag-line">{project.data.tags.join(' · ')}</div>
   <div class="project-card__body"><Content /></div>
@@ -87,36 +93,44 @@ const date = project.data.date.toLocaleDateString('en-US', {
     gap: 0.75rem;
   }
 
-  .ai-badge {
+  .project-ai {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.26rem 0.48rem;
-    background: oklch(20.463% 0 0 / 0.055);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem 0.7rem;
+    padding-top: 0.2rem;
     font-size: 0.68rem;
     font-weight: 800;
     line-height: 1;
     white-space: nowrap;
   }
 
-  .ai-badge__meter {
-    display: inline-grid;
-    grid-template-columns: repeat(3, 0.38rem);
-    gap: 0.14rem;
+  .project-ai__development,
+  .project-ai__feature {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
   }
 
-  .ai-badge__meter i {
-    width: 0.38rem;
-    aspect-ratio: 1;
-    background: oklch(20.463% 0 0 / 0.18);
+  .project-ai__development::before,
+  .project-ai__feature::before {
+    width: 1.15rem;
+    height: 0.22rem;
+    background: var(--ink);
+    content: '';
   }
 
-  .ai-badge--paired .ai-badge__meter i:nth-child(-n + 2) {
+  .project-ai__development--paired::before {
     background: var(--blue);
   }
 
-  .ai-badge--agent-led .ai-badge__meter i {
+  .project-ai__development--agent-led::before {
     background: var(--red);
+  }
+
+  .project-ai__feature::before {
+    background: var(--yellow);
   }
 
   .project-card__heading {

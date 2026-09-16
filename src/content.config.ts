@@ -22,6 +22,7 @@ const projects = defineCollection({
     repository: z.string(),
     website: z.string().optional(),
     component: z.string().optional(),
+    aiFeature: z.boolean().optional(),
     ai: z
       .object({
         usage: z.enum(['paired', 'agent-led']),
