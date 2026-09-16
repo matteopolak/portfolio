@@ -76,4 +76,13 @@ export const projectMilestones: ProjectMilestone[] = [
     category: 'ai',
     sourceUrl: 'https://www.anthropic.com/news/claude-3-7-sonnet',
   },
+  {
+    id: 'instructgpt-api-default',
+    date: '2022-01-27',
+    title: "InstructGPT became OpenAI's API default",
+    detail:
+      'A marker for the early OpenAI API generation that preceded the few-shot Davinci integration in TheArchon.',
+    category: 'ai',
+    sourceUrl: 'https://openai.com/index/instruction-following/',
+  },
 ];

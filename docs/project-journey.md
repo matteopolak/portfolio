@@ -2,7 +2,7 @@
 
 ## What it is
 
-The Projects page is a newest-first timeline that mixes project launches with career starts and a small, hand-curated set of AI-tool milestones. It also distinguishes projects built without generative AI from AI-paired and agent-led work.
+The Projects page is a newest-first timeline that mixes project launches with career starts and a small, hand-curated set of AI-tool milestones. It independently identifies how each project was developed and whether AI or machine learning is part of the product itself.
 
 ## How it works
 
@@ -10,15 +10,32 @@ Project entries still come from `src/content/projects/*.md`. `src/pages/projects
 
 Project cards remain full-width, centered rows. Contextual events are interleaved by date and alternate across a straight center rail. Each event displays only its date and title; descriptions, category labels, and source links remain in the data but are not rendered. The light-gray rail spans the full event interval, including a deliberate buffer before and after the event labels, and touches the project cards above and below. Two adjacent projects with no intervening events instead receive ordinary whitespace and no connector. Small solid dots distinguish career milestones in red from AI milestones in blue. On phones, event text moves to the right of a short left-side rail while project cards remain full-width.
 
-Every project card includes one of three textual AI-use states. Workflow, model, and token metadata remains available in frontmatter but is intentionally not rendered inside the card:
+Projects with a non-zero AI relationship receive an understated inline label.
+Workflow, model, and token metadata remains available in frontmatter but is
+intentionally not rendered inside the card:
 
-- `No AI` means no generative AI assisted development. An AI or ML feature inside the product does not change this state.
-- `AI-paired` means models produced substantial work under direct human prompting and review.
+- `AI-assisted` means models produced substantial work under direct human prompting and review.
 - `Agent-led` means an orchestrated agent workflow produced most of the implementation work.
+- `Uses AI` means AI or machine learning is part of the product itself.
 
-An omitted `ai` object means `No AI`. This keeps the zero-AI case explicit in the interface without requiring repetitive frontmatter.
+An omitted `ai` object renders no development label. The separate
+`aiFeature: true` frontmatter flag adds `Uses AI`, so product capabilities never
+imply that a model wrote the code. Projects with neither are left unlabelled.
+These indicators are plain inline text with short colored rules rather than
+badges or meters.
 
-`ProjectCard.astro` normally reads the validated `project.data.ai` value. It falls back to the same entry's rendered Markdown frontmatter so an already-running Astro development content store cannot temporarily display a newly added optional field as `No AI`; production builds still receive the validated collection value directly.
+TheArchon is the explicit historical example of that distinction: its product
+used OpenAI's Davinci model with few-shot examples for in-game replies in 2022,
+but there is no claim that generative AI helped write the project. It therefore
+shows only `Uses AI`; the nearby InstructGPT release appears as historical
+context. Grill, Crave, and stock-predict use the same product-feature flag for
+their embedded ML behavior.
+
+`ProjectCard.astro` normally reads the validated `project.data.ai` and
+`project.data.aiFeature` values. It falls back to the same entry's rendered
+Markdown frontmatter so an already-running Astro development content store
+cannot temporarily display stale optional metadata; production builds still
+receive the validated collection values directly.
 
 A project card may also receive a custom action descriptor. The descriptor renders a red button with a stable action ID; `src/lib/project-actions.ts` maps that ID to a client callback after direct entry and every Astro navigation. Minecraft's `Try in browser` callback opens `ProjectDemoModal.astro`, creates the shared `<lodestone-game>` element only on demand, and immediately starts its asset preparation while showing progress. It destroys the game element when the modal closes so hidden game audio and processing cannot continue. The reusable blog embed retains a `Try in browser` control so merely reading the post cannot initiate the 37.4 MiB download. Quasi uses the same project-card action and floating-dialog pattern for its unlabelled two-panel interpreter playground, with Run anchored inside the source pane. Both use a crisp, shadowless 16:9 surface over a 30%-dimmed, blurred page backdrop. Opening uses a short scale-and-fade entrance; close controls, backdrop clicks, and Escape use the matching animated exit. Both transitions are disabled for reduced-motion visitors. Shared modal input handling consumes wheel, touch, and keyboard scrolling before it can move the page underneath, without changing the document's layout or scroll state. Explicit `data-project-demo-scroll` regions remain internally scrollable and contain overscroll at their edges; Quasi uses these for its source editor and output console.
 
@@ -33,9 +50,14 @@ ai:
   models:
     - Claude Opus 5
   approximateTokens: 100000000000
+aiFeature: true
 ```
 
-Only `paired` and `agent-led` are valid non-zero values. Omit `approximateTokens` when there is no defensible estimate. Totals describe processed-token scale, not monetary spend, and are retained as data for possible future use rather than displayed in the current interface.
+Only `paired` and `agent-led` are valid non-zero development values. Set
+`aiFeature: true` independently when AI or ML is part of the project itself.
+Omit `approximateTokens` when there is no defensible estimate. Totals describe
+processed-token scale, not monetary spend, and are retained as data for possible
+future use rather than displayed in the current interface.
 
 Edit `src/data/project-milestones.ts` to add, remove, or reword contextual events. These should be events that affected Matthew's work, not a general model-release feed. Use a stable `id`, an exact ISO date, concise first-person relevance, and an authoritative `sourceUrl` for researched claims. Career starts are automatic; change their source data in `portfolio.toml`.
 
@@ -47,7 +69,7 @@ To add another interactive project, pass an `{ id, label }` action to `ProjectCa
 
 There are no environment variables or remote runtime feeds. The relevant configuration is:
 
-- project `date` and optional `ai` frontmatter;
+- project `date`, optional development `ai`, and optional `aiFeature` frontmatter;
 - enabled jobs and their `start` dates in `portfolio.toml`;
 - curated entries in `src/data/project-milestones.ts`;
 - the `52rem` desktop/mobile journey breakpoint.
