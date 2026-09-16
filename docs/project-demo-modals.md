@@ -15,6 +15,11 @@ dialog for three bubbling events: `project-demo-progress`,
 whether the underlying demo is a WebAssembly compiler, a renderer worker, or a
 future project runtime.
 
+The aggregate value drives both the horizontal progress bar and a clipped color
+layer inside the black M mark. Its uneven edge resembles rising paint while a
+slow background shift keeps the fill alive between progress updates. Reduced
+motion keeps the same progress fill but disables the color movement.
+
 Lodestone emits aggregate progress while its existing SDK worker mounts and
 hides the shared loader only after the first rendered frame. The two code
 playgrounds create and compile their workers when a modal opens, emit coarse
