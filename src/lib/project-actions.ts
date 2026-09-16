@@ -50,15 +50,6 @@ function setDemoLoading(
   loader
     ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
     ?.replaceChildren(message);
-  const filledTiles = Math.ceil(
-    bounded *
-      (loader?.querySelectorAll('[data-project-demo-loading-tile]').length ?? 0)
-  );
-  loader
-    ?.querySelectorAll<HTMLElement>('[data-project-demo-loading-tile]')
-    .forEach((tile, index) =>
-      tile.toggleAttribute('data-filled', index < filledTiles)
-    );
   progressElement?.setAttribute(
     'aria-valuenow',
     String(Math.round(bounded * 100))
