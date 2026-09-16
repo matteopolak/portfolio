@@ -1,10 +1,10 @@
-name: Publish Quasi web build
+name: Publish BaerScript web build
 
 on:
   workflow_dispatch:
     inputs:
-      quasi_ref:
-        description: Quasi branch, tag, or commit to build
+      baerscript_ref:
+        description: BaerScript branch, tag, or commit to build
         required: true
         default: main
       update_repository:
@@ -18,15 +18,15 @@ on:
           - none
 
 concurrency:
-  group: quasi-web-publish
+  group: baerscript-web-publish
   cancel-in-progress: false
 
 permissions:
   contents: write
 
 env:
-  RELEASE_TAG: quasi-web-latest
-  QUASI_REPOSITORY: matteopolak/quasi
+  RELEASE_TAG: baerscript-web-latest
+  BAERSCRIPT_REPOSITORY: matteopolak/baerscript
 
 jobs:
   build-and-publish:
@@ -38,32 +38,33 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: check out quasi
+      - name: check out baerscript
         uses: actions/checkout@v7
         with:
-          repository: ${{ env.QUASI_REPOSITORY }}
-          ref: ${{ inputs.quasi_ref }}
-          path: .build/quasi
+          repository: ${{ env.BAERSCRIPT_REPOSITORY }}
+          ref: ${{ inputs.baerscript_ref }}
+          path: .build/baerscript
 
       - name: install rust and the webassembly target
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: cache rust builds
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: .build/quasi -> target
+          workspaces: .build/baerscript -> target
 
-      - name: install wasm-bindgen cli
+      - name: install wasm tools
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-bindgen-cli@0.2.92
+          tool: wasm-pack
 
-      - name: adapt timeout handling for a browser worker
+      - name: install binaryen
         run: |
-          git -C .build/quasi apply --check "$GITHUB_WORKSPACE/scripts/quasi-browser-worker.patch"
-          git -C .build/quasi apply "$GITHUB_WORKSPACE/scripts/quasi-browser-worker.patch"
+          sudo apt-get update
+          sudo apt-get install --yes binaryen
 
       - name: build browser module
         env:
@@ -74,55 +75,57 @@ jobs:
           CARGO_PROFILE_RELEASE_DEBUG: '0'
           CARGO_PROFILE_RELEASE_STRIP: symbols
         run: |
-          cargo build \
-            --manifest-path .build/quasi/wasm/Cargo.toml \
-            --target wasm32-unknown-unknown \
-            --release
-          mkdir -p .build/quasi-dist
-          wasm-bindgen \
-            .build/quasi/target/wasm32-unknown-unknown/release/wasm.wasm \
+          wasm-pack build .build/baerscript/wasm \
             --target web \
-            --out-dir "$GITHUB_WORKSPACE/.build/quasi-dist" \
-            --out-name quasi
-          rm -f .build/quasi-dist/quasi.d.ts \
-            .build/quasi-dist/quasi_bg.wasm.d.ts
+            --release \
+            --no-opt \
+            --out-dir "$GITHUB_WORKSPACE/.build/baerscript-dist"
+          wasm-opt \
+            .build/baerscript-dist/baerscript_wasm_bg.wasm \
+            --enable-bulk-memory \
+            --enable-sign-ext \
+            -Oz \
+            -o .build/baerscript-dist/baerscript_wasm_bg.optimized.wasm
+          mv \
+            .build/baerscript-dist/baerscript_wasm_bg.optimized.wasm \
+            .build/baerscript-dist/baerscript_wasm_bg.wasm
 
       - name: smoke-test the generated interpreter
         run: |
           node --input-type=module -e "
             import { readFile } from 'node:fs/promises';
-            import init, { execute } from './.build/quasi-dist/quasi.js';
-            await init(await readFile('./.build/quasi-dist/quasi_bg.wasm'));
-            const output = execute(new TextEncoder().encode('print 1 + 2;'), 0n);
-            if (output.trim() !== '3') throw new Error('unexpected output: ' + output);
+            import init, { execute } from './.build/baerscript-dist/baerscript_wasm.js';
+            await init({ module_or_path: await readFile('./.build/baerscript-dist/baerscript_wasm_bg.wasm') });
+            const result = execute('+v\n+v\n>v', '', false, 100);
+            if (!result.ok || result.stdout !== '2') throw new Error('unexpected result: ' + JSON.stringify(result));
           "
 
       - name: package bundle and metadata
         id: bundle
         run: |
-          revision="$(git -C .build/quasi rev-parse HEAD)"
+          revision="$(git -C .build/baerscript rev-parse HEAD)"
           short_revision="${revision:0:12}"
-          asset="quasi-web-${short_revision}.tar.gz"
-          tar -C .build/quasi-dist -czf ".build/${asset}" .
+          asset="baerscript-web-${short_revision}.tar.gz"
+          tar -C .build/baerscript-dist -czf ".build/${asset}" .
           digest="$(sha256sum ".build/${asset}" | cut -d ' ' -f 1)"
           jq -n \
             --arg repository "$GITHUB_REPOSITORY" \
             --arg tag "$RELEASE_TAG" \
             --arg bundleAsset "$asset" \
             --arg sha256 "$digest" \
-            --arg quasiRevision "$revision" \
-            '{enabled:true,repository:$repository,tag:$tag,bundleAsset:$bundleAsset,sha256:$sha256,quasiRevision:$quasiRevision}' \
-            > .build/quasi-web-release.json
+            --arg baerscriptRevision "$revision" \
+            '{enabled:true,repository:$repository,tag:$tag,bundleAsset:$bundleAsset,sha256:$sha256,baerscriptRevision:$baerscriptRevision}' \
+            > .build/baerscript-web-release.json
           echo "asset=$asset" >> "$GITHUB_OUTPUT"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: retain workflow artifact
         uses: actions/upload-artifact@v6
         with:
-          name: quasi-web-${{ steps.bundle.outputs.revision }}
+          name: baerscript-web-${{ steps.bundle.outputs.revision }}
           path: |
             .build/${{ steps.bundle.outputs.asset }}
-            .build/quasi-web-release.json
+            .build/baerscript-web-release.json
           retention-days: 30
           if-no-files-found: error
 
@@ -131,12 +134,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Quasi web build'
+            gh release edit "$RELEASE_TAG" --prerelease --latest=false --title 'Latest BaerScript web build'
           else
-            gh release create "$RELEASE_TAG" --prerelease --latest=false --title 'Latest Quasi web build' --notes 'Automated browser interpreter build.'
+            gh release create "$RELEASE_TAG" --prerelease --latest=false --title 'Latest BaerScript web build' --notes 'Automated browser interpreter build.'
           fi
           gh release upload "$RELEASE_TAG" ".build/${{ steps.bundle.outputs.asset }}" --clobber
-          gh release upload "$RELEASE_TAG" .build/quasi-web-release.json --clobber
+          gh release upload "$RELEASE_TAG" .build/baerscript-web-release.json --clobber
 
       - name: install pnpm
         if: ${{ inputs.update_repository != 'none' }}
@@ -149,8 +152,9 @@ jobs:
         if: ${{ inputs.update_repository != 'none' }}
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: install portfolio dependencies
         if: ${{ inputs.update_repository != 'none' }}
@@ -161,20 +165,21 @@ jobs:
         env:
           UPDATE_MODE: ${{ inputs.update_repository }}
         run: |
-          cp .build/quasi-web-release.json quasi-web-release.json
+          cp .build/baerscript-web-release.json baerscript-web-release.json
           if [ "$UPDATE_MODE" = assets ]; then
-            node scripts/sync-quasi-web.mjs
-            git add -f public/quasi
+            node scripts/sync-baerscript-web.mjs
+            git add -f public/baerscript
           fi
+          pnpm format:check
           pnpm lint
           pnpm build
-          git add quasi-web-release.json
+          git add baerscript-web-release.json
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           if git diff --cached --quiet; then
-            echo 'Repository already points to this Quasi build.'
+            echo 'Repository already points to this BaerScript build.'
           else
-            git commit -m "chore: update Quasi web build to ${{ steps.bundle.outputs.revision }}"
+            git commit -m "chore: update BaerScript web build to ${{ steps.bundle.outputs.revision }}"
             git push origin "HEAD:${{ github.event.repository.default_branch }}"
           fi
 
@@ -186,7 +191,7 @@ jobs:
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' > .build/release-assets.txt
           while IFS= read -r asset; do
             case "$asset" in
-              "${{ steps.bundle.outputs.asset }}"|quasi-web-release.json) ;;
+              "${{ steps.bundle.outputs.asset }}"|baerscript-web-release.json) ;;
               '') ;;
               *) gh release delete-asset "$RELEASE_TAG" "$asset" --yes ;;
             esac
