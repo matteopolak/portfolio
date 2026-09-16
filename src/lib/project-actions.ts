@@ -8,6 +8,7 @@ type ProjectActionCallback = (
 
 interface LodestoneGameElement extends HTMLElement {
   start(): Promise<void>;
+  focusGame(): void;
   enterFullscreen(): Promise<void>;
 }
 
@@ -157,6 +158,7 @@ function initializeProjectActions() {
     gameHost.replaceChildren(game);
     document.documentElement.classList.add('has-project-demo');
     minecraftDialog.showModal();
+    game.focusGame();
     void game.start();
   });
 
