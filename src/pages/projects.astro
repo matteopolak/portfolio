@@ -7,6 +7,7 @@ import CodeDemoModal from '../components/CodeDemoModal.astro';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
+import { ExternalLink } from '@lucide/astro';
 
 interface ProjectJourneyItem {
   kind: 'project';
@@ -161,8 +162,12 @@ const baerscriptStarter = `# Increment the current column twice, then print it
                   </h2>
                   <p class="hackathon-win__description">{item.win.description}</p>
                   <p class="hackathon-win__links">
-                    <a href={item.win.submissionUrl}>Hackathon ↗</a>
-                    <a href={item.win.repositoryUrl}>GitHub ↗</a>
+                    <a href={item.win.submissionUrl} target="_blank" rel="noopener noreferrer">
+                      Hackathon <ExternalLink aria-hidden="true" size={12} />
+                    </a>
+                    <a href={item.win.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                      GitHub <ExternalLink aria-hidden="true" size={12} />
+                    </a>
                   </p>
                 </article>
               ) : (
@@ -356,6 +361,9 @@ const baerscriptStarter = `# Increment the current column twice, then print it
   }
 
   .hackathon-win__links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
     color: var(--ink);
     text-underline-offset: 0.16rem;
   }

@@ -48,15 +48,13 @@ interface WorkerCapabilityReport {
 
 async function missingRendererCapabilities() {
   const missing: string[] = [];
-  if (!('gpu' in navigator)) missing.push('page WebGPU (`navigator.gpu`)');
-  if (typeof Worker === 'undefined') missing.push('Web Workers (`Worker`)');
+  if (!('gpu' in navigator)) missing.push('WebGPU (`navigator.gpu`)');
+  if (typeof Worker === 'undefined') missing.push('Web Workers');
   if (typeof OffscreenCanvas === 'undefined') {
-    missing.push('worker canvas support (`OffscreenCanvas`)');
+    missing.push('`OffscreenCanvas`');
   }
   if (!('transferControlToOffscreen' in HTMLCanvasElement.prototype)) {
-    missing.push(
-      'canvas transfer (`HTMLCanvasElement.transferControlToOffscreen`)'
-    );
+    missing.push('canvas transfer (`transferControlToOffscreen`)');
   }
   if (missing.length > 0) return missing;
 
@@ -67,9 +65,9 @@ async function missingRendererCapabilities() {
   }
   if (!report.webGpu) missing.push('worker WebGPU (`WorkerNavigator.gpu`)');
   if (!report.offscreenCanvas) {
-    missing.push('worker canvas support (`OffscreenCanvas`)');
+    missing.push('worker `OffscreenCanvas`');
   } else if (!report.webGpuCanvas) {
-    missing.push('a worker WebGPU canvas context (`getContext("webgpu")`)');
+    missing.push('worker WebGPU canvas contexts');
   }
   return missing;
 }
@@ -118,7 +116,7 @@ function probeWorkerCapabilities() {
 }
 
 function rendererCapabilityError(missing: string[]) {
-  return `This browser cannot run the Lodestone renderer. Missing required capabilities: ${missing.join('; ')}. Lodestone renders WebGPU through a transferred OffscreenCanvas in a dedicated worker.`;
+  return `Cannot run this demo: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} unavailable.`;
 }
 
 class LodestoneGameElement extends HTMLElement {
