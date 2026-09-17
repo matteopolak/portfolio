@@ -1,6 +1,7 @@
 ---
 import { render } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
+import { ExternalLink } from '@lucide/astro';
 
 interface Props {
   project: CollectionEntry<'projects'>;
@@ -59,8 +60,14 @@ const date = project.data.date.toLocaleDateString('en-US', {
           {action.label}
         </button>
       )}
-      {project.data.website && <a href={project.data.website}>Website ↗</a>}
-      <a href={project.data.repository}>GitHub ↗</a>
+      {project.data.website && (
+        <a href={project.data.website} target="_blank" rel="noopener noreferrer">
+          Website <ExternalLink aria-hidden="true" size={12} />
+        </a>
+      )}
+      <a href={project.data.repository} target="_blank" rel="noopener noreferrer">
+        GitHub <ExternalLink aria-hidden="true" size={12} />
+      </a>
     </div>
   </footer>
 </article>
@@ -201,6 +208,10 @@ const date = project.data.date.toLocaleDateString('en-US', {
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
+  }
+
+  .project-links a {
+    gap: 0.22rem;
   }
 
   .project-links button {
