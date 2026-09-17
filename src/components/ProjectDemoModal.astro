@@ -122,6 +122,10 @@ import ProjectDemoLoading from './ProjectDemoLoading.astro';
     background: var(--red);
   }
 
+  .project-demo-modal[data-demo-state='error'] [data-project-demo-fullscreen] {
+    display: none;
+  }
+
   .project-demo-modal button:focus-visible {
     outline: 3px solid var(--yellow);
     outline-offset: 3px;
