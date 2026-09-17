@@ -32,6 +32,18 @@ export function registerProjectAction(
   callbacks.set(id, callback);
 }
 
+function replaceWithInlineCode(element: HTMLElement, message: string) {
+  const parts = message.split('`');
+  element.replaceChildren(
+    ...parts.map((part, index) => {
+      if (index % 2 === 0) return document.createTextNode(part);
+      const code = document.createElement('code');
+      code.textContent = part;
+      return code;
+    })
+  );
+}
+
 function setDemoLoading(
   dialog: HTMLDialogElement,
   progress: number,
@@ -47,9 +59,10 @@ function setDemoLoading(
     '[data-project-demo-loading-progress]'
   );
   loader?.setAttribute('data-state', state);
-  loader
-    ?.querySelector<HTMLElement>('[data-project-demo-loading-label]')
-    ?.replaceChildren(message);
+  const label = loader?.querySelector<HTMLElement>(
+    '[data-project-demo-loading-label]'
+  );
+  if (label) replaceWithInlineCode(label, message);
   progressElement?.setAttribute(
     'aria-valuenow',
     String(Math.round(bounded * 100))
