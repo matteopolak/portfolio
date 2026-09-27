@@ -69,7 +69,7 @@ function setDemoLoading(
   );
 }
 
-function initializeProjectActions() {
+export function initializeProjectActions() {
   cleanup?.();
 
   const controller = new AbortController();
@@ -341,6 +341,3 @@ function initializeProjectActions() {
     destroyGame();
   };
 }
-
-document.addEventListener('astro:page-load', initializeProjectActions);
-initializeProjectActions();

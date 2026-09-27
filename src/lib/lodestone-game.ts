@@ -481,12 +481,19 @@ class LodestoneGameElement extends HTMLElement {
     const sendInput = (input: Record<string, unknown>) => {
       worker.postMessage({ kind: 'input', input });
     };
+    const pointerPosition = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((event.clientX - rect.left) * canvas.width) / rect.width,
+        y: ((event.clientY - rect.top) * canvas.height) / rect.height,
+      };
+    };
     this.#sendInput = sendInput;
 
     canvas.addEventListener(
       'pointermove',
       (event) => {
-        sendInput({ type: 'pointerMove', x: event.offsetX, y: event.offsetY });
+        sendInput({ type: 'pointerMove', ...pointerPosition(event) });
         if (event.movementX || event.movementY) {
           sendInput({
             type: 'mouseMotion',
@@ -509,11 +516,7 @@ class LodestoneGameElement extends HTMLElement {
           // The loading layer can disappear underneath an already-stationary
           // pointer, so the canvas may never receive a pointermove before the
           // first click. Seed the renderer with the press location first.
-          sendInput({
-            type: 'pointerMove',
-            x: event.offsetX,
-            y: event.offsetY,
-          });
+          sendInput({ type: 'pointerMove', ...pointerPosition(event) });
           sendInput({
             type: 'mouseButton',
             button: event.button,

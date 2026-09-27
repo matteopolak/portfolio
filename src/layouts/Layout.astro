@@ -42,6 +42,10 @@ const documentTitle = isHome ? `${config.name} — Software Engineer` : `${title
     </div>
     <script>
       import '../lib/blog-toc';
+      import { initializeProjectActions } from '../lib/project-actions';
+
+      document.addEventListener('astro:page-load', initializeProjectActions);
+      initializeProjectActions();
     </script>
   </body>
 </html>

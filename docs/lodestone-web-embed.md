@@ -65,6 +65,11 @@ the worker. Lodestone requests pointer lock through `onHostAction`; the page
 performs the user-gesture-gated DOM operation and reports the resulting state
 back to the worker.
 
+Pointer positions are converted from CSS coordinates to canvas backing pixels
+before reaching Lodestone's physical-position input API. Preserve this mapping
+when changing canvas sizing or input handling; it lets menu controls line up
+with the pointer on high-density displays and after modal resizing.
+
 Fullscreen is portfolio-owned. Chromium's Keyboard Lock API is requested for
 Escape when available so inventory interactions do not immediately collapse
 fullscreen; the overlay explains the browser's hold-Escape exit gesture.

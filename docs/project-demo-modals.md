@@ -15,6 +15,12 @@ dialog for three bubbling events: `project-demo-progress`,
 whether the underlying demo is a WebAssembly compiler, a renderer worker, or a
 future project runtime.
 
+`Layout.astro` loads the action controller on every route and initializes it
+after each `astro:page-load`. This matters for Astro client navigation: the
+Projects page buttons are ready after arriving from the homepage without a
+full refresh. Initialization aborts the previous route's listeners and worker
+sessions before attaching listeners to the current DOM.
+
 The aggregate value drives both the horizontal progress bar and a clipped color
 layer inside the black M mark. Its uneven edge resembles rising paint while a
 slow background shift keeps the fill alive between progress updates. Reduced
@@ -34,6 +40,9 @@ that component into their modal and emit the same three events from their
 runtime boundary; avoid adding demo-specific loading markup. Keep progress
 monotonic and normalized to `0..1`. Readiness must mean the demo can accept its
 first interaction, not merely that a script downloaded.
+
+Keep the route lifecycle hook in `Layout.astro` when changing project actions.
+Attaching it only from `projects.astro` can miss the first client transition.
 
 ## Configuration
 
