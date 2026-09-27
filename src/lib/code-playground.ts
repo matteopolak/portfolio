@@ -7,8 +7,7 @@ type WorkerResponse =
   | { type: 'result'; output?: string; error?: string };
 
 interface CodePlaygroundOptions {
-  workerUrl: URL;
-  workerName: string;
+  createWorker(): Worker;
   highlight(source: string): string;
 }
 
@@ -88,10 +87,7 @@ export function initializeCodePlayground(
     if (ready) return Promise.resolve();
     if (bootPromise) return bootPromise;
 
-    const current = new Worker(options.workerUrl, {
-      type: 'module',
-      name: options.workerName,
-    });
+    const current = options.createWorker();
     worker = current;
     bootPromise = new Promise<void>((resolve, reject) => {
       resolveBoot = resolve;

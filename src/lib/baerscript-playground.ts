@@ -1,5 +1,6 @@
 import Prism from 'prismjs';
 import { initializeCodePlayground } from './code-playground';
+import BaerscriptWorker from './baerscript-worker?worker';
 
 Prism.languages.baerscript = {
   comment: /#.*/,
@@ -11,8 +12,8 @@ export function initializeBaerscriptPlayground(
   signal: AbortSignal
 ) {
   return initializeCodePlayground(root, signal, {
-    workerUrl: new URL('./baerscript-worker.ts', import.meta.url),
-    workerName: 'baerscript-interpreter',
+    createWorker: () =>
+      new BaerscriptWorker({ name: 'baerscript-interpreter' }),
     highlight: (source) =>
       Prism.highlight(source, Prism.languages.baerscript, 'baerscript'),
   });

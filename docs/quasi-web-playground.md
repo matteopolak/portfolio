@@ -18,7 +18,9 @@ Worker when the modal opens. The worker in
 `/quasi/quasi_bg.wasm` as opaque static assets, initializes the generated module
 inside the worker, and calls Quasi's exported `execute` function. The wrapper is
 loaded through a temporary blob URL because Vite intentionally does not
-transform ESM files under `public/`.
+transform ESM files under `public/`. `quasi-playground.ts` imports the worker
+with Vite's `?worker` loader, which produces a JavaScript worker asset in the
+production build.
 
 The source textarea fills its pane and receives focus when the dialog opens.
 Its native scrollbar and focus ring are visually suppressed to keep the editor
@@ -48,16 +50,19 @@ and runs its locked `wasm-bindgen` CLI,
 smoke-tests `execute`, and publishes a versioned tarball on the
 `quasi-web-latest` prerelease. It commits only `quasi-web-release.json` by
 default. The portfolio's `predev` and `prebuild` hooks run
-`scripts/sync-quasi-web.mjs`, verify the release checksum and archive paths, and
-materialize the ignored bundle under `public/quasi/` before Vite serves the dev
-site or Astro creates the static site. Both hooks share the
+`scripts/sync-quasi-web.mjs`. Once the release pointer is enabled, it verifies
+the release checksum and archive paths, then stages the bundle under
+`public/quasi/` before Vite serves the dev site or Astro creates the static site.
+Both hooks share the
 `pnpm sync:web-assets` command.
 
-The release remains the source of the compiled bundle. `public/quasi/` is an
-ignored build-stage cache populated from that release, not checked-in source.
-Serving the synchronized files from the final site avoids a runtime dependency
-on GitHub availability and cross-origin headers while retaining release-backed
-integrity verification.
+The Quasi release pointer is currently disabled because no `quasi-web-latest`
+release exists. The small, checked-in `public/quasi/quasi.js` and
+`public/quasi/quasi_bg.wasm` bundle keeps the browser demo available in a clean
+clone. The sync script requires both files when the pointer is disabled so a
+build fails instead of shipping a broken button. Once a release is published,
+enable its pointer and remove the checked-in fallback in the same change; the
+sync script will then verify and stage the release bundle.
 
 The upstream wrapper currently implements its timeout with `std::thread`, which
 traps on `wasm32-unknown-unknown`. The workflow applies the small, checked patch
@@ -88,7 +93,8 @@ commits generated files and should be used sparingly.
 - `quasi_ref` selects the Quasi branch, tag, or commit built by the workflow.
 - `update_repository` selects `pointer`, `assets`, or `none` publication mode.
 - `quasi-web-release.json` is generated deployment state. It remains disabled
-  until the first workflow publication.
+  until the first workflow publication; disabled mode uses the checked-in
+  `public/quasi/` files.
 - `pnpm sync:web-assets` hydrates all release-backed browser demos manually;
   normal `pnpm dev` and `pnpm build` runs invoke it automatically.
 
