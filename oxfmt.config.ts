@@ -7,5 +7,12 @@ export default defineConfig({
   trailingComma: 'es5',
   printWidth: 80,
   sortPackageJson: false,
-  ignorePatterns: ['dist/', '.astro/', '*.toml', 'resume/', 'website/'],
+  ignorePatterns: [
+    'dist/',
+    '.astro/',
+    '*.toml',
+    'resume/',
+    'website/',
+    'public/quasi/',
+  ],
 });
