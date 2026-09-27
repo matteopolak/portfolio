@@ -40,6 +40,85 @@ interface DemoProgressDetail {
   message: string;
 }
 
+interface WorkerCapabilityReport {
+  webGpu: boolean;
+  offscreenCanvas: boolean;
+  webGpuCanvas: boolean;
+}
+
+async function missingRendererCapabilities() {
+  const missing: string[] = [];
+  if (!('gpu' in navigator)) missing.push('WebGPU (`navigator.gpu`)');
+  if (typeof Worker === 'undefined') missing.push('Web Workers');
+  if (typeof OffscreenCanvas === 'undefined') {
+    missing.push('`OffscreenCanvas`');
+  }
+  if (!('transferControlToOffscreen' in HTMLCanvasElement.prototype)) {
+    missing.push('canvas transfer (`transferControlToOffscreen`)');
+  }
+  if (missing.length > 0) return missing;
+
+  const report = await probeWorkerCapabilities();
+  if (!report) {
+    missing.push('worker capability detection');
+    return missing;
+  }
+  if (!report.webGpu) missing.push('worker WebGPU (`WorkerNavigator.gpu`)');
+  if (!report.offscreenCanvas) {
+    missing.push('worker `OffscreenCanvas`');
+  } else if (!report.webGpuCanvas) {
+    missing.push('worker WebGPU canvas contexts');
+  }
+  return missing;
+}
+
+function probeWorkerCapabilities() {
+  return new Promise<WorkerCapabilityReport | undefined>((resolve) => {
+    const source = `
+      const offscreenCanvas = typeof OffscreenCanvas !== 'undefined';
+      let webGpuCanvas = false;
+      if (offscreenCanvas) {
+        try {
+          webGpuCanvas = Boolean(new OffscreenCanvas(1, 1).getContext('webgpu'));
+        } catch {}
+      }
+      self.postMessage({
+        webGpu: typeof navigator !== 'undefined' && 'gpu' in navigator,
+        offscreenCanvas,
+        webGpuCanvas,
+      });
+    `;
+    const url = URL.createObjectURL(
+      new Blob([source], { type: 'text/javascript' })
+    );
+    let worker: Worker | undefined;
+    let settled = false;
+    const finish = (report?: WorkerCapabilityReport) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      worker?.terminate();
+      URL.revokeObjectURL(url);
+      resolve(report);
+    };
+    const timeout = window.setTimeout(() => finish(), 2_000);
+
+    try {
+      worker = new Worker(url, { name: 'lodestone-capability-probe' });
+      worker.addEventListener('message', (event) => {
+        finish(event.data as WorkerCapabilityReport);
+      });
+      worker.addEventListener('error', () => finish());
+    } catch {
+      finish();
+    }
+  });
+}
+
+function rendererCapabilityError(missing: string[]) {
+  return `Cannot run this demo: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} unavailable.`;
+}
+
 class LodestoneGameElement extends HTMLElement {
   #status: HTMLElement | undefined;
   #startButton: HTMLButtonElement | undefined;
@@ -48,6 +127,8 @@ class LodestoneGameElement extends HTMLElement {
   #abortController: AbortController | undefined;
   #startPromise: Promise<void> | undefined;
   #resizeObserver: ResizeObserver | undefined;
+  #capabilityCheck: Promise<string[]> | undefined;
+  #capabilityError: string | undefined;
   #sendInput: ((input: Record<string, unknown>) => void) | undefined;
   #canvasTransferred = false;
   #canvasRevealed = false;
@@ -218,14 +299,12 @@ class LodestoneGameElement extends HTMLElement {
     shadow
       .querySelector<HTMLButtonElement>('.fullscreen')
       ?.addEventListener('click', () => void this.enterFullscreen());
-    if (
-      !('gpu' in navigator) ||
-      !('transferControlToOffscreen' in HTMLCanvasElement.prototype)
-    ) {
-      this.#setUnavailable(
-        'Worker-based WebGPU is unavailable in this browser. Try a current version of Chrome, Edge, Firefox, or Safari.'
-      );
-    }
+    this.#capabilityCheck = missingRendererCapabilities();
+    void this.#capabilityCheck.then((missing) => {
+      if (missing.length > 0) {
+        this.#setUnavailable(rendererCapabilityError(missing));
+      }
+    });
   }
 
   disconnectedCallback() {
@@ -235,6 +314,8 @@ class LodestoneGameElement extends HTMLElement {
   }
 
   #setUnavailable(message: string) {
+    if (this.#capabilityError === message) return;
+    this.#capabilityError = message;
     if (this.#status) this.#status.textContent = message;
     if (this.#startButton) {
       this.#startButton.disabled = true;
@@ -243,24 +324,28 @@ class LodestoneGameElement extends HTMLElement {
     this.#reportError(message);
   }
 
-  start() {
+  async start() {
     if (this.#worker) {
       this.#canvas?.focus();
-      return Promise.resolve();
+      return;
     }
     if (this.#startPromise) return this.#startPromise;
-    if (
-      !('gpu' in navigator) ||
-      !('transferControlToOffscreen' in HTMLCanvasElement.prototype) ||
-      !this.#canvas
-    ) {
-      return Promise.resolve();
-    }
+    if (!this.#canvas) return;
 
-    this.#startPromise = this.#mount().finally(() => {
+    this.#startPromise = this.#startSupported().finally(() => {
       this.#startPromise = undefined;
     });
     return this.#startPromise;
+  }
+
+  async #startSupported() {
+    const missing = await (this.#capabilityCheck ??
+      missingRendererCapabilities());
+    if (missing.length > 0) {
+      this.#setUnavailable(rendererCapabilityError(missing));
+      return;
+    }
+    await this.#mount();
   }
 
   async #mount() {
@@ -396,12 +481,27 @@ class LodestoneGameElement extends HTMLElement {
     const sendInput = (input: Record<string, unknown>) => {
       worker.postMessage({ kind: 'input', input });
     };
+    const pointerPosition = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((event.clientX - rect.left) * canvas.width) / rect.width,
+        y: ((event.clientY - rect.top) * canvas.height) / rect.height,
+      };
+    };
     this.#sendInput = sendInput;
 
     canvas.addEventListener(
       'pointermove',
       (event) => {
-        sendInput({ type: 'pointerMove', x: event.offsetX, y: event.offsetY });
+        if (this.shadowRoot?.pointerLockElement === canvas) return;
+        sendInput({ type: 'pointerMove', ...pointerPosition(event) });
+      },
+      { signal }
+    );
+    document.addEventListener(
+      'mousemove',
+      (event) => {
+        if (this.shadowRoot?.pointerLockElement !== canvas) return;
         if (event.movementX || event.movementY) {
           sendInput({
             type: 'mouseMotion',
@@ -424,11 +524,7 @@ class LodestoneGameElement extends HTMLElement {
           // The loading layer can disappear underneath an already-stationary
           // pointer, so the canvas may never receive a pointermove before the
           // first click. Seed the renderer with the press location first.
-          sendInput({
-            type: 'pointerMove',
-            x: event.offsetX,
-            y: event.offsetY,
-          });
+          sendInput({ type: 'pointerMove', ...pointerPosition(event) });
           sendInput({
             type: 'mouseButton',
             button: event.button,
@@ -437,7 +533,7 @@ class LodestoneGameElement extends HTMLElement {
           if (
             eventName === 'pointerdown' &&
             this.#pointerLockRequested &&
-            document.pointerLockElement !== canvas
+            this.shadowRoot?.pointerLockElement !== canvas
           ) {
             void canvas.requestPointerLock();
           }
@@ -492,7 +588,7 @@ class LodestoneGameElement extends HTMLElement {
     document.addEventListener(
       'pointerlockchange',
       () => {
-        const locked = document.pointerLockElement === canvas;
+        const locked = this.shadowRoot?.pointerLockElement === canvas;
         sendInput({ type: 'pointerLock', locked });
         if (!locked) this.#pointerLockRequested = false;
       },
@@ -536,7 +632,7 @@ class LodestoneGameElement extends HTMLElement {
     this.#sendInput = undefined;
     this.#workerReady = false;
     this.#firstFrameReady = false;
-    if (document.pointerLockElement === this.#canvas) {
+    if (this.shadowRoot?.pointerLockElement === this.#canvas) {
       document.exitPointerLock();
     }
     const worker = this.#worker;
@@ -576,7 +672,10 @@ class LodestoneGameElement extends HTMLElement {
   #handleHostAction(action: LodestoneHostAction) {
     if (action.type !== 'pointer-lock') return;
     this.#pointerLockRequested = action.locked;
-    if (!action.locked && document.pointerLockElement === this.#canvas) {
+    if (
+      !action.locked &&
+      this.shadowRoot?.pointerLockElement === this.#canvas
+    ) {
       document.exitPointerLock();
     }
   }

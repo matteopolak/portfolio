@@ -1,6 +1,7 @@
 ---
 import { projects } from '../lib/config';
 import { bold } from '../lib/bold';
+import { ExternalLink } from '@lucide/astro';
 ---
 
 <section class="resume-section">
@@ -23,8 +24,10 @@ import { bold } from '../lib/bold';
             <a
               class="resume-entry__aside"
               href={`https://github.com/${project.github}`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              {project.github} ↗
+              {project.github} <ExternalLink aria-hidden="true" size={14} />
             </a>
           </div>
           {project.achievements.length > 0 && (
@@ -41,3 +44,18 @@ import { bold } from '../lib/bold';
     }
   </div>
 </section>
+
+<style>
+  .resume-entry__aside {
+    display: inline-flex;
+    align-items: center;
+    justify-self: end;
+    gap: 0.22rem;
+  }
+
+  @media (max-width: 44rem) {
+    .resume-entry__aside {
+      justify-self: start;
+    }
+  }
+</style>

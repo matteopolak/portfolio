@@ -163,6 +163,18 @@ const patternSeeds = Array.from({ length: 3 }, (_, set) =>
     font-weight: 700;
   }
 
+  .project-demo-loading p :global(code) {
+    display: inline-block;
+    padding: 0.08rem 0.28rem;
+    border: 1px solid color-mix(in oklch, var(--ink), transparent 68%);
+    color: var(--ink);
+    background: color-mix(in oklch, var(--ink), transparent 93%);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .project-demo-loading {
       transition: none;

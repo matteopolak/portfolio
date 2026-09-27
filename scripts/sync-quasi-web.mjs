@@ -20,7 +20,11 @@ const stampPath = join(outputPath, '.quasi-bundle.json');
 const pointer = JSON.parse(await readFile(pointerPath, 'utf8'));
 
 if (!pointer.enabled) {
-  console.log('Quasi web bundle is not published yet; skipping sync.');
+  await stat(join(outputPath, 'quasi.js'));
+  await stat(join(outputPath, 'quasi_bg.wasm'));
+  console.log(
+    'Quasi web bundle is not published yet; using checked-in browser assets.'
+  );
   process.exit(0);
 }
 
