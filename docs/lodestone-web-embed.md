@@ -65,6 +65,14 @@ the worker. Lodestone requests pointer lock through `onHostAction`; the page
 performs the user-gesture-gated DOM operation and reports the resulting state
 back to the worker.
 
+The canvas sits inside `<lodestone-game>`'s shadow root. Check
+`shadowRoot.pointerLockElement` when deciding whether that canvas is locked:
+`document.pointerLockElement` is retargeted to the custom-element host. Menu
+hover uses absolute `pointermove` coordinates while unlocked; camera look uses
+relative `mousemove` deltas while locked. The worker ignores camera deltas until
+the actual lock state has been reported, so both the root check and event type
+matter when changing mouse input.
+
 Pointer positions are converted from CSS coordinates to canvas backing pixels
 before reaching Lodestone's physical-position input API. Preserve this mapping
 when changing canvas sizing or input handling; it lets menu controls line up

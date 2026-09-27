@@ -493,7 +493,15 @@ class LodestoneGameElement extends HTMLElement {
     canvas.addEventListener(
       'pointermove',
       (event) => {
+        if (this.shadowRoot?.pointerLockElement === canvas) return;
         sendInput({ type: 'pointerMove', ...pointerPosition(event) });
+      },
+      { signal }
+    );
+    document.addEventListener(
+      'mousemove',
+      (event) => {
+        if (this.shadowRoot?.pointerLockElement !== canvas) return;
         if (event.movementX || event.movementY) {
           sendInput({
             type: 'mouseMotion',
@@ -525,7 +533,7 @@ class LodestoneGameElement extends HTMLElement {
           if (
             eventName === 'pointerdown' &&
             this.#pointerLockRequested &&
-            document.pointerLockElement !== canvas
+            this.shadowRoot?.pointerLockElement !== canvas
           ) {
             void canvas.requestPointerLock();
           }
@@ -580,7 +588,7 @@ class LodestoneGameElement extends HTMLElement {
     document.addEventListener(
       'pointerlockchange',
       () => {
-        const locked = document.pointerLockElement === canvas;
+        const locked = this.shadowRoot?.pointerLockElement === canvas;
         sendInput({ type: 'pointerLock', locked });
         if (!locked) this.#pointerLockRequested = false;
       },
@@ -624,7 +632,7 @@ class LodestoneGameElement extends HTMLElement {
     this.#sendInput = undefined;
     this.#workerReady = false;
     this.#firstFrameReady = false;
-    if (document.pointerLockElement === this.#canvas) {
+    if (this.shadowRoot?.pointerLockElement === this.#canvas) {
       document.exitPointerLock();
     }
     const worker = this.#worker;
@@ -664,7 +672,10 @@ class LodestoneGameElement extends HTMLElement {
   #handleHostAction(action: LodestoneHostAction) {
     if (action.type !== 'pointer-lock') return;
     this.#pointerLockRequested = action.locked;
-    if (!action.locked && document.pointerLockElement === this.#canvas) {
+    if (
+      !action.locked &&
+      this.shadowRoot?.pointerLockElement === this.#canvas
+    ) {
       document.exitPointerLock();
     }
   }
