@@ -410,13 +410,35 @@ class LodestoneGameElement extends HTMLElement {
       !/^[\w.-]+\.js$/.test(manifest.entrypoint) ||
       !/^[\w.-]+\.js$/.test(manifest.worker_entrypoint) ||
       !Array.isArray(manifest.files) ||
+      manifest.files.some(
+        (entry) =>
+          typeof entry?.path !== 'string' ||
+          !/^[\w./-]+$/.test(entry.path) ||
+          entry.path.startsWith('/') ||
+          entry.path
+            .split('/')
+            .some((part) => !part || part === '.' || part === '..') ||
+          !Number.isSafeInteger(entry.size) ||
+          entry.size < 0 ||
+          !/^[a-f0-9]{64}$/.test(entry.sha256)
+      ) ||
+      new Set(manifest.files.map((entry) => entry.path)).size !==
+        manifest.files.length ||
+      manifest.files.some((entry) =>
+        [
+          'client.jar',
+          'lodestone-web-entry.js',
+          'lodestone-web-entry_bg.wasm',
+          'lodestone-render-worker.js',
+          ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
+        ].includes(entry.path)
+      ) ||
       ![
         manifest.entrypoint,
         `${manifest.entrypoint.slice(0, -3)}_bg.wasm`,
         manifest.worker_entrypoint,
-        'client.jar',
+        'lodestone-resources.zip',
         'blocks.json',
-        ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
       ].every((path) => manifest.files.some((entry) => entry.path === path))
     ) {
       throw new Error('The Lodestone SDK manifest is not supported.');
