@@ -16,7 +16,9 @@ Lodestone's canonical packaging recipe and emits
 `lodestone-web-sdk.tar.gz` plus `lodestone-web-sdk.manifest.json`; the portfolio
 uploads both files unchanged. The schema-v2 manifest records the source commit,
 content-versioned ESM and render-worker entrypoints, archive digest and size,
-and every member's digest and size.
+and every member's digest and size. Both validators require
+`lodestone-resources.zip` and `blocks.json`; `client.jar` and separate
+`panorama_*.png` files are obsolete and rejected.
 
 The workflow writes a small `lodestone-web-release.json` deployment pointer.
 `scripts/sync-lodestone-web.mjs` first verifies the pointer-pinned manifest,
@@ -93,6 +95,9 @@ commit, or failed digest. Adjust `downloadAttempts` in
 `scripts/sync-lodestone-web.mjs` only if GitHub Releases needs a different retry
 budget.
 
+Run `pnpm test:lodestone` for positive and negative manifest controls covering
+both the build-time and browser validators.
+
 Run `Publish Lodestone web SDK` with `update_repository: pointer` for normal
 deployment. `assets` also commits the generated `public/lodestone/` directory
 and should be used only when release downloads are unavailable during the site
@@ -121,5 +126,10 @@ GitHub Actions, Lodestone's wasm-bindgen SDK and matching CLI, Rust nightly with
 `rust-src`, Trunk, Java 25, and Minecraft 26.2 build inputs. `rust-src` is
 required because Lodestone's threaded Wasm worker builds its standard library
 for the browser target. The SDK archive contains Lodestone's canonical render
-worker, filtered render resource pack, generated block report, and staged title
-panorama. Standalone pages, diagnostics, and consumer presentation are excluded.
+worker, merged `lodestone-resources.zip` and generated `blocks.json` report.
+The archive contains Whimscape 26.1–26.3 r2 by kavast, including its panorama
+and author credit/project link in `pack.mcmeta`, plus retained non-image game
+definitions. Only the 18 default player-skin textures remain from the original
+pack; block/item textures have no vanilla fallback. The SDK provider maps
+`resourcePack` to this archive and `blocksJson` to the report. Change the pack
+in Lodestone and rebuild the SDK; never add a consumer-side vanilla fallback. Standalone pages, diagnostics, and consumer presentation are excluded.

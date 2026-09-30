@@ -165,6 +165,7 @@ jobs:
           fi
           pnpm format:check
           pnpm lint
+          pnpm test:lodestone
           pnpm build
           git add lodestone-web-release.json
           git config user.name github-actions[bot]

@@ -21,6 +21,7 @@
     "jobs:hub": "node scripts/resume/generate-application-hub.mjs",
     "jobs:merge-compensation": "node scripts/resume/merge-job-compensation.mjs",
     "jobs:check-links": "node scripts/resume/check-application-hub-urls.mjs",
+    "test:lodestone": "node --test tests/lodestone/*.test.mjs",
     "test:resume": "node --test tests/resume/*.test.mjs",
     "astro": "astro",
     "lint": "oxlint",
