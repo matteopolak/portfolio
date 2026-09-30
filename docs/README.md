@@ -13,7 +13,7 @@
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared loading and lifecycle contract for interactive project demos                    |
 | [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
-| [Lodestone web embed](./lodestone-web-embed.md)                                                     | How the singleplayer WebGPU build is published and embedded                          |
+| [Lodestone web embed](./lodestone-web-embed.md)                                                     | SDK validation, replacement textures, publishing, and singleplayer embed                          |
 | [Quasi web playground](./quasi-web-playground.md)                                                   | How the sandboxed Quasi interpreter is built, published, and executed                |
 | [BaerScript web playground](./baerscript-web-playground.md)                                         | How the sandboxed BaerScript interpreter is built, published, and executed           |
 | [Resume technical skills design](./superpowers/specs/2026-07-11-resume-technical-skills-design.md) | Design for the modernized technical skills section                                   |

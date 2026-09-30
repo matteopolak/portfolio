@@ -48,7 +48,7 @@ jobs:
         run: pnpm lint
 
       - name: run tests
-        run: pnpm test:resume
+        run: pnpm test:resume && pnpm test:lodestone
 
       - name: build static site
         run: pnpm build

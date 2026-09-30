@@ -208,19 +208,20 @@ function parseManifest(bytes) {
     manifest.entrypoint,
     `${manifest.entrypoint.slice(0, -3)}_bg.wasm`,
     manifest.worker_entrypoint,
-    'client.jar',
+    'lodestone-resources.zip',
     'blocks.json',
-    ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
   ]) {
     if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
   }
   for (const forbidden of [
+    'client.jar',
+    ...Array.from({ length: 6 }, (_, index) => `panorama_${index}.png`),
     'lodestone-web-entry.js',
     'lodestone-web-entry_bg.wasm',
     'lodestone-render-worker.js',
   ]) {
     if (seen.has(forbidden)) {
-      throw new Error(`Lodestone SDK contains obsolete stable alias ${forbidden}`);
+      throw new Error(`Lodestone SDK contains obsolete asset ${forbidden}`);
     }
   }
   return manifest;
