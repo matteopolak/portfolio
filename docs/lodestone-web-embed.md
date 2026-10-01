@@ -54,6 +54,33 @@ multi-stage loader. The surface fades away only after `first-frame`, which the
 worker SDK emits from the actual presentation path. A `first-frame-timeout`
 remains visible as an actionable renderer failure.
 
+The element also forwards each complete SDK payload as a bubbling, composed
+`lodestone-progress` CustomEvent. Its `detail` preserves `type`, `phase`,
+`fraction`, `message`, asset fields, and optional world-loading counters:
+`elapsedMs`, `loadedColumns`, `expectedColumns`, `settledColumns`,
+`presentedColumns`, `pendingColumns`, `pendingRemovals`, `pendingMeshes`, and
+`pendingLightRemeshes`. `settledColumns` counts columns whose every section has
+its latest renderer handoff or an explicit empty result. `presentedColumns`
+tracks first presentation and can retain earlier geometry during replacement.
+`pendingColumns` counts ready and forced column work; `pendingRemovals` counts
+renderer removals awaiting handoff. `pendingMeshes` counts scheduler work and
+ready results; lighting intents awaiting admission stay in `pendingLightRemeshes`.
+`full-view-presented` can arrive while remesh work remains;
+`full-view-quiescent` requires latest requested-view coverage and all four queues
+drained.
+These events describe world-loading diagnostics and do not reveal the canvas,
+reset the shared modal loader, or gate keyboard/pointer input. Readiness remains
+worker-ready plus `first-frame`.
+
+For example, observe the independent queue counts from the host:
+
+```js
+document.addEventListener('lodestone-progress', (event) => {
+  const { phase, pendingMeshes, pendingLightRemeshes } = event.detail;
+  console.debug(phase, { pendingMeshes, pendingLightRemeshes });
+});
+```
+
 The render worker retains the SDK handle for exactly one mounted custom element.
 Closing the project modal, navigating away, or otherwise disconnecting the
 element aborts unfinished downloads, sends the worker an idempotent `destroy`
@@ -96,7 +123,9 @@ commit, or failed digest. Adjust `downloadAttempts` in
 budget.
 
 Run `pnpm test:lodestone` for positive and negative manifest controls covering
-both the build-time and browser validators.
+both the build-time and browser validators, plus progress forwarding and
+readiness controls. Add new world-loading fields to `LodestoneProgressEvent`
+without mapping them onto the modal readiness gate.
 
 Run `Publish Lodestone web SDK` with `update_repository: pointer` for normal
 deployment. `assets` also commits the generated `public/lodestone/` directory
