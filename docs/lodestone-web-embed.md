@@ -58,10 +58,16 @@ The element also forwards each complete SDK payload as a bubbling, composed
 `lodestone-progress` CustomEvent. Its `detail` preserves `type`, `phase`,
 `fraction`, `message`, asset fields, and optional world-loading counters:
 `elapsedMs`, `loadedColumns`, `expectedColumns`, `settledColumns`,
-`pendingMeshes`, and `pendingLightRemeshes`. `pendingMeshes` counts scheduler
-work only; lighting-driven remesh work stays in `pendingLightRemeshes`.
+`presentedColumns`, `pendingColumns`, `pendingRemovals`, `pendingMeshes`, and
+`pendingLightRemeshes`. `settledColumns` counts columns whose every section has
+its latest renderer handoff or an explicit empty result. `presentedColumns`
+tracks first presentation and can retain earlier geometry during replacement.
+`pendingColumns` counts ready and forced column work; `pendingRemovals` counts
+renderer removals awaiting handoff. `pendingMeshes` counts scheduler work and
+ready results; lighting intents awaiting admission stay in `pendingLightRemeshes`.
 `full-view-presented` can arrive while remesh work remains;
-`full-view-quiescent` reports that the configured view's mesh work has settled.
+`full-view-quiescent` requires latest requested-view coverage and all four queues
+drained.
 These events describe world-loading diagnostics and do not reveal the canvas,
 reset the shared modal loader, or gate keyboard/pointer input. Readiness remains
 worker-ready plus `first-frame`.

@@ -12,6 +12,9 @@ interface LodestoneProgressEvent {
   loadedColumns?: number;
   expectedColumns?: number;
   settledColumns?: number;
+  presentedColumns?: number;
+  pendingColumns?: number;
+  pendingRemovals?: number;
   pendingMeshes?: number;
   pendingLightRemeshes?: number;
 }
