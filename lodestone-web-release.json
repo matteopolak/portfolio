@@ -3,6 +3,6 @@
   "repository": "matteopolak/portfolio",
   "tag": "lodestone-web-latest",
   "manifestAsset": "lodestone-web-sdk.manifest.json",
-  "manifestSha256": "7765704b4a17d04c63ab4c089f03374aba8f64146855a08f8e38c84b1a3a9150",
-  "lodestoneRevision": "bd3afada26b0a2248ae34e9ad1a62ec488761737"
+  "manifestSha256": "9a43fbb026c12fe6ca42188a61ab58e86328e88a98416bd857a949b1db9b0def",
+  "lodestoneRevision": "e7c19d0d1986b721abb1daa6cc501a68eaaedb6a"
 }
