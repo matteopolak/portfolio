@@ -8,6 +8,12 @@ interface LodestoneProgressEvent {
   assetName?: string;
   loadedBytes?: number;
   totalBytes?: number;
+  elapsedMs?: number;
+  loadedColumns?: number;
+  expectedColumns?: number;
+  settledColumns?: number;
+  pendingMeshes?: number;
+  pendingLightRemeshes?: number;
 }
 
 interface LodestoneHostAction {
@@ -703,6 +709,13 @@ class LodestoneGameElement extends HTMLElement {
   }
 
   #handleProgress(event: LodestoneProgressEvent) {
+    this.dispatchEvent(
+      new CustomEvent<LodestoneProgressEvent>('lodestone-progress', {
+        detail: { ...event },
+        bubbles: true,
+        composed: true,
+      })
+    );
     const type = event.type ?? event.phase;
     if (type === 'asset-start') {
       this.#setProgress(
