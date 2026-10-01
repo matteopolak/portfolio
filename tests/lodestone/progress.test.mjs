@@ -42,7 +42,10 @@ for (const phase of ['full-view-presented', 'full-view-quiescent']) {
     game.workerReady(true);
     const payload = {
       type: phase, phase, fraction: 1, message: 'view progress', elapsedMs: 25000,
-      loadedColumns: 289, expectedColumns: 289, settledColumns: 289,
+      loadedColumns: 289, expectedColumns: 289,
+      settledColumns: phase === 'full-view-presented' ? 282 : 289,
+      presentedColumns: 289, pendingColumns: phase === 'full-view-presented' ? 7 : 0,
+      pendingRemovals: phase === 'full-view-presented' ? 2 : 0,
       pendingMeshes: 0, pendingLightRemeshes: phase === 'full-view-presented' ? 7 : 0,
     };
     game.progress(payload);
