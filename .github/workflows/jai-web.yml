@@ -1,0 +1,129 @@
+name: Publish Jai browser compiler
+
+on:
+  workflow_dispatch:
+    inputs:
+      jai_ref:
+        description: Full 40-character tested Jai commit SHA
+        required: true
+      update_pointer:
+        description: Update the portfolio deployment pointer after validation
+        type: boolean
+        default: true
+
+concurrency:
+  group: jai-web-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      JAI_REF: ${{ inputs.jai_ref }}
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - name: Require an exact compiler revision
+        run: |
+          [[ "$JAI_REF" =~ ^[a-f0-9]{40}$ ]]
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Check out the compiler
+        uses: actions/checkout@v7
+        with:
+          repository: matteopolak/jai
+          ref: ${{ inputs.jai_ref }}
+          path: .build/jai
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install the compiler's pinned toolchain
+        working-directory: .build/jai
+        run: |
+          test "$(git rev-parse HEAD)" = "$JAI_REF"
+          test -z "$(git status --porcelain)"
+          toolchain="$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup target add wasm32-unknown-unknown --toolchain "$toolchain"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .build/jai -> target
+      - name: Check source policy and fetch locked dependencies
+        working-directory: .build/jai
+        run: |
+          python3 tools/check_dependency_age.py
+          python3 tools/check_ci_sources.py
+          cargo fetch --locked
+      - name: Build and package the actual browser compiler
+        working-directory: .build/jai
+        run: python3 tools/package_browser_release.py --output "$GITHUB_WORKSPACE/.build/jai-release"
+      - name: Validate inventory and pin release digests
+        run: |
+          python3 scripts/verify-jai-bundle.py .build/jai-release "$JAI_REF"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          directory = Path('.build/jai-release')
+          revision = os.environ['JAI_REF']
+          digest = lambda name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
+          pointer = dict(enabled=True, repository=os.environ['GITHUB_REPOSITORY'],
+                         revision=revision, tag='jai-web-' + revision,
+                         manifestAsset='jai-playground.manifest.json',
+                         manifestSha256=digest('jai-playground.manifest.json'),
+                         bundleAsset='jai-playground.zip', sha256=digest('jai-playground.zip'))
+          Path('.build/jai-web-release.json').write_text(json.dumps(pointer, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@v6
+        with:
+          name: jai-web-${{ inputs.jai_ref }}
+          path: |
+            .build/jai-release/jai-playground.zip
+            .build/jai-release/jai-playground.manifest.json
+            .build/jai-web-release.json
+          if-no-files-found: error
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="jai-web-$JAI_REF"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            mkdir .build/existing-jai-release
+            gh release download "$tag" --pattern jai-playground.zip --pattern jai-playground.manifest.json --dir .build/existing-jai-release
+            cmp .build/existing-jai-release/jai-playground.zip .build/jai-release/jai-playground.zip
+            cmp .build/existing-jai-release/jai-playground.manifest.json .build/jai-release/jai-playground.manifest.json
+          else
+            gh release create "$tag" .build/jai-release/jai-playground.zip .build/jai-release/jai-playground.manifest.json \
+              --target "$GITHUB_SHA" --prerelease --latest=false --title "Jai browser compiler $JAI_REF" \
+              --notes 'Experimental Rust-built compiler and independently authored browser workspace. Exact revision and file digests are recorded in the manifest.'
+          fi
+      - uses: pnpm/action-setup@v6
+        if: ${{ inputs.update_pointer }}
+        with:
+          version: 10.32.1
+      - name: Validate the consumer build
+        if: ${{ inputs.update_pointer }}
+        run: |
+          cp .build/jai-web-release.json jai-web-release.json
+          pnpm install --frozen-lockfile
+          pnpm test:jai
+          pnpm format:check
+          pnpm lint
+          pnpm build
+      - name: Update the deployment pointer
+        if: ${{ inputs.update_pointer }}
+        run: |
+          git add jai-web-release.json
+          if ! git diff --cached --quiet; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git commit -m "chore: pin Jai browser compiler to $JAI_REF"
+            git push origin "HEAD:${{ github.event.repository.default_branch }}"
+          fi
