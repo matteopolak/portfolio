@@ -1,0 +1,10 @@
+{
+  "enabled": false,
+  "repository": "matteopolak/portfolio",
+  "revision": null,
+  "tag": null,
+  "manifestAsset": "jai-playground.manifest.json",
+  "manifestSha256": null,
+  "bundleAsset": "jai-playground.zip",
+  "sha256": null
+}
