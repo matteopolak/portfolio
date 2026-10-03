@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
 import CodeDemoModal from '../components/CodeDemoModal.astro';
+import JaiDemoModal from '../components/JaiDemoModal.astro';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
@@ -145,6 +146,8 @@ const baerscriptStarter = `+v
                         ? { id: 'try-quasi', label: 'Try in browser' }
                         : item.project.id === 'baerscript'
                           ? { id: 'try-baerscript', label: 'Try in browser' }
+                        : item.project.id === 'jai'
+                          ? { id: 'try-jai', label: 'Try it out' }
                         : undefined
                   }
                 />
@@ -184,6 +187,7 @@ const baerscriptStarter = `+v
     }
   </ol>
   <ProjectDemoModal />
+  <JaiDemoModal />
   <CodeDemoModal id="quasi" label="Quasi" starter={quasiStarter} />
   <CodeDemoModal id="baerscript" label="BaerScript" starter={baerscriptStarter} />
 </Layout>
