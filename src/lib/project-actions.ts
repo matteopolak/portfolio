@@ -1,6 +1,7 @@
 import './lodestone-game';
 import { initializeBaerscriptPlayground } from './baerscript-playground';
 import { initializeQuasiPlayground } from './quasi-playground';
+import { initializeJaiPlayground } from './jai-playground';
 
 type ProjectActionCallback = (
   trigger: HTMLButtonElement
@@ -95,6 +96,11 @@ export function initializeProjectActions() {
       actionId: 'try-baerscript',
       initialize: initializeBaerscriptPlayground,
     },
+    {
+      id: 'jai',
+      actionId: 'try-jai',
+      initialize: initializeJaiPlayground,
+    },
   ]
     .map(({ id, actionId, initialize }) => {
       const dialog = document.querySelector<HTMLDialogElement>(
@@ -102,6 +108,7 @@ export function initializeProjectActions() {
       );
       if (!dialog) return undefined;
       return {
+        id,
         actionId,
         dialog,
         panel: dialog.querySelector<HTMLElement>(
@@ -230,6 +237,7 @@ export function initializeProjectActions() {
     demo.dialog.addEventListener(
       'close',
       () => {
+        if (demo.id === 'jai') demo.playground.destroy();
         document.documentElement.classList.remove('has-project-demo');
         activeTrigger?.focus();
         activeTrigger = undefined;
