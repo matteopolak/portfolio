@@ -79,7 +79,9 @@ initialization cancellation, reopening, and error retry. These tests verify host
 behavior; only a real published compiler bundle can establish editing and
 execution acceptance. With Playwright installed and `pnpm preview` running,
 `python3 tests/jai/modal_browser.py` verifies the rendered card, modal reopening,
-client navigation and removed route. Set `PORTFOLIO_URL` for another preview URL
+client navigation and removed route. When enabled, it also checks actual iframe
+readiness and the starter program returning 42 after both opening and reopening.
+Set `PORTFOLIO_URL` for another preview URL
 and `WEBKIT_EXECUTABLE` for an existing WebKit runtime.
 
 Dispatch `jai-web.yml` with `jai_ref` set to a full tested commit SHA. The workflow
