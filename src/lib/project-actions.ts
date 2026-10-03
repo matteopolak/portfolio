@@ -246,14 +246,6 @@ export function initializeProjectActions() {
     );
   }
 
-  const standaloneJai = [
-    ...document.querySelectorAll<HTMLElement>('[data-jai-playground]'),
-  ].find((panel) => !panel.closest('dialog'));
-  const standalonePlayground = standaloneJai
-    ? initializeJaiPlayground(standaloneJai, signal)
-    : undefined;
-  if (standalonePlayground) void standalonePlayground.prepare().catch(() => {});
-
   document
     .querySelectorAll<HTMLButtonElement>('[data-project-action]')
     .forEach((button) => {
@@ -349,7 +341,6 @@ export function initializeProjectActions() {
 
   cleanup = () => {
     controller.abort();
-    standalonePlayground?.destroy();
     for (const demo of codeDemos) {
       demo.playground.destroy();
       closeAnimated(demo.dialog);
