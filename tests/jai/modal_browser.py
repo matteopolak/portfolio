@@ -35,7 +35,9 @@ with sync_playwright() as playwright:
     page.keyboard.press("Escape")
     page.wait_for_function("!document.querySelector('dialog[data-project-demo=\"jai\"]').open")
     assert not errors, errors
-    assert page.request.get(base + "/projects/jai").status == 404
+    removed_route = page.request.get(base + "/projects/jai")
+    # Cloudflare can serve the site fallback for an absent static route.
+    assert removed_route.status == 404 or "data-jai-playground" not in removed_route.text()
     page.screenshot(path="/tmp/jai-modal-only-projects.png", full_page=True)
     browser.close()
     print("Passed: modal-only card, close/reopen, Astro navigation, removed route, no browser errors.")
