@@ -11,7 +11,9 @@ does not claim full Jai compatibility.
 The portfolio's `jai-web.yml` workflow builds one full, immutable compiler commit.
 The producer owns the compiler, editor, file tree, worker, syntax/bracket highlighting,
 indentation and LSP. The consumer stages a verified release under
-`/jai/<full-commit>/` and embeds `index.html` in a dialog and a dedicated project page.
+`/jai/<full-commit>/` and embeds `index.html` only in the Try it out dialog.
+The project card retains its GitHub source link and has no Website action or
+dedicated `/projects/jai` route.
 Closing the dialog removes the iframe and its workers; Astro navigation cleans up
 the host listeners. No supplied reference binaries or sources may enter the bundle.
 
@@ -47,7 +49,7 @@ as text. An experimental-compatibility note remains visible in the editor.
 The project description is `src/content/projects/jai.md`; it does not change the
 resume's selected projects in `portfolio.toml`. `JaiPlayground.astro` supplies the
 host chrome, `JaiDemoModal.astro` the dialog, and `jai-playground.ts` readiness,
-retry and destruction. `project-actions.ts` initializes both routes on
+retry and destruction. `project-actions.ts` initializes the project dialog on
 `astro:page-load`. Removing the frame on close intentionally starts a fresh
 workspace on reopening. Do not replace the readiness message with an iframe
 `load` event: a loaded document can still have an uninitialized compiler.
@@ -75,7 +77,10 @@ out after 60 seconds and supports retry. Node 22.12+ and Python 3 are required.
 The host tests also cover foreign origins, stale frames, mismatched revisions,
 initialization cancellation, reopening, and error retry. These tests verify host
 behavior; only a real published compiler bundle can establish editing and
-execution acceptance.
+execution acceptance. With Playwright installed and `pnpm preview` running,
+`python3 tests/jai/modal_browser.py` verifies the rendered card, modal reopening,
+client navigation and removed route. Set `PORTFOLIO_URL` for another preview URL
+and `WEBKIT_EXECUTABLE` for an existing WebKit runtime.
 
 Dispatch `jai-web.yml` with `jai_ref` set to a full tested commit SHA. The workflow
 retains immutable release assets and, by default, updates the consumer pointer
