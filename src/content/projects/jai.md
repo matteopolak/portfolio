@@ -3,7 +3,6 @@ title: Jai compiler
 date: 2026-10-01
 tags: [rust, compiler, web assembly, language tooling]
 repository: https://github.com/matteopolak/jai
-website: /projects/jai
 component: jai
 ai:
   usage: agent-led
