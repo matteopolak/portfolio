@@ -61,7 +61,8 @@ export const jaiTokenizer: StreamParser<JaiState> = {
           stream.pos =
             stream.string.length - text.length + state.hereTag.length;
           state.hereTag = null;
-          return 'string';
+          // The closing tag matches the opening `#string TAG`.
+          return 'directive';
         }
       }
       stream.skipToEnd();

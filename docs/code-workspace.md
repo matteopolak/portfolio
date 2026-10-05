@@ -47,6 +47,15 @@ Two lifecycles plug into the same markup:
 
 Both run the starter once as soon as the runtime is ready, then auto-run 600 ms after each edit. See [Quasi](quasi-web-playground.md), [BaerScript](baerscript-web-playground.md) and [jai](jai-integration.md) for the runtime specifics.
 
+### Editor extras
+
+- **Vim mode**: the `Vim` button in the toolbar toggles `@replit/codemirror-vim` for every editor on the page. The choice is stored in `localStorage` (`code-editor-vim`). `code-editor.ts` keeps it in a compartment that is placed first in each state, so Vim sees keys before the default keymaps. `setState` re-applies it, because states made for other files may predate a toggle.
+- **Overload hovers**: when the hover text is several `name :: (...)` lines, `hoverContent` shows an "N overloads" count and one row per overload, with a rule between rows and a hanging indent for wrapped headers.
+- **Go to definition**: F12, or Cmd-click (macOS) / Ctrl-click on a name; the pointer becomes a hand while the modifier is held over a name (`definitionClick` in `code-editor.ts`). A target in another workspace file selects that file. A target in a module or the stdlib (any URI outside `file:///jai-script/`) is fetched with the compiler's non-standard `jai/source` request and shown read-only, with `(read-only)` in the breadcrumb; hover, completion and further definitions are off there (`viewing` in `workspace-ui.ts`). Selecting a file in the tree returns to the workspace. Stdlib targets need a compiler build with semantic definitions (jaic after 2026-10-05).
+- **Here-strings**: `#string TAG` and the closing `TAG` are both styled as directives and the body as a string (`hereTag` in `jai/language.ts`).
+- **Selection**: a light blue tint (`--ide-selection`); selected code keeps its syntax colours, overriding the site-wide `::selection` ink colour in the editor theme.
+- **Output transitions**: `code-output.ts` keeps the previous output dimmed for up to 300 ms after a run starts. A fast re-run fades from old to new output; a slow one switches to "Running…". Each result fades in and is scrolled to its end.
+
 ## How to change it
 
 - **Visual design:** the `--ide-*` tokens and layout rules in `CodeWorkspace.astro`, and the output-pane styles in `CodeOutput.astro`.
@@ -66,4 +75,4 @@ There are no runtime flags. The narrow layout starts at `42rem`. The default fil
 
 ## Dependencies
 
-CodeMirror 6, native `<dialog>`, CSS custom properties with `color-mix()`, Web Workers and WebAssembly.
+CodeMirror 6 (with `@replit/codemirror-vim`), native `<dialog>`, CSS custom properties with `color-mix()`, Web Workers and WebAssembly.
