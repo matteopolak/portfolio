@@ -16,7 +16,7 @@ Before development and production builds, `scripts/sync-baerscript-web.ts` downl
 
 ## How to change it
 
-Edit the starter program in `src/pages/projects.astro`. Change BaerScript highlighting in `src/lib/code-editor.ts` or worker selection in `src/lib/baerscript-playground.ts`; change module filenames, input mode, or the instruction budget in `src/lib/baerscript-worker.ts`. Shared editor, timeout, and modal behavior belongs in `CodeDemoModal.astro`, `src/lib/code-playground.ts`, and `src/lib/project-actions.ts` rather than in BaerScript-specific wrappers.
+Edit the starter program in `src/data/code-demos.ts` (shared by the modal and `/playground/baerscript`). Change BaerScript highlighting in `src/lib/code-editor.ts` or worker selection in `src/lib/baerscript-playground.ts`; change module filenames, input mode, or the instruction budget in `src/lib/baerscript-worker.ts`. Shared editor, timeout, and modal behavior belongs in `CodeDemoModal.astro`, `src/lib/code-playground.ts`, and `src/lib/project-actions.ts` rather than in BaerScript-specific wrappers.
 
 Keep the starter's first line executable. BaerScript begins on row one, so a leading comment exits successfully without running the example; the current starter prints `2`.
 

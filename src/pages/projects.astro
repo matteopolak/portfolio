@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
 import CodeDemoModal from '../components/CodeDemoModal.astro';
-import jaiRelease from '../../jai-web-release.json';
+import { codeDemoPages } from '../data/code-demos';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
@@ -99,18 +99,6 @@ function milestoneDate(date: Date, includeDay: boolean): string {
 }
 
 let eventIndex = 0;
-const quasiStarter = `# Sum the squares from 1 through 10
-let total = 0;
-
-for let i = 1; i < 11; i = i + 1 [
-  total = total + i * i;
-]
-
-print "sum of squares:";
-print total;`;
-const baerscriptStarter = `+v
-+v
->v`;
 ---
 
 <Layout title="Projects" description="Selected software projects by Matthew Polak.">
@@ -151,6 +139,7 @@ const baerscriptStarter = `+v
               {item.kind === 'project' ? (
                 <ProjectCard
                   project={item.project}
+                  playground={codeDemoPages.find((demo) => demo.slug === item.project.id)?.path}
                   action={
                     item.project.id === 'minecraft'
                       ? { id: 'play-minecraft', label: 'Try in browser' }
@@ -203,9 +192,7 @@ const baerscriptStarter = `+v
     }
   </ol>
   <ProjectDemoModal />
-  <CodeDemoModal id="jai" label="Jai" files enabled={jaiRelease.enabled} revision={jaiRelease.revision ?? ''} />
-  <CodeDemoModal id="quasi" label="Quasi" starter={quasiStarter} />
-  <CodeDemoModal id="baerscript" label="BaerScript" starter={baerscriptStarter} />
+  {codeDemoPages.map((demo) => <CodeDemoModal {...demo.workspace} />)}
 </Layout>
 
 <style>

@@ -1,0 +1,41 @@
+---
+import type { GetStaticPaths } from 'astro';
+import PlaygroundLayout from '../../layouts/PlaygroundLayout.astro';
+import CodeWorkspace from '../../components/CodeWorkspace.astro';
+import { codeDemoPages, type CodeDemoPage } from '../../data/code-demos';
+
+export const getStaticPaths = (() =>
+  codeDemoPages.map((demo) => ({ params: { language: demo.id }, props: { demo } }))) satisfies GetStaticPaths;
+
+const { demo } = Astro.props as { demo: CodeDemoPage };
+const { id, ...workspace } = demo.workspace;
+---
+
+<PlaygroundLayout title={demo.title} description={demo.description}>
+  <main class="playground" data-playground-page={id} data-demo-state="loading">
+    <h1 class="playground__title">{demo.title}</h1>
+    <CodeWorkspace language={id} mode="page" {...workspace} />
+  </main>
+</PlaygroundLayout>
+
+<script>
+  import { initializePlaygroundPage } from '../../lib/playground-page';
+
+  initializePlaygroundPage();
+</script>
+
+<style>
+  .playground {
+    height: 100dvh;
+  }
+
+  /* The workspace header shows the language; the heading is for assistive tech. */
+  .playground__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
