@@ -1,0 +1,42 @@
+---
+interface Props {
+  id: string;
+  label: string;
+}
+
+const { id, label } = Astro.props;
+---
+
+<a class="anchor-link" href={`#${id}`} aria-label={`Link to ${label}`}>#</a>
+
+<style>
+  .anchor-link {
+    position: relative;
+    z-index: 2;
+    margin-left: 0.4em;
+    color: var(--muted);
+    font-size: 0.7em;
+    font-weight: 700;
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .anchor-link:hover,
+  .anchor-link:focus-visible {
+    color: var(--blue);
+    opacity: 1;
+  }
+
+  :global(h2:hover) > .anchor-link,
+  :global(h2:hover) > :global(.project-card__name) > .anchor-link,
+  :global(.project-card__name:hover) > .anchor-link {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    .anchor-link {
+      opacity: 0.55;
+    }
+  }
+</style>

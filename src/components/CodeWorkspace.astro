@@ -42,6 +42,7 @@ const { language, label, starter = '', files = false, enabled = true, revision =
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5h10v10H5z"></path></svg>
       <span>Stop</span>
     </button>
+    <button type="button" class="ide-text-button ide-vim" data-code-vim aria-pressed="false" aria-label="Vim keybindings" title="Vim keybindings">Vim</button>
     <button type="button" class="ide-icon ide-icon--fullscreen" data-code-fullscreen aria-label="Enter full screen" title="Full screen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
     </button>
@@ -136,8 +137,8 @@ const { language, label, starter = '', files = false, enabled = true, revision =
     --ide-muted: oklch(70% 0.012 270);
     --ide-faint: oklch(50% 0.01 270);
     --ide-active-line: oklch(100% 0 0 / 0.035);
-    --ide-selection: color-mix(in oklch, var(--blue) 42%, transparent);
-    --ide-selection-match: oklch(100% 0 0 / 0.09);
+    --ide-selection: color-mix(in oklch, var(--blue) 24%, transparent);
+    --ide-selection-match: oklch(100% 0 0 / 0.07);
     --ide-search: color-mix(in oklch, var(--yellow) 22%, transparent);
     --ide-search-outline: color-mix(in oklch, var(--yellow) 55%, transparent);
     --ide-syntax-keyword: color-mix(in oklch, var(--yellow) 88%, white);
@@ -275,6 +276,17 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
   .ide-text-button:hover {
     background: var(--ide-hover) !important;
+  }
+
+  .ide-vim {
+    margin-left: 0.25rem;
+    color: var(--ide-muted) !important;
+    font-family: var(--ide-mono);
+  }
+
+  .ide-vim[aria-pressed='true'] {
+    color: var(--ide-fg-strong) !important;
+    border-color: var(--blue) !important;
   }
 
   .ide-run {
@@ -650,7 +662,8 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
   @media (max-width: 42rem) {
     .ide {
-      --ide-code-size: 13px;
+      /* iOS zooms the page when focusing text below 16px. */
+      --ide-code-size: 16px;
 
       grid-template-rows: auto minmax(0, 1fr) auto;
       border: 0;
@@ -723,6 +736,12 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
     .ide :global(.ide-output pre) {
       display: block !important;
+    }
+
+    .ide-tree :global(.tree-name-input),
+    .ide :global(.cm-rename-input),
+    .ide :global(.cm-panel input) {
+      font-size: 16px !important;
     }
 
     .ide-tree :global(.tree-item) {

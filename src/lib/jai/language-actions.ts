@@ -99,13 +99,30 @@ export function planWorkspaceEdit(
     };
   });
 }
+/** A definition: a workspace file, or (with `text`) a read-only module or stdlib file. */
+export interface DefinitionTarget {
+  path: string;
+  from: number;
+  to: number;
+  text?: string;
+}
+/** `file:///stdlib/Basic/Print.jai` → `stdlib/Basic/Print.jai`; undefined for other URIs. */
+function externalPath(uri: string): string | undefined {
+  try {
+    const url = new URL(uri);
+    if (url.protocol !== 'file:' || url.host) return undefined;
+    return decodeURIComponent(url.pathname).replace(/^\/+/u, '');
+  } catch {
+    return undefined;
+  }
+}
 export async function definitionTarget(
   client: LanguageClient,
   workspace: Workspace,
   path: string,
   offset: number,
   signal?: AbortSignal
-): Promise<{ path: string; from: number; to: number } | undefined> {
+): Promise<DefinitionTarget | undefined> {
   const before = workspace.documents,
     document = before.find((item) => item.path === path);
   if (!document) throw new Error('Select a source file.');
@@ -127,14 +144,25 @@ export async function definitionTarget(
   const location = Array.isArray(result) ? result[0] : result;
   if (!location) return undefined;
   const link = 'targetUri' in location ? location : undefined;
-  const target = admittedDocument(
-    before,
-    link ? link.targetUri : (location as Location).uri
-  );
+  const uri = link ? link.targetUri : (location as Location).uri;
   const range = link
     ? (link.targetSelectionRange ?? link.targetRange)
     : (location as Location).range;
   if (!range) throw new Error('Invalid definition location.');
+  if (!uri.startsWith('file:///jai-script/')) {
+    // A module or stdlib file: the server returns its text for a read-only view.
+    const path = externalPath(uri);
+    const text = path
+      ? await client.request<string | null>('jai/source', { uri }, signal)
+      : null;
+    if (signal?.aborted) throw new DOMException('Closed', 'AbortError');
+    if (!path || typeof text !== 'string') return undefined;
+    const from = offsetAt(text, range.start),
+      to = offsetAt(text, range.end);
+    if (to < from) throw new Error('Invalid definition range.');
+    return { path, from, to, text };
+  }
+  const target = admittedDocument(before, uri);
   const from = offsetAt(target.text, range.start),
     to = offsetAt(target.text, range.end);
   if (to < from) throw new Error('Invalid definition range.');

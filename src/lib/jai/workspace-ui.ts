@@ -81,7 +81,7 @@ export async function createSession(
     canRename: () => Boolean(language && languageCapabilities?.renameProvider),
     onDefinition: async (offset) => {
       const selected = workspace.selected;
-      if (!selected || !language || signal.aborted) return;
+      if (!selected || !language || signal.aborted || viewing) return;
       try {
         const target = await definitionTarget(
           language,
@@ -93,13 +93,18 @@ export async function createSession(
         if (
           !target ||
           signal.aborted ||
-          workspace.selected?.path.name !== selected.path.name
+          workspace.selected?.path.name !== selected.path.name ||
+          viewing
         )
           return;
         saveState();
-        workspace.select(target.path);
-        showSelected();
-        tree.render();
+        if (target.text !== undefined) {
+          showReadOnly(target.path, target.text);
+        } else {
+          workspace.select(target.path);
+          showSelected();
+          tree.render();
+        }
         editor.view.dispatch({
           selection: { anchor: target.from, head: target.to },
           scrollIntoView: true,
@@ -144,6 +149,8 @@ export async function createSession(
       version: workspace.selected?.version ?? 0,
     }),
     service: () => {
+      // A read-only stdlib view is not a workspace document: no hover or completion.
+      if (viewing) return undefined;
       clearTimeout(syncTimer);
       language?.sync(workspace.documents);
       return language;
@@ -159,11 +166,21 @@ export async function createSession(
   });
 
   let filesBefore = new Set<string>();
+  /** Path of the module or stdlib file shown read-only (after go to definition), if any. */
+  let viewing: string | undefined;
   function saveState() {
-    if (workspace.selected)
+    if (workspace.selected && !viewing)
       states.set(workspace.selected.path.name, editor.view.state);
   }
+  function showReadOnly(path: string, text: string) {
+    viewing = path;
+    editor.setState(editor.createState(text));
+    editor.setEditable(false);
+    editor.diagnostics([], text);
+    if (crumb) crumb.textContent = `${path} (read-only)`;
+  }
   function showSelected() {
+    viewing = undefined;
     const selected = workspace.selected;
     editor.setState(
       selected

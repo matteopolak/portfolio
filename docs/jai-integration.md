@@ -18,7 +18,7 @@ client, worker and Wasm bridge. The only release file used at runtime is
 `/jai/<full-commit>/jai_wasm.wasm`.
 
 Opening the modal initializes separate execution and language-service workers.
-The language client preserves completion, hover and inline diagnostics without
+The language client preserves completion, hover and inline diagnostics without Hover text is syntax-highlighted with the editor's own grammar (`highlightedHover` in `src/lib/code-editor.ts`), using the same colors as the source.
 adding a diagnostics panel. File switches retain editor state. Closing aborts
 initialization, terminates both workers and destroys CodeMirror; reopening starts
 fresh. Astro navigation also disposes the session. Run uses a fixed

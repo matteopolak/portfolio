@@ -1,4 +1,5 @@
 import { EditorState, Compartment } from '@codemirror/state';
+import { vim } from '@replit/codemirror-vim';
 import {
   EditorView,
   keymap,
@@ -45,7 +46,7 @@ import {
   setDiagnostics,
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
-import { tags } from '@lezer/highlight';
+import { tags, highlightTree } from '@lezer/highlight';
 import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
 import {
   documentUri,
@@ -132,7 +133,7 @@ const theme = EditorView.theme(
       padding: '14px 0 40px',
       caretColor: 'var(--yellow)',
     },
-    '.cm-line': { padding: '0 16px 0 12px' },
+    '.cm-line': { padding: '0 16px 0 4px' },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: 'var(--yellow)',
       borderLeftWidth: '2px',
@@ -144,13 +145,16 @@ const theme = EditorView.theme(
       paddingLeft: '6px',
     },
     '.cm-lineNumbers .cm-gutterElement': { minWidth: '2.5ch' },
+    '.cm-gutter-lint': { width: '14px' },
     '.cm-activeLine': { backgroundColor: 'var(--ide-active-line)' },
     '.cm-activeLineGutter': {
-      backgroundColor: 'transparent',
+      backgroundColor: 'var(--ide-active-line)',
       color: 'var(--ide-fg)',
     },
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection':
       { backgroundColor: 'var(--ide-selection)' },
+    // The site-wide ::selection sets ink-coloured text; code keeps its syntax colours.
+    '::selection': { color: 'currentColor' },
     '.cm-selectionMatch': { backgroundColor: 'var(--ide-selection-match)' },
     '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
       backgroundColor: 'transparent',
@@ -158,9 +162,16 @@ const theme = EditorView.theme(
       outline: '1px solid var(--ide-muted)',
     },
     '.cm-foldGutter .cm-gutterElement': {
+      width: '10px',
+      padding: '0',
       color: 'var(--ide-faint)',
       cursor: 'pointer',
+      textAlign: 'center',
     },
+    '.cm-fold-marker': { opacity: '0', transition: 'opacity 120ms ease' },
+    '.cm-fold-marker--closed': { opacity: '1' },
+    '.cm-gutters:hover .cm-fold-marker, .cm-foldGutter .cm-gutterElement:focus-within .cm-fold-marker':
+      { opacity: '1' },
     '.cm-foldPlaceholder': {
       backgroundColor: 'var(--ide-raised)',
       border: 'none',
@@ -234,6 +245,40 @@ const theme = EditorView.theme(
       fontFamily: 'var(--ide-mono)',
       fontSize: '12.5px',
     },
+    '.jai-hover--overloads': { padding: '4px 0' },
+    '.jai-hover__count': {
+      padding: '2px 10px 4px',
+      color: 'var(--ide-muted)',
+      fontFamily: 'inherit',
+      fontSize: '11px',
+    },
+    // Wrapped continuation lines hang under the name.
+    '.jai-hover__overload': {
+      padding: '5px 10px 5px calc(10px + 2ch)',
+      textIndent: '-2ch',
+      borderTop: '1px solid var(--ide-rule)',
+    },
+    '.cm-vim-panel': {
+      padding: '2px 10px',
+      minHeight: '1.5em',
+      color: 'var(--ide-muted)',
+      backgroundColor: 'var(--ide-sunken)',
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12px',
+    },
+    '.cm-vim-panel input': {
+      color: 'var(--ide-fg)',
+      backgroundColor: 'transparent',
+      border: 'none',
+      outline: 'none',
+      font: 'inherit',
+    },
+    '.cm-fat-cursor': {
+      background: 'var(--blue) !important',
+      color: 'var(--ide-sunken) !important',
+      opacity: '0.75',
+    },
+    '.cm-definition-link': { cursor: 'pointer' },
     '.cm-rename-input': {
       position: 'absolute',
       top: '10px',
@@ -259,6 +304,45 @@ function textContent(value: MarkupText | undefined): string {
   return typeof value?.value === 'string' ? value.value : '';
 }
 
+/**
+ * Hover text is plain, but it is code: type signatures and declarations. Color
+ * it with the editor's own grammar. Markdown fences, when present, mark the
+ * code regions and everything outside them stays plain.
+ */
+function highlightedHover(
+  text: string,
+  { parser }: StreamLanguage<unknown>
+): (Node | string)[] {
+  const nodes: (Node | string)[] = [];
+  const code = (source: string) => {
+    const fragment = document.createDocumentFragment();
+    let at = 0;
+    const plain = (to: number) => {
+      if (to > at) fragment.append(source.slice(at, to));
+      at = to;
+    };
+    highlightTree(parser.parse(source), colors, (from, to, cls) => {
+      plain(from);
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = source.slice(from, to);
+      fragment.append(span);
+      at = to;
+    });
+    plain(source.length);
+    return fragment;
+  };
+  if (!/```/u.test(text)) return [code(text)];
+  let last = 0;
+  for (const match of text.matchAll(/```[^\n]*\n([\s\S]*?)```/gu)) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    nodes.push(code(match[1].replace(/\n$/u, '')));
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
 const completionType = (kind: number | undefined) =>
   kind === 3
     ? 'function'
@@ -267,6 +351,13 @@ const completionType = (kind: number | undefined) =>
       : kind === 14
         ? 'keyword'
         : 'variable';
+
+const languageFor = (language: EditorLanguage) =>
+  language === 'baerscript'
+    ? baerscriptLanguage
+    : language === 'quasi'
+      ? quasiLanguage
+      : jaiLanguage;
 
 export interface EditorDocument {
   path: string;
@@ -289,6 +380,64 @@ export interface EditorOptions {
 
 export type Editor = ReturnType<typeof createEditor>;
 
+/*
+ * Vim keybindings are one preference for every editor on the page, kept in
+ * localStorage. Toggling it reconfigures each live editor.
+ */
+const VIM_STORAGE_KEY = 'code-editor-vim';
+const vimEditors = new Set<(enabled: boolean) => void>();
+let vimEnabled = (() => {
+  try {
+    return localStorage.getItem(VIM_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+})();
+
+function setVimEnabled(enabled: boolean) {
+  vimEnabled = enabled;
+  try {
+    localStorage.setItem(VIM_STORAGE_KEY, enabled ? '1' : '0');
+  } catch {
+    /* Without storage the choice lasts for this page. */
+  }
+  for (const apply of vimEditors) apply(enabled);
+}
+
+const vimExtension = (enabled: boolean) =>
+  enabled ? vim({ status: true }) : [];
+
+/*
+ * Overload sets come back as one `name :: header` line per procedure. Long
+ * headers wrap, so each gets its own row, a rule between rows and a count.
+ */
+function hoverContent(
+  text: string,
+  language: StreamLanguage<unknown>
+): HTMLElement {
+  const dom = document.createElement('div');
+  dom.className = 'jai-hover';
+  const lines = text.split('\n');
+  const overloads =
+    lines.length > 1 && lines.every((line) => /^[^\s:]+ :: \(/u.test(line));
+  if (!overloads) {
+    dom.append(...highlightedHover(text, language));
+    return dom;
+  }
+  dom.classList.add('jai-hover--overloads');
+  const count = document.createElement('div');
+  count.className = 'jai-hover__count';
+  count.textContent = `${lines.length} overloads`;
+  dom.append(count);
+  for (const line of lines) {
+    const row = document.createElement('div');
+    row.className = 'jai-hover__overload';
+    row.append(...highlightedHover(line, language));
+    dom.append(row);
+  }
+  return dom;
+}
+
 export function createEditor(
   parent: HTMLElement,
   {
@@ -305,6 +454,42 @@ export function createEditor(
   }: EditorOptions
 ) {
   const editable = new Compartment();
+  const vimMode = new Compartment();
+  // Cmd-click (macOS) or Ctrl-click on a name goes to its definition, like F12. The
+  // pointer turns into a hand while the modifier is held over a name.
+  const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
+  const modifier = (event: MouseEvent | KeyboardEvent) =>
+    mac ? event.metaKey : event.ctrlKey;
+  const linkAt = (view: EditorView, event: MouseEvent) => {
+    if (!modifier(event) || !onDefinition || !canDefine()) return undefined;
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+    return view.state.wordAt(pos) ? pos : undefined;
+  };
+  const showLink = (view: EditorView, on: boolean) =>
+    view.contentDOM.classList.toggle('cm-definition-link', on);
+  const definitionClick = EditorView.domEventHandlers({
+    mousedown(event, view) {
+      if (event.button !== 0) return false;
+      const pos = linkAt(view, event);
+      if (pos === undefined) return false;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: pos } });
+      void onDefinition?.(pos);
+      return true;
+    },
+    mousemove(event, view) {
+      showLink(view, linkAt(view, event) !== undefined);
+      return false;
+    },
+    mouseleave(_event, view) {
+      showLink(view, false);
+      return false;
+    },
+    keyup(event, view) {
+      if (!modifier(event)) showLink(view, false);
+      return false;
+    },
+  });
   let renameInput: HTMLInputElement | undefined;
   function closeRename() {
     renameInput?.remove();
@@ -423,10 +608,7 @@ export function createEditor(
           ? offsetAt(current.text, result.range.end)
           : undefined,
         create() {
-          const dom = document.createElement('div');
-          dom.className = 'jai-hover';
-          dom.textContent = text;
-          return { dom };
+          return { dom: hoverContent(text, languageFor(language)) };
         },
       };
     } catch {
@@ -437,14 +619,13 @@ export function createEditor(
     return EditorState.create({
       doc,
       extensions: [
+        // First, so Vim sees keys before the default keymaps.
+        vimMode.of(vimExtension(vimEnabled)),
         EditorState.lineSeparator.of('\n'),
-        language === 'baerscript'
-          ? baerscriptLanguage
-          : language === 'quasi'
-            ? quasiLanguage
-            : jaiLanguage,
+        languageFor(language),
         syntaxHighlighting(colors),
         theme,
+        lintGutter(),
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightSpecialChars(),
@@ -458,7 +639,9 @@ export function createEditor(
         foldGutter({
           markerDOM: (open) => {
             const marker = document.createElement('span');
-            marker.className = 'cm-fold-marker';
+            marker.className = open
+              ? 'cm-fold-marker'
+              : 'cm-fold-marker cm-fold-marker--closed';
             marker.textContent = open ? '⌄' : '›';
             return marker;
           },
@@ -467,10 +650,10 @@ export function createEditor(
         crosshairCursor(),
         highlightActiveLine(),
         highlightSelectionMatches(),
-        lintGutter(),
         autocompletion({ override: [completions], icons: false }),
         hover,
         editable.of(EditorView.editable.of(true)),
+        definitionClick,
         keymap.of([
           {
             key: 'F12',
@@ -507,11 +690,27 @@ export function createEditor(
     });
   }
   const view = new EditorView({ state: state(text), parent });
+  const vimButton = parent
+    .closest('[data-code-workspace]')
+    ?.querySelector<HTMLButtonElement>('[data-code-vim]');
+  const applyVim = (enabled: boolean) => {
+    view.dispatch({ effects: vimMode.reconfigure(vimExtension(enabled)) });
+    vimButton?.setAttribute('aria-pressed', String(enabled));
+  };
+  const toggleVim = () => {
+    setVimEnabled(!vimEnabled);
+    view.focus();
+  };
+  vimButton?.setAttribute('aria-pressed', String(vimEnabled));
+  vimButton?.addEventListener('click', toggleVim);
+  vimEditors.add(applyVim);
   return {
     view,
     createState: state,
     setState: (value: EditorState) => {
       view.setState(value);
+      // States made for other files may predate a Vim toggle.
+      view.dispatch({ effects: vimMode.reconfigure(vimExtension(vimEnabled)) });
       const cursor = view.state.selection.main.head;
       const line = view.state.doc.lineAt(cursor);
       onCursor(line.number, cursor - line.from + 1);
@@ -545,6 +744,8 @@ export function createEditor(
       }),
     focus: () => view.focus(),
     destroy: () => {
+      vimEditors.delete(applyVim);
+      vimButton?.removeEventListener('click', toggleVim);
       closeRename();
       view.destroy();
     },
