@@ -21,7 +21,7 @@ with sync_playwright() as playwright:
     assert card.get_by_role("link", name="Website", exact=True).count() == 0
     assert card.get_by_role("link", name="GitHub", exact=True).count() == 1
     assert page.locator('a[href="/projects/jai"]').count() == 0
-    trigger = card.get_by_role("button", name="Try it out", exact=True)
+    trigger = card.get_by_role("button", name="Try in browser", exact=True)
     dialog = page.locator('dialog[data-project-demo="jai"]')
     for _ in range(2):
         trigger.click()

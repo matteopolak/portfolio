@@ -67,6 +67,11 @@ html {
   scrollbar-width: thin;
 }
 
+/* Project demo modals own scrolling while open; the page behind stays put. */
+html.has-project-demo {
+  overflow: hidden;
+}
+
 html::-webkit-scrollbar {
   width: 0.7rem;
 }
