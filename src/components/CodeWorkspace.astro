@@ -650,7 +650,8 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
   @media (max-width: 42rem) {
     .ide {
-      --ide-code-size: 13px;
+      /* iOS zooms the page when focusing text below 16px. */
+      --ide-code-size: 16px;
 
       grid-template-rows: auto minmax(0, 1fr) auto;
       border: 0;
@@ -723,6 +724,12 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
     .ide :global(.ide-output pre) {
       display: block !important;
+    }
+
+    .ide-tree :global(.tree-name-input),
+    .ide :global(.cm-rename-input),
+    .ide :global(.cm-panel input) {
+      font-size: 16px !important;
     }
 
     .ide-tree :global(.tree-item) {
