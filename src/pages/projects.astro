@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
 import CodeDemoModal from '../components/CodeDemoModal.astro';
-import JaiDemoModal from '../components/JaiDemoModal.astro';
+import jaiRelease from '../../jai-web-release.json';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
@@ -187,7 +187,7 @@ const baerscriptStarter = `+v
     }
   </ol>
   <ProjectDemoModal />
-  <JaiDemoModal />
+  <CodeDemoModal id="jai" label="Jai" files enabled={jaiRelease.enabled} revision={jaiRelease.revision ?? ''} />
   <CodeDemoModal id="quasi" label="Quasi" starter={quasiStarter} />
   <CodeDemoModal id="baerscript" label="BaerScript" starter={baerscriptStarter} />
 </Layout>

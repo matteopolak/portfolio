@@ -22,7 +22,7 @@ const usage = ai?.usage ?? 'none';
 const usageLabel = {
   none: '',
   paired: 'AI-assisted',
-  'agent-led': 'Agent-led',
+  'agent-orchestrated': 'Agent-orchestrated',
 }[usage];
 const aiFeature = project.data.aiFeature ?? remarkPluginFrontmatter.aiFeature === true;
 const aiLabel = [usageLabel, aiFeature && 'Uses AI'].filter(Boolean).join('; ');
@@ -132,7 +132,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
     background: var(--blue);
   }
 
-  .project-ai__development--agent-led::before {
+  .project-ai__development--agent-orchestrated::before {
     background: var(--red);
   }
 

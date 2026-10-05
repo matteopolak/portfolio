@@ -21,7 +21,7 @@ and every member's digest and size. Both validators require
 `panorama_*.png` files are obsolete and rejected.
 
 The workflow writes a small `lodestone-web-release.json` deployment pointer.
-`scripts/sync-lodestone-web.mjs` first verifies the pointer-pinned manifest,
+`scripts/sync-lodestone-web.ts` first verifies the pointer-pinned manifest,
 then verifies the archive against that manifest, validates its path inventory,
 and verifies every extracted member. It copies the manifest and archive members
 to ignored `public/lodestone/` output. `pnpm dev` and `pnpm build` both run this
@@ -119,7 +119,7 @@ behavior in `src/lib/lodestone-game.ts`. Keep SDK API changes in Lodestone's
 JavaScript or renaming archive members. The sync script deliberately rejects a
 dirty SDK package, unexpected schema, changed inventory, unsafe path, mismatched
 commit, or failed digest. Adjust `downloadAttempts` in
-`scripts/sync-lodestone-web.mjs` only if GitHub Releases needs a different retry
+`scripts/sync-lodestone-web.ts` only if GitHub Releases needs a different retry
 budget.
 
 Run `pnpm test:lodestone` for positive and negative manifest controls covering

@@ -3,27 +3,20 @@
   "type": "module",
   "version": "0.0.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "predev": "pnpm generate:favicons && pnpm sync:web-assets",
     "dev": "astro dev",
     "prebuild": "pnpm generate:favicons && pnpm sync:web-assets",
     "build": "astro build",
-    "generate:favicons": "node scripts/generate-favicons.mjs",
-    "sync:web-assets": "node scripts/sync-lodestone-web.mjs && node scripts/sync-quasi-web.mjs && node scripts/sync-baerscript-web.mjs && node scripts/sync-jai-web.mjs",
+    "generate:favicons": "node scripts/generate-favicons.ts",
+    "sync:web-assets": "node scripts/sync-lodestone-web.ts && node scripts/sync-quasi-web.ts && node scripts/sync-baerscript-web.ts && node scripts/sync-jai-web.ts",
     "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
-    "resume:job": "node scripts/build-job-resume.mjs",
-    "resume:batch": "node scripts/resume/build-batch.mjs",
-    "resume:verify-batch": "node scripts/resume/verify-batch.mjs",
-    "resume:merge-batch": "node scripts/resume/merge-batch-records.mjs",
     "preview": "astro preview",
-    "jobs:hub": "node scripts/resume/generate-application-hub.mjs",
-    "jobs:merge-compensation": "node scripts/resume/merge-job-compensation.mjs",
-    "jobs:check-links": "node scripts/resume/check-application-hub-urls.mjs",
-    "test:lodestone": "node --test tests/lodestone/*.test.mjs",
-    "test:jai": "node --test tests/jai/*.test.mjs && python3 -m unittest discover -s tests/jai -p 'test_*.py'",
-    "test:resume": "node --test tests/resume/*.test.mjs",
+    "test:lodestone": "node --test tests/lodestone/*.test.ts",
+    "check": "astro check",
+    "test:jai": "node --test tests/jai/*.test.ts && python3 -m unittest discover -s tests/jai -p 'test_*.py'",
     "astro": "astro",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
@@ -31,7 +24,15 @@
     "format:check": "oxfmt --check"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "6.18.6",
+    "@codemirror/commands": "6.8.1",
+    "@codemirror/language": "6.11.0",
+    "@codemirror/lint": "6.8.5",
+    "@codemirror/search": "6.5.10",
+    "@codemirror/state": "6.5.2",
+    "@codemirror/view": "6.36.5",
     "@fontsource-variable/open-sans": "^5.3.0",
+    "@lezer/highlight": "1.2.1",
     "@lucide/astro": "^0.577.0",
     "@shikijs/transformers": "^4.0.2",
     "@tailwindcss/vite": "^4.2.2",
@@ -42,12 +43,14 @@
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
     "@eslint/js": "^10.0.1",
     "eslint-plugin-astro": "^1.6.0",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "pdfjs-dist": "^6.1.200",
     "sharp": "^0.34.5",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.57.1"
   }
 }

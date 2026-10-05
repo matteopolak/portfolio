@@ -47,8 +47,11 @@ jobs:
       - name: lint
         run: pnpm lint
 
+      - name: typecheck
+        run: pnpm check
+
       - name: run tests
-        run: pnpm test:resume && pnpm test:lodestone && pnpm test:jai
+        run: pnpm test:lodestone && pnpm test:jai
 
       - name: build static site
         run: pnpm build

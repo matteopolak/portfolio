@@ -1,0 +1,110 @@
+<section class="ide-output" data-code-output-pane aria-label="Output">
+  <div class="ide-output__head">
+    <span class="ide-output__title">Output</span>
+    <span class="ide-output__summary" data-code-summary></span>
+    <button type="button" class="ide-output__button" data-code-clear aria-label="Clear output" title="Clear output">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6h11M8 6V4h4v2M6 6l.75 10h6.5L14 6"></path></svg>
+    </button>
+    <button type="button" class="ide-output__button ide-output__toggle" data-code-output-toggle aria-expanded="true" aria-label="Collapse output" title="Collapse output">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg>
+    </button>
+  </div>
+  <pre data-code-output data-empty="Run the program to see its output." aria-label="Program output" aria-live="polite" tabindex="0"></pre>
+</section>
+
+<style>
+  .ide-output {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--ide-sunken);
+  }
+
+  .ide-output__head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 2.25rem;
+    flex: none;
+    padding: 0 0.35rem 0 1rem;
+  }
+
+  .ide-output__title {
+    color: var(--ide-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .ide-output__summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ide-faint);
+    font: 0.72rem/1 var(--ide-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ide-output__button {
+    display: grid;
+    width: 1.65rem;
+    height: 1.65rem;
+    place-items: center;
+    color: var(--ide-muted) !important;
+  }
+
+  .ide-output__button:hover {
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-hover) !important;
+  }
+
+  .ide-output__button svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 120ms ease;
+  }
+
+  :global(.ide[data-output-collapsed='true']) .ide-output__toggle svg {
+    transform: rotate(180deg);
+  }
+
+  :global(.ide[data-output-collapsed='true']) pre {
+    display: none;
+  }
+
+  pre {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0.25rem 1rem 1rem;
+    overflow: auto;
+    color: var(--ide-fg);
+    font: 0.8rem/1.65 var(--ide-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  pre:focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: -2px;
+  }
+
+  pre:empty::before {
+    content: attr(data-empty);
+    color: var(--ide-faint);
+    font-family: var(--font-sans);
+  }
+
+  pre[aria-busy='true']:empty::before {
+    content: 'Running…';
+  }
+
+  pre[data-kind='error'],
+  pre :global([data-stream='stderr']) {
+    color: var(--ide-error);
+  }
+
+  pre :global(.ide-output__exit) {
+    color: var(--ide-muted);
+  }
+</style>

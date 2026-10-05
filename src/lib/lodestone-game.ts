@@ -850,3 +850,5 @@ class LodestoneGameElement extends HTMLElement {
 if (!customElements.get('lodestone-game')) {
   customElements.define('lodestone-game', LodestoneGameElement);
 }
+
+export {};

@@ -31,7 +31,8 @@ function harness() {
     ${handler}
   })()`, {
     CustomEvent: class {
-      constructor(type, options) { this.type = type; Object.assign(this, options); }
+      type: string;
+      constructor(type: string, options?: object) { this.type = type; Object.assign(this, options); }
     },
   });
 }

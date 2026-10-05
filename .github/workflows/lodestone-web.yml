@@ -160,7 +160,7 @@ jobs:
         run: |
           cp .build/lodestone-web-release.json lodestone-web-release.json
           if [ "$UPDATE_MODE" = assets ]; then
-            node scripts/sync-lodestone-web.mjs
+            node scripts/sync-lodestone-web.ts
             git add -f public/lodestone
           fi
           pnpm format:check

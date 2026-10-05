@@ -163,7 +163,7 @@ jobs:
         run: |
           cp .build/quasi-web-release.json quasi-web-release.json
           if [ "$UPDATE_MODE" = assets ]; then
-            node scripts/sync-quasi-web.mjs
+            node scripts/sync-quasi-web.ts
             git add -f public/quasi
           fi
           pnpm lint
