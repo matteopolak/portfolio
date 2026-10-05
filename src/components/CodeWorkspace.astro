@@ -9,9 +9,19 @@ interface Props {
   files?: boolean;
   enabled?: boolean;
   revision?: string;
+  /** `modal` (inside DemoModal) or `page` (a /playground route). */
+  mode?: 'modal' | 'page';
 }
 
-const { language, label, starter = '', files = false, enabled = true, revision = '' } = Astro.props;
+const {
+  language,
+  label,
+  starter = '',
+  files = false,
+  enabled = true,
+  revision = '',
+  mode = 'modal',
+} = Astro.props;
 ---
 
 <section
@@ -42,13 +52,48 @@ const { language, label, starter = '', files = false, enabled = true, revision =
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5h10v10H5z"></path></svg>
       <span>Stop</span>
     </button>
+    {
+      language === 'jai' && files && (
+        <button
+          type="button"
+          class="ide-text-button ide-format"
+          data-code-format
+          hidden
+          disabled
+          aria-keyshortcuts="Shift+Alt+F"
+          title="Format file (Shift+Alt+F)"
+        >
+          Format
+        </button>
+      )
+    }
     <button type="button" class="ide-text-button ide-vim" data-code-vim aria-pressed="false" aria-label="Vim keybindings" title="Vim keybindings">Vim</button>
     <button type="button" class="ide-icon ide-icon--fullscreen" data-code-fullscreen aria-label="Enter full screen" title="Full screen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
     </button>
-    <button type="button" class="ide-icon ide-icon--close" data-code-close aria-label="Close editor" title="Close">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
-    </button>
+    {
+      mode === 'modal' ? (
+        <>
+          <a
+            class="ide-icon ide-icon--page"
+            href={`/playground/${language}`}
+            data-code-open-page
+            data-astro-reload
+            aria-label={`Open the ${label} playground as a full page`}
+            title="Open in playground"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg>
+          </a>
+          <button type="button" class="ide-icon ide-icon--close" data-code-close aria-label="Close editor" title="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </>
+      ) : (
+        <a class="ide-icon ide-icon--back" href={`/projects#${language}`} data-code-back aria-label="Back to projects" title="Back to projects">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+        </a>
+      )
+    }
   </header>
 
   <div class="ide-body">
@@ -189,7 +234,12 @@ const { language, label, starter = '', files = false, enabled = true, revision =
     background: transparent;
   }
 
+  .ide a.ide-icon {
+    text-decoration: none;
+  }
+
   .ide button:focus-visible,
+  .ide a:focus-visible,
   .ide [tabindex]:focus-visible {
     outline: 2px solid var(--yellow);
     outline-offset: -2px;
@@ -276,6 +326,20 @@ const { language, label, starter = '', files = false, enabled = true, revision =
 
   .ide-text-button:hover {
     background: var(--ide-hover) !important;
+  }
+
+  .ide-format {
+    margin-left: 0.25rem;
+    color: var(--ide-muted) !important;
+  }
+
+  .ide-format:disabled {
+    opacity: 0.45;
+    cursor: default !important;
+  }
+
+  .ide-format:disabled:hover {
+    background: transparent !important;
   }
 
   .ide-vim {

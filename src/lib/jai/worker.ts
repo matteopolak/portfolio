@@ -25,6 +25,12 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
       if (data.type === 'lsp') {
         if (!engine.lsp) throw new Error('Language service unavailable.');
         reply({ type: 'lsp', id: data.id, messages: engine.lsp(data.message) });
+      } else if (data.type === 'play') {
+        reply({
+          type: 'play',
+          id: data.id,
+          result: engine.play(data.files, data.main, { budget: data.budget }),
+        });
       } else {
         reply({
           type: 'run',

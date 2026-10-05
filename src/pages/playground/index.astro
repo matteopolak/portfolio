@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { codeDemoPages } from '../../data/code-demos';
+---
+
+<Layout
+  title="Playgrounds"
+  description="Run Jai, Quasi and BaerScript in your browser: full-page editors backed by compilers and interpreters built in Rust and compiled to WebAssembly."
+>
+  <header class="page-intro">
+    <span class="page-intro__index page-intro__index--projects" aria-hidden="true"></span>
+    <h1>Stuff you can run</h1>
+  </header>
+  <ol class="editorial-list">
+    {
+      codeDemoPages.map((demo, index) => (
+        <li class="editorial-item">
+          <span class="editorial-item__number">{String(index + 1).padStart(2, '0')}</span>
+          <div>
+            <h2 class="editorial-item__heading">
+              <a class="editorial-item__title" href={demo.path} data-astro-reload>
+                {demo.title}
+              </a>
+            </h2>
+            <p class="editorial-item__description">{demo.summary}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</Layout>
