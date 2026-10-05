@@ -1,23 +1,39 @@
 import type { JsonRpcMessage } from './lsp-types.ts';
 
-// Status and byte exports return i32 numbers; result exports return i64 BigInts.
+// Every bridge export takes and returns i32 numbers.
 type Export = (...args: number[]) => number;
 
 export interface RunOptions {
-  arguments?: string[];
   files?: Record<string, string>;
-  fuel?: number;
+  /** Interpreter budget in basic blocks, so a runaway program fails instead of hanging. */
+  budget?: number;
+}
+
+export interface RunDiagnostic {
+  file?: string;
+  line?: number;
+  column?: number;
+  severity: string;
+  message: string;
+}
+
+export interface RunOutput {
+  /** `null` when compilation failed. */
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  /** Program writes in order. */
+  output?: { stream: 'stdout' | 'stderr'; text: string }[];
+  rendered?: string;
+  diagnostics?: RunDiagnostic[];
 }
 
 export interface Engine {
   lsp?: (message: JsonRpcMessage) => JsonRpcMessage[];
-  run(
-    source: string,
-    options?: RunOptions
-  ): { exitCode: bigint; steps: number };
+  run(source: string, options?: RunOptions): RunOutput;
 }
 
-// The browser and Node verification harness instantiate the exact same Rust VM.
+// The browser and Node verification harness instantiate the exact same Rust compiler (jaic).
 export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
   const module = await WebAssembly.compile(wasmBytes);
   if (WebAssembly.Module.imports(module).length !== 0) {
@@ -28,39 +44,46 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
   const fn = (name: string): Export => {
     const value = exports[name];
     if (typeof value !== 'function')
-      throw new Error('Compiler module is missing the runtime bridge.');
+      throw new Error('Compiler module is missing the playground bridge.');
     return value as Export;
   };
   const required = [
-    'jai_script_reset',
-    'jai_script_push',
-    'jai_script_finish_source',
-    'jai_script_finish_argument',
-    'jai_script_run',
-    'jai_script_has_result',
-    'jai_script_exit_code',
-    'jai_script_steps',
-    'jai_script_diagnostic_len',
-    'jai_script_diagnostic_byte',
+    'jai_play_reset',
+    'jai_play_push',
+    'jai_play_finish_file',
+    'jai_play_run',
+    'jai_play_output_len',
+    'jai_play_output_byte',
+    'jai_play_error_len',
+    'jai_play_error_byte',
   ] as const;
   const api = Object.fromEntries(required.map((name) => [name, fn(name)])) as {
     [K in (typeof required)[number]]: Export;
   };
+  const setBudget =
+    typeof exports.jai_play_set_budget === 'function'
+      ? (exports.jai_play_set_budget as Export)
+      : undefined;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
-  function diagnostic() {
-    const bytes = new Uint8Array(api.jai_script_diagnostic_len());
-    for (let i = 0; i < bytes.length; i++)
-      bytes[i] = api.jai_script_diagnostic_byte(i);
+  function read(kind: 'output' | 'error') {
+    const length =
+      kind === 'output' ? api.jai_play_output_len() : api.jai_play_error_len();
+    const byte =
+      kind === 'output' ? api.jai_play_output_byte : api.jai_play_error_byte;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < bytes.length; i++) bytes[i] = byte(i);
     return decoder.decode(bytes);
   }
   function check(status: number) {
     if (status !== 0)
-      throw new Error(diagnostic() || 'Runtime boundary rejected the request.');
+      throw new Error(
+        read('error') || 'Playground boundary rejected the request.'
+      );
   }
   function push(channel: number, text: string) {
     for (const byte of encoder.encode(text))
-      check(api.jai_script_push(channel, byte));
+      check(api.jai_play_push(channel, byte));
   }
   const lspExports = [
     'reset',
@@ -121,41 +144,36 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
           },
         }
       : {}),
-    run(source, { arguments: args = [], files = {}, fuel = 1_000_000 } = {}) {
+    run(source, { files = {}, budget } = {}) {
+      if (typeof source !== 'string')
+        throw new TypeError('Source must be text.');
       if (
-        typeof source !== 'string' ||
-        !Array.isArray(args) ||
-        args.some((arg) => typeof arg !== 'string')
-      ) {
-        throw new TypeError(
-          'Source must be text and arguments must be an array of strings.'
+        budget !== undefined &&
+        (!Number.isSafeInteger(budget) || budget <= 0)
+      )
+        throw new RangeError('Budget must be a positive integer.');
+      if (setBudget)
+        check(
+          setBudget(
+            budget === undefined
+              ? 0
+              : Math.min(0xffffffff, Math.ceil(budget / 1000))
+          )
         );
-      }
-      if (!Number.isInteger(fuel) || fuel < 0 || fuel > 0xffffffff) {
-        throw new RangeError('Fuel must be an unsigned 32-bit integer.');
-      }
-      check(api.jai_script_reset());
+      check(api.jai_play_reset());
       for (const [name, text] of Object.entries({
         ...files,
         'main.jai': source,
       })) {
         if (typeof text !== 'string')
           throw new TypeError('Every supplied source file must be text.');
-        push(2, name);
-        push(0, text);
-        check(api.jai_script_finish_source());
+        push(0, name);
+        push(1, text);
+        check(api.jai_play_finish_file());
       }
-      for (const arg of args) {
-        push(1, arg);
-        check(api.jai_script_finish_argument());
-      }
-      check(api.jai_script_run(fuel));
-      if (api.jai_script_has_result() !== 1)
-        throw new Error('Runtime produced no result.');
-      return {
-        exitCode: BigInt(api.jai_script_exit_code() as number | bigint),
-        steps: Number(api.jai_script_steps() as number | bigint),
-      };
+      push(2, 'main.jai');
+      check(api.jai_play_run());
+      return JSON.parse(read('output')) as RunOutput;
     },
   };
 }

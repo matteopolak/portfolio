@@ -21,12 +21,13 @@ Opening the modal initializes separate execution and language-service workers.
 The language client preserves completion, hover and inline diagnostics without
 adding a diagnostics panel. File switches retain editor state. Closing aborts
 initialization, terminates both workers and destroys CodeMirror; reopening starts
-fresh. Astro navigation also disposes the session. Run uses a fixed one-million
-step budget; Stop terminates the execution worker so a stuck program cannot block
-the UI. The runtime reports `main`'s return value rather than stdout, so output shows
-`Exit code: N` with the step count and elapsed time, or the compiler's error.
-The session opens with a two-file starter (`main.jai` loading `lib/math.jai`) and
-runs it once when ready.
+fresh. Astro navigation also disposes the session. Run uses a fixed
+200-million-block budget, so a runaway program fails with a runtime error instead of
+hanging; Stop also terminates the execution worker. The `jai_play_*` bridge returns
+program stdout/stderr in write order, rendered diagnostics, and `main`'s exit code;
+the output pane shows writes (stderr tinted), then diagnostics or `Exit code: N`.
+The session opens with a two-file starter (`main.jai` loading `lib/math.jai` and
+printing through `Basic`) and runs it once when ready.
 
 ### Producer contract
 

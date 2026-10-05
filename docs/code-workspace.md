@@ -38,7 +38,7 @@ All colors come from `--ide-*` custom properties declared on `.ide`. Accents are
 
 Pressing Run switches to Output, and choosing or creating a file switches to Code. Auto-run results that arrive while another pane is visible set `data-output-unread`, which shows a dot on the Output tab.
 
-`src/lib/code-output.ts` is the single output writer used by both runtimes. `start()` marks a run in progress and starts its timer. `write(text, kind, details)` records the result and builds a summary line, such as `581 steps · 9 ms` or `Failed · 2 ms`. Errors are tinted through `data-kind="error"`.
+`src/lib/code-output.ts` is the single output writer used by both runtimes. `start()` marks a run in progress and starts its timer. `write(content, kind, details)` accepts text or nodes (jai passes stderr spans), records the result and builds a summary line such as `9 ms` or `Failed · 2 ms`. Errors are tinted through `data-kind="error"` and `data-stream="stderr"`.
 
 Two lifecycles plug into the same markup:
 

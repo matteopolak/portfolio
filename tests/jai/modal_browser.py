@@ -32,7 +32,7 @@ with sync_playwright() as playwright:
         assert dialog.get_by_text('Jai playground', exact=True).count() == 0
         narrow = int(os.environ.get("VIEWPORT_WIDTH", "1280")) <= 672
         run.click()
-        dialog.locator('[data-code-output]').filter(has_text='Exit code: 385').wait_for(timeout=30000)
+        dialog.locator('[data-code-output]').filter(has_text='Sum of squares: 385').wait_for(timeout=30000)
         if _ == 0:
             if narrow:
                 dialog.locator('[data-pane-tab="files"]').click()

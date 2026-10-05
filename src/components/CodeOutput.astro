@@ -99,7 +99,12 @@
     content: 'Running…';
   }
 
-  pre[data-kind='error'] {
+  pre[data-kind='error'],
+  pre :global([data-stream='stderr']) {
     color: var(--ide-error);
+  }
+
+  pre :global(.ide-output__exit) {
+    color: var(--ide-muted);
   }
 </style>

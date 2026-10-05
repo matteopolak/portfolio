@@ -7,24 +7,27 @@ import { Workspace } from './workspace.ts';
 import { initializeFileTree } from './file-tree.ts';
 import { LanguageClient, pathFromUri } from './language-client.ts';
 import { definitionTarget, renameSymbol } from './language-actions.ts';
+import type { RunOutput } from './engine.ts';
 import type {
   ServerCapabilities,
   WorkerRequest,
   WorkerResponse,
 } from './lsp-types.ts';
 
-const FUEL = 1_000_000;
+/** Interpreter budget in basic blocks; runaway programs fail instead of hanging. */
+const BUDGET = 200_000_000;
 
 export const starterFiles: Record<string, string> = {
-  'main.jai': `// main's return value is reported as the exit code.
+  'main.jai': `#import "Basic";
 #load "lib/math.jai";
 
-main :: () -> int {
+main :: () {
     total := 0;
     for i: 1..10 {
         total += square(i);
+        print("% squared is %\\n", i, square(i));
     }
-    return total;
+    print("Sum of squares: %\\n", total);
 }
 `,
   'lib/math.jai': `square :: (x: int) -> int {
@@ -259,6 +262,39 @@ export async function createSession(
       post(worker, { type: 'init', url: `/jai/${revision}/jai_wasm.wasm` });
     });
   }
+  // Program output in write order (stderr marked), then diagnostics or the exit code.
+  function showResult(result: RunOutput) {
+    const nodes: (string | Node)[] = (result.output ?? [])
+      .filter((chunk) => chunk.text)
+      .map((chunk) => {
+        const span = document.createElement('span');
+        span.textContent = chunk.text;
+        if (chunk.stream === 'stderr') span.dataset.stream = 'stderr';
+        return span;
+      });
+    const written = nodes.map((node) => (node as Node).textContent).join('');
+    const failed = result.exitCode === null;
+    const errors: string[] = [];
+    if (result.rendered) errors.push(result.rendered.trimEnd());
+    else
+      for (const d of result.diagnostics ?? [])
+        errors.push(
+          d.file
+            ? `${d.file}:${d.line}:${d.column}: ${d.severity}: ${d.message}`
+            : `${d.severity}: ${d.message}`
+        );
+    if (written && !written.endsWith('\n')) nodes.push('\n');
+    if (errors.length) nodes.push(errors.join('\n') + '\n');
+    // Compile and runtime failures carry no exit code; the summary says Failed.
+    if (!failed) {
+      const exit = document.createElement('span');
+      exit.className = 'ide-output__exit';
+      exit.textContent = `Exit code: ${result.exitCode}`;
+      nodes.push(exit);
+    } else if (!errors.length)
+      nodes.push('The program failed without diagnostics.');
+    output.write(nodes, failed ? 'error' : 'stdout');
+  }
   function idle() {
     running = false;
     run.disabled = !ready;
@@ -278,10 +314,7 @@ export async function createSession(
         )
           return;
         if (data.error !== undefined) output.write(data.error, 'error');
-        else
-          output.write(`Exit code: ${data.result.exitCode}`, 'stdout', [
-            `${data.result.steps.toLocaleString()} steps`,
-          ]);
+        else showResult(data.result);
         idle();
       }
     );
@@ -323,7 +356,7 @@ export async function createSession(
         type: 'run',
         id,
         source: snapshot.source,
-        options: { files: snapshot.files, fuel: FUEL },
+        options: { files: snapshot.files, budget: BUDGET },
       });
     } catch (error) {
       if (id !== job || signal.aborted) return;

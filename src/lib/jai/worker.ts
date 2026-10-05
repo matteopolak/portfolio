@@ -26,11 +26,10 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
         if (!engine.lsp) throw new Error('Language service unavailable.');
         reply({ type: 'lsp', id: data.id, messages: engine.lsp(data.message) });
       } else {
-        const result = engine.run(data.source, data.options);
         reply({
           type: 'run',
           id: data.id,
-          result: { exitCode: String(result.exitCode), steps: result.steps },
+          result: engine.run(data.source, data.options),
         });
       }
     } catch (error) {

@@ -1,4 +1,5 @@
 // The subset of the Language Server Protocol the owned editor speaks.
+import type { RunOutput } from './engine.ts';
 
 export interface Position {
   line: number;
@@ -97,13 +98,8 @@ export type WorkerRequest =
       type: 'run';
       id: number;
       source: string;
-      options: { files: Record<string, string>; fuel: number };
+      options: { files: Record<string, string>; budget: number };
     };
-
-export interface RunResult {
-  exitCode: string;
-  steps: number;
-}
 
 export type WorkerResponse =
   | {
@@ -112,5 +108,5 @@ export type WorkerResponse =
       error?: undefined;
     }
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }
-  | { type: 'run'; id: number; result: RunResult; error?: undefined }
+  | { type: 'run'; id: number; result: RunOutput; error?: undefined }
   | { type: WorkerRequest['type']; id?: number; error: string };

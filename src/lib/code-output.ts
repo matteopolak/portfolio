@@ -6,7 +6,11 @@ export interface CodeOutput {
   /** Marks a run as in progress and starts its timer. */
   start(): void;
   /** Replaces the output with a finished result. */
-  write(text: string, kind?: OutputKind, details?: string[]): void;
+  write(
+    content: string | (string | Node)[],
+    kind?: OutputKind,
+    details?: string[]
+  ): void;
 }
 
 const formatDuration = (milliseconds: number) =>
@@ -52,11 +56,12 @@ export function createCodeOutput(panel: HTMLElement): CodeOutput {
       output.setAttribute('aria-busy', 'true');
       if (summary) summary.textContent = 'Running…';
     },
-    write(text, kind = 'stdout', details = []) {
+    write(content, kind = 'stdout', details = []) {
       const elapsed =
         startedAt === undefined ? undefined : performance.now() - startedAt;
       startedAt = undefined;
-      output.textContent = text;
+      if (typeof content === 'string') output.textContent = content;
+      else output.replaceChildren(...content);
       output.dataset.kind = kind;
       output.removeAttribute('aria-busy');
       if (summary)
