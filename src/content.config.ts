@@ -25,7 +25,7 @@ const projects = defineCollection({
     aiFeature: z.boolean().optional(),
     ai: z
       .object({
-        usage: z.enum(['paired', 'agent-led']),
+        usage: z.enum(['paired', 'agent-orchestrated']),
         summary: z.string(),
         models: z.array(z.string()),
         approximateTokens: z.number().int().positive().optional(),

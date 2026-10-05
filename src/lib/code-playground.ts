@@ -1,10 +1,20 @@
-import { createAutoRunner } from './code-auto-run.js';
-import { initializeWorkspaceLayout } from './code-workspace-layout.js';
+import { createAutoRunner, type AutoRunner } from './code-auto-run.ts';
+import { createCodeOutput } from './code-output.ts';
+import type { Editor, EditorLanguage } from './code-editor.ts';
+import {
+  initializeWorkspaceLayout,
+  showPane,
+} from './code-workspace-layout.ts';
 const EXECUTION_TIMEOUT_MS = 1000;
 interface CodePlaygroundOptions {
   createWorker(): Worker;
-  language: string;
+  language: EditorLanguage;
 }
+
+type InterpreterMessage =
+  | { type: 'ready' }
+  | { type: 'boot-error'; error: string }
+  | { type: 'result'; output?: string; error?: string };
 
 export function initializeCodePlayground(
   root: HTMLElement,
@@ -14,16 +24,14 @@ export function initializeCodePlayground(
   const panel = root.querySelector<HTMLElement>('[data-code-workspace]')!;
   const container = panel.querySelector<HTMLElement>('[data-code-editor]')!;
   initializeWorkspaceLayout(panel, signal);
-  const output = panel.querySelector<HTMLElement>('[data-code-output]')!;
+  const output = createCodeOutput(panel);
   const status = panel.querySelector<HTMLElement>('[data-code-status]')!;
   const runButton = panel.querySelector<HTMLButtonElement>('[data-code-run]')!;
   const cancelButton =
     panel.querySelector<HTMLButtonElement>('[data-code-cancel]')!;
   const retry = panel.querySelector<HTMLButtonElement>('[data-code-retry]')!;
   let session: AbortController | undefined;
-  let editor:
-    | ReturnType<typeof import('./code-editor.js').createEditor>
-    | undefined;
+  let editor: Editor | undefined;
   let worker: Worker | undefined;
   let pending: Promise<void> | undefined;
   let rejectBoot: ((reason: Error) => void) | undefined;
@@ -36,7 +44,7 @@ export function initializeCodePlayground(
   let prepared = false;
   let editedDuringBoot = false;
   let cleanupBoot: (() => void) | undefined;
-  let autoRun: ReturnType<typeof createAutoRunner> | undefined;
+  let autoRun: AutoRunner | undefined;
 
   function emit(type: string, message?: string) {
     root.dispatchEvent(
@@ -46,8 +54,8 @@ export function initializeCodePlayground(
   function idle() {
     running = false;
     runButton.disabled = !ready;
+    runButton.hidden = false;
     cancelButton.hidden = true;
-    output.removeAttribute('aria-busy');
   }
   function stopWorker() {
     clearTimeout(timeout);
@@ -72,7 +80,8 @@ export function initializeCodePlayground(
     container.replaceChildren();
     pending = undefined;
     source = panel.dataset.codeStarter ?? '';
-    output.textContent = '';
+    output.clear();
+    showPane(panel, 'code');
     status.textContent = '';
     retry.hidden = true;
     idle();
@@ -102,24 +111,27 @@ export function initializeCodePlayground(
         reject(new DOMException('Closed', 'AbortError'));
       };
       session?.signal.addEventListener('abort', abort, { once: true });
-      current.addEventListener('message', ({ data }) => {
-        if (current !== worker) return;
-        if (data.type === 'ready') {
-          cleanup();
-          ready = true;
-          rejectBoot = undefined;
-          resolve();
-        } else if (data.type === 'boot-error') {
-          cleanup();
-          rejectBoot = undefined;
-          reject(new Error(data.error));
-        } else if (data.type === 'result') {
-          clearTimeout(timeout);
-          output.textContent = data.error ?? data.output ?? '';
-          output.dataset.stream = data.error ? 'stderr' : 'stdout';
-          idle();
+      current.addEventListener(
+        'message',
+        ({ data }: MessageEvent<InterpreterMessage>) => {
+          if (current !== worker) return;
+          if (data.type === 'ready') {
+            cleanup();
+            ready = true;
+            rejectBoot = undefined;
+            resolve();
+          } else if (data.type === 'boot-error') {
+            cleanup();
+            rejectBoot = undefined;
+            reject(new Error(data.error));
+          } else if (data.type === 'result') {
+            clearTimeout(timeout);
+            if (data.error !== undefined) output.write(data.error, 'error');
+            else output.write(data.output ?? '');
+            idle();
+          }
         }
-      });
+      );
       current.addEventListener('error', () => {
         if (current !== worker) return;
         cleanup();
@@ -128,7 +140,7 @@ export function initializeCodePlayground(
           rejectBoot = undefined;
           reject(error);
         } else {
-          output.textContent = error.message;
+          output.write(error.message, 'error');
           stopWorker();
           idle();
         }
@@ -145,7 +157,7 @@ export function initializeCodePlayground(
     status.textContent = 'Loading…';
     retry.hidden = true;
     pending = (async () => {
-      const { createEditor } = await import('./code-editor.js');
+      const { createEditor } = await import('./code-editor.ts');
       if (sessionSignal.aborted) throw new DOMException('Closed', 'AbortError');
       autoRun = createAutoRunner(run, cancelExecution);
       container.addEventListener('compositionstart', autoRun.compositionStart, {
@@ -174,8 +186,8 @@ export function initializeCodePlayground(
       if (editedDuringBoot) {
         editedDuringBoot = false;
         autoRun?.changed();
-      }
-    })().catch((error) => {
+      } else void autoRun?.play();
+    })().catch((error: Error) => {
       if (current === generation && error.name !== 'AbortError') {
         destroy();
         status.textContent = error.message;
@@ -194,9 +206,9 @@ export function initializeCodePlayground(
     if (running) return;
     running = true;
     runButton.disabled = true;
+    runButton.hidden = true;
     cancelButton.hidden = false;
-    output.textContent = '';
-    output.setAttribute('aria-busy', 'true');
+    output.start();
     const current = generation;
     const currentJob = ++runJob;
     try {
@@ -206,14 +218,16 @@ export function initializeCodePlayground(
       worker?.postMessage({ source });
       timeout = setTimeout(() => {
         stopWorker();
-        output.textContent = `Stopped after ${EXECUTION_TIMEOUT_MS} ms`;
+        output.write(`Stopped after ${EXECUTION_TIMEOUT_MS} ms`, 'error');
         idle();
         runButton.disabled = false;
       }, EXECUTION_TIMEOUT_MS);
     } catch (error) {
       if (current === generation && currentJob === runJob) {
-        output.textContent =
-          error instanceof Error ? error.message : String(error);
+        output.write(
+          error instanceof Error ? error.message : String(error),
+          'error'
+        );
         idle();
         runButton.disabled = false;
       }
@@ -223,12 +237,14 @@ export function initializeCodePlayground(
     ++runJob;
     if (!running) return;
     stopWorker();
+    output.write('Stopped', 'error');
     idle();
     runButton.disabled = false;
   }
   runButton.addEventListener(
     'click',
     () => {
+      showPane(panel, 'output');
       void autoRun?.play();
     },
     { signal }
@@ -246,6 +262,7 @@ export function initializeCodePlayground(
     (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault();
+        showPane(panel, 'output');
         void autoRun?.play();
       }
     },

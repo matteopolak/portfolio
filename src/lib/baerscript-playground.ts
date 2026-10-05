@@ -5,8 +5,7 @@ export function initializeBaerscriptPlayground(
   signal: AbortSignal
 ) {
   return initializeCodePlayground(root, signal, {
-    createWorker: () =>
-      new BaerscriptWorker({ name: 'baerscript-interpreter' }),
+    createWorker: () => new BaerscriptWorker(),
     language: 'baerscript',
   });
 }

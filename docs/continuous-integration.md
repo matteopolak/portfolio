@@ -6,7 +6,7 @@
 
 ## How it works
 
-The workflow runs one read-only Ubuntu job with Node.js 24, pnpm 10.32.1, Python 3, and Typst. It installs the exact dependency versions from `pnpm-lock.yaml`, then checks formatting, lint rules, the résumé, Lodestone and Jai archive test suites, and the complete static Astro production build. `actions/setup-node` keys its pnpm-store cache from `pnpm-lock.yaml`, and a newer run on the same ref cancels an obsolete in-progress run.
+The workflow runs one read-only Ubuntu job with Node.js 24, pnpm 10.32.1, Python 3, and Typst. It installs the exact dependency versions from `pnpm-lock.yaml`, then checks formatting, lint rules, types (`pnpm check`, which runs `astro check` over every TypeScript and Astro file), the Lodestone and Jai test suites, and the complete static Astro production build. `actions/setup-node` keys its pnpm-store cache from `pnpm-lock.yaml`, and a newer run on the same ref cancels an obsolete in-progress run.
 
 The production build also exercises the prerendered pages, sitemap and robots endpoints, and the release-backed Lodestone, Quasi, BaerScript and Jai asset synchronization used by `prebuild`.
 

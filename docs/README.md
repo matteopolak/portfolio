@@ -11,7 +11,8 @@
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
 | [palette-generator.md](./palette-generator.md)                                                     | Large-screen OKLCH palette generator and contrast constraints                          |
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
-| [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared loading and lifecycle contract for interactive project demos                    |
+| [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
+| [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |
 | [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
 | [Lodestone web embed](./lodestone-web-embed.md)                                                     | SDK validation, progress events, replacement textures, publishing, and embed                          |
 | [Quasi web playground](./quasi-web-playground.md)                                                   | How the sandboxed Quasi interpreter is built, published, and executed                |
@@ -25,4 +26,3 @@
 | [Job application hub](../jobs/README.md)                                                           | Tier and pay-ordered links, compensation, tailored resumes, and application tracking |
 | [Job compensation data](./resume-tailoring/job-compensation.json)                                  | Sourced compensation breakdowns and confidence for all 162 jobs                      |
 
-- [Shared code workspace](code-workspace.md) — reusable editor, terminal, optional filesystem and runtime adapters.

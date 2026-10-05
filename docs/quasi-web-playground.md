@@ -3,14 +3,14 @@
 ## What it is
 
 The Projects page includes a lazy, in-browser Quasi interpreter with a source
-editor and output panel. It uses the same floating 16:9 dialog treatment as the
-Minecraft demo while keeping arbitrary programs off the page's main thread.
+editor and output panel. It opens in the same shared dialog as every other
+project demo while keeping arbitrary programs off the page's main thread.
 
 ## How it works
 
 `CodeDemoModal.astro` composes the shared `CodeWorkspace.astro` and
-`CodeTerminal.astro` without a filesystem. All three language demos use the same
-CodeMirror editor, with Run/output beneath it. Quasi chooses its tokenizer and
+`CodeOutput.astro` without a filesystem. All three language demos use the same
+CodeMirror editor, header Run button and output pane. Quasi chooses its tokenizer and
 worker via `quasi-playground.ts`; the shared lifecycle is `code-playground.ts`.
 See [Shared code workspace](code-workspace.md) for UI ownership and extension points.
 
@@ -27,7 +27,7 @@ and runs its locked `wasm-bindgen` CLI,
 smoke-tests `execute`, and publishes a versioned tarball on the
 `quasi-web-latest` prerelease. It commits only `quasi-web-release.json` by
 default. The portfolio's `predev` and `prebuild` hooks run
-`scripts/sync-quasi-web.mjs`. Once the release pointer is enabled, it verifies
+`scripts/sync-quasi-web.ts`. Once the release pointer is enabled, it verifies
 the release checksum and archive paths, then stages the bundle under
 `public/quasi/` before Vite serves the dev site or Astro creates the static site.
 Both hooks share the
@@ -50,10 +50,10 @@ runner.
 
 ## How to change it
 
-Edit the visual layout in `CodeWorkspace.astro` and `CodeTerminal.astro` and the starter program in
+Edit the visual layout in `CodeWorkspace.astro` and `CodeOutput.astro` and the starter program in
 `src/pages/projects.astro`. Change shared execution lifecycle, timeout
 messaging, or shortcuts in `src/lib/code-playground.ts`; change only Quasi's
-worker selection in `src/lib/quasi-playground.ts` and tokenizer in `src/lib/code-editor.js`, and the generated-module bridge in
+worker selection in `src/lib/quasi-playground.ts` and tokenizer in `src/lib/code-editor.ts`, and the generated-module bridge in
 `src/lib/quasi-worker.ts`. Keep untrusted execution inside the disposable worker
 and never move `execute` onto the main thread.
 

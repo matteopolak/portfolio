@@ -17,7 +17,7 @@ Workflow, model, and token metadata remains available in frontmatter but is
 intentionally not rendered inside the card:
 
 - `AI-assisted` means models produced substantial work under direct human prompting and review.
-- `Agent-led` means an orchestrated agent workflow produced most of the implementation work.
+- `Agent-orchestrated` means coding agents implemented work the author specified and directed; the agents do not choose what to build.
 - `Uses AI` means AI or machine learning is part of the product itself.
 
 An omitted `ai` object renders no development label. The separate
@@ -55,7 +55,7 @@ ai:
 aiFeature: true
 ```
 
-Only `paired` and `agent-led` are valid non-zero development values. Set
+Only `paired` and `agent-orchestrated` are valid non-zero development values. Set
 `aiFeature: true` independently when AI or ML is part of the project itself.
 Omit `approximateTokens` when there is no defensible estimate. Totals describe
 processed-token scale, not monetary spend, and are retained as data for possible

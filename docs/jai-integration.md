@@ -2,17 +2,18 @@
 
 ## What it is
 
-Jai is an experimental Rust compiler project with an interactive browser workspace.
-The portfolio presents its project card and embeds the compiler-owned editor. It
-does not claim full Jai compatibility.
+jai is a Rust compiler for Jai, Jonathan Blow's systems language, with an interactive
+browser workspace. The portfolio presents its project card and opens the workspace
+from it in the shared code editor modal.
 
 ## How it works
 
 The portfolio's `jai-web.yml` workflow builds one full, immutable compiler commit.
-The portfolio owns the entire interface: `CodeWorkspace.astro` renders a plain file
-tree, CodeMirror editor, and Run/output area below the editor. There is no embedded
-release page, branding header, status bar, editor footer, or Website action.
-`src/lib/code-editor.js` and `src/lib/jai/` contain the shared editor, Jai tokenizer, workspace, language
+The portfolio owns the entire interface: `CodeWorkspace.astro` renders the shared
+header, file tree, CodeMirror editor and output pane described in
+[Shared code workspace](code-workspace.md). There is no embedded release page,
+editor footer, or Website action.
+`src/lib/code-editor.ts` and `src/lib/jai/` contain the shared editor, Jai tokenizer, workspace, language
 client, worker and Wasm bridge. The only release file used at runtime is
 `/jai/<full-commit>/jai_wasm.wasm`.
 
@@ -21,8 +22,11 @@ The language client preserves completion, hover and inline diagnostics without
 adding a diagnostics panel. File switches retain editor state. Closing aborts
 initialization, terminates both workers and destroys CodeMirror; reopening starts
 fresh. Astro navigation also disposes the session. Run uses a fixed one-million
-step budget; cancellation terminates the execution worker so a stuck program
-cannot block the UI. Output contains results or actual errors, with no idle text.
+step budget; Stop terminates the execution worker so a stuck program cannot block
+the UI. The runtime reports `main`'s return value rather than stdout, so output shows
+`Exit code: N` with the step count and elapsed time, or the compiler's error.
+The session opens with a two-file starter (`main.jai` loading `lib/math.jai`) and
+runs it once when ready.
 
 ### Producer contract
 
@@ -49,14 +53,14 @@ cannot block the UI. Output contains results or actual errors, with no idle text
 The producer should render a real nested file tree, keep editable sources separate
 from read-only independent library modules, retain edits across file switches, and
 support Run, Cancel, output and diagnostics. Diagnostics and filenames must render
-as text. An experimental-compatibility note remains visible in the editor.
+as text.
 
 ## How to change it
 
 The project description is `src/content/projects/jai.md`; it does not change the
-resume's selected projects in `portfolio.toml`. Edit `CodeWorkspace.astro` and `CodeTerminal.astro` for the
-shared layout and styling, `src/lib/jai/workspace-ui.js` for file selection and execution,
-`code-editor.js` and `jai/language.js` for CodeMirror behavior, and `engine.js`/`worker.js`
+resume's selected projects in `portfolio.toml`. Edit `CodeWorkspace.astro` and `CodeOutput.astro` for the
+shared layout and styling, `src/lib/jai/workspace-ui.ts` for file selection and execution,
+`code-editor.ts` and `jai/language.ts` for CodeMirror behavior, and `engine.ts`/`worker.ts`
 for the Wasm ABI bridge. These are owned source modules built by Astro, not files
 loaded from the compiler package. Do not import its HTML, editor bundle, CSS or
 worker to alter the portfolio interface.
@@ -73,7 +77,7 @@ They activate only when the connected server advertises `definitionProvider` or
 `renameProvider`; preparing these adapters does not establish that a replacement
 semantic compiler has shipped. The published release pointer stays unchanged.
 
-`jai/language-actions.js` accepts canonical, percent-encoded
+`jai/language-actions.ts` accepts canonical, percent-encoded
 `file:///jai-script/` URIs and UTF-16 ranges. Definition accepts `Location` or
 `LocationLink` targets only inside the current virtual filesystem. Rename requires
 versioned `documentChanges` containing text edits, rejecting unversioned edits,
@@ -90,7 +94,7 @@ separate operation and does not rename symbols or rewrite imports.
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
-Run `pnpm sync:web-assets` to stage the pinned release. `sync-jai-web.mjs` validates
+Run `pnpm sync:web-assets` to stage the pinned release. `sync-jai-web.ts` validates
 the pointer and release digests; `verify-jai-bundle.py` validates the exact archive
 inventory, paths, regular-file modes, sizes, digests and Wasm header before writing
 anything. `pnpm test:jai` covers identity mismatch, tampering, traversal, extra
@@ -103,7 +107,7 @@ reopening and disposal on failure. With Playwright installed and the dev server
 running, use `PORTFOLIO_URL=http://127.0.0.1:4231 python3 tests/jai/modal_browser.py`.
 It exercises actual single/multi-file execution, retained edits, modal reopening,
 client navigation and the removed route. Set `VIEWPORT_WIDTH=390` for mobile and
-`WEBKIT_EXECUTABLE` for an existing WebKit runtime. Development and preview headers
+`WEBKIT_EXECUTABLE` for an existing WebKit runtime, or `CHROMIUM_EXECUTABLE` to run in Chromium instead. Development and preview headers
 include same-origin CORP alongside COEP/COOP so module workers can load under site
 isolation. Browser/editor tests remain distinct from full language compatibility.
 

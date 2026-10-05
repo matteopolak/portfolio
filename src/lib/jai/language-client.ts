@@ -1,5 +1,12 @@
-import { SourcePath } from './workspace.js';
-export function documentUri(path) {
+import { SourcePath, type WorkspaceDocument } from './workspace.ts';
+import type {
+  JsonRpcMessage,
+  Position,
+  PublishDiagnosticsParams,
+  InitializeResult,
+  WorkerResponse,
+} from './lsp-types.ts';
+export function documentUri(path: string): string {
   return `file:///jai-script/${SourcePath.parse(path)
     .name.split('/')
     .map((part) =>
@@ -10,7 +17,7 @@ export function documentUri(path) {
     )
     .join('/')}`;
 }
-export function pathFromUri(uri) {
+export function pathFromUri(uri: string): string {
   const url = new URL(uri);
   if (
     url.protocol !== 'file:' ||
@@ -22,14 +29,14 @@ export function pathFromUri(uri) {
     decodeURIComponent(url.pathname.slice('/jai-script/'.length))
   ).name;
 }
-export function positionAt(text, offset) {
+export function positionAt(text: string, offset: number): Position {
   if (!Number.isInteger(offset) || offset < 0 || offset > text.length)
     throw new RangeError('Invalid document offset.');
   const prefix = text.slice(0, offset);
   const line = prefix.lastIndexOf('\n');
   return { line: prefix.split('\n').length - 1, character: offset - line - 1 };
 }
-export function offsetAt(text, position) {
+export function offsetAt(text: string, position: Position | undefined): number {
   if (
     !position ||
     !Number.isInteger(position.line) ||
@@ -58,61 +65,89 @@ export function offsetAt(text, position) {
     throw new RangeError('Position splits a surrogate pair.');
   return offset;
 }
+interface PendingRequest {
+  resolve(value: unknown): void;
+  reject(error: Error): void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface LanguageClientOptions {
+  diagnostics?: (params: PublishDiagnosticsParams) => void;
+  failure?: (message: string) => void;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 export class LanguageClient {
-  #worker;
+  #worker: Worker;
   #next = 0;
-  #pending = new Map();
-  #opened = new Map();
+  #pending = new Map<number | string | null | undefined, PendingRequest>();
+  #opened = new Map<string, number>();
   #stopped = false;
-  constructor(worker, { diagnostics = () => {}, failure = () => {} } = {}) {
+  diagnostics: (params: PublishDiagnosticsParams) => void;
+  failure: (message: string) => void;
+  constructor(
+    worker: Worker,
+    { diagnostics = () => {}, failure = () => {} }: LanguageClientOptions = {}
+  ) {
     this.#worker = worker;
     this.diagnostics = diagnostics;
     this.failure = failure;
-    worker.addEventListener('message', ({ data }) => {
-      if (this.#stopped || data.type !== 'lsp') return;
-      if (data.error) {
-        this.#fail(String(data.error));
-        return;
-      }
-      const messages = data.messages ?? [];
-      const rejected = messages.find(
-        (message) =>
-          message.method === 'window/logMessage' && message.params?.type === 1
-      );
-      if (rejected) {
-        this.#fail(
-          String(
-            rejected.params.message ||
-              'Language server rejected document synchronization.'
-          )
+    worker.addEventListener(
+      'message',
+      ({ data }: MessageEvent<WorkerResponse>) => {
+        if (this.#stopped || data.type !== 'lsp') return;
+        if (data.error !== undefined) {
+          this.#fail(String(data.error));
+          return;
+        }
+        const messages = 'messages' in data ? data.messages : [];
+        const rejected = messages.find(
+          (message) =>
+            message.method === 'window/logMessage' &&
+            isRecord(message.params) &&
+            message.params.type === 1
         );
-        return;
-      }
-      for (const message of messages) {
-        if (message.method === 'textDocument/publishDiagnostics') {
-          const expected = this.#opened.get(message.params?.uri);
-          if (expected !== undefined && message.params.version === expected)
-            this.diagnostics(message.params);
-        } else if (Object.hasOwn(message, 'id')) {
-          const entry = this.#pending.get(message.id);
-          if (!entry) continue;
-          this.#pending.delete(message.id);
-          clearTimeout(entry.timer);
-          if (message.error) entry.reject(new Error(message.error.message));
-          else entry.resolve(message.result);
+        if (rejected) {
+          const params = isRecord(rejected.params) ? rejected.params : {};
+          this.#fail(
+            String(
+              params.message ||
+                'Language server rejected document synchronization.'
+            )
+          );
+          return;
+        }
+        for (const message of messages) {
+          if (message.method === 'textDocument/publishDiagnostics') {
+            const params = message.params as
+              | PublishDiagnosticsParams
+              | undefined;
+            const expected = params ? this.#opened.get(params.uri) : undefined;
+            if (params && expected !== undefined && params.version === expected)
+              this.diagnostics(params);
+          } else if (Object.hasOwn(message, 'id')) {
+            const entry = this.#pending.get(message.id);
+            if (!entry) continue;
+            this.#pending.delete(message.id);
+            clearTimeout(entry.timer);
+            if (message.error) entry.reject(new Error(message.error.message));
+            else entry.resolve(message.result);
+          }
         }
       }
-    });
-    worker.addEventListener('error', (event) => {
+    );
+    worker.addEventListener('error', (event: ErrorEvent) => {
       this.#fail(event.message || 'Language worker failed.');
     });
   }
-  #fail(message) {
+  #fail(message: string) {
     if (this.#stopped) return;
     this.dispose(new Error(message));
     this.failure(message);
   }
-  #send(message, id = message.id ?? ++this.#next) {
+  #send(message: JsonRpcMessage, id = message.id ?? ++this.#next) {
     if (this.#stopped) return;
     this.#worker.postMessage({
       type: 'lsp',
@@ -120,14 +155,18 @@ export class LanguageClient {
       message: { jsonrpc: '2.0', ...message },
     });
   }
-  notify(method, params) {
+  notify(method: string, params: unknown) {
     this.#send({ method, params });
   }
-  request(method, params, signal) {
+  request<T = unknown>(
+    method: string,
+    params: unknown,
+    signal?: AbortSignal
+  ): Promise<T> {
     if (this.#stopped)
       return Promise.reject(new Error('Language service stopped.'));
     const id = ++this.#next;
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const cancel = () => {
         if (!this.#pending.has(id)) return;
         this.#pending.delete(id);
@@ -139,9 +178,9 @@ export class LanguageClient {
       this.#pending.set(id, {
         resolve: (value) => {
           signal?.removeEventListener('abort', cancel);
-          resolve(value);
+          resolve(value as T);
         },
-        reject: (error) => {
+        reject: (error: Error) => {
           signal?.removeEventListener('abort', cancel);
           reject(error);
         },
@@ -155,33 +194,36 @@ export class LanguageClient {
       this.#send({ id, method, params });
     });
   }
-  async initialize() {
-    const result = await this.request('initialize', {
-      processId: null,
-      rootUri: 'file:///jai-script/',
-      capabilities: {
-        general: { positionEncodings: ['utf-16'] },
-        workspace: { workspaceEdit: { documentChanges: true } },
-        textDocument: {
-          publishDiagnostics: { versionSupport: true },
-          definition: { linkSupport: true },
-          rename: { prepareSupport: false },
-          hover: { contentFormat: ['plaintext'] },
-          completion: {
-            completionItem: {
-              snippetSupport: false,
-              documentationFormat: ['plaintext'],
+  async initialize(): Promise<InitializeResult | undefined> {
+    const result = await this.request<InitializeResult | undefined>(
+      'initialize',
+      {
+        processId: null,
+        rootUri: 'file:///jai-script/',
+        capabilities: {
+          general: { positionEncodings: ['utf-16'] },
+          workspace: { workspaceEdit: { documentChanges: true } },
+          textDocument: {
+            publishDiagnostics: { versionSupport: true },
+            definition: { linkSupport: true },
+            rename: { prepareSupport: false },
+            hover: { contentFormat: ['plaintext'] },
+            completion: {
+              completionItem: {
+                snippetSupport: false,
+                documentationFormat: ['plaintext'],
+              },
             },
           },
         },
-      },
-    });
+      }
+    );
     this.notify('initialized', {});
     return result;
   }
-  sync(documents) {
+  sync(documents: readonly WorkspaceDocument[]) {
     if (this.#stopped) return;
-    const current = new Set();
+    const current = new Set<string>();
     for (const { path, text, version } of documents) {
       const uri = documentUri(path);
       current.add(uri);

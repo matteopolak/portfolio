@@ -1,6 +1,7 @@
 jobs/
 docs/*
 !docs/bauhaus-grid-state.md
+!docs/code-workspace.md
 !docs/baerscript-web-playground.md
 !docs/continuous-integration.md
 !docs/favicon-pipeline.md
@@ -11,10 +12,12 @@ docs/*
 !docs/seo.md
 !docs/site-design.md
 scripts/*
-!scripts/generate-favicons.mjs
+!scripts/generate-favicons.ts
 !scripts/quasi-browser-worker.patch
-!scripts/sync-quasi-web.mjs
-!scripts/sync-baerscript-web.mjs
+!scripts/sync-quasi-web.ts
+!scripts/sync-baerscript-web.ts
+!scripts/sync-lodestone-web.ts
+!scripts/sync-jai-web.ts
 tests/
 
 # build output

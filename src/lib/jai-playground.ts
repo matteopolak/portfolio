@@ -1,11 +1,14 @@
-import { initializeWorkspaceLayout } from './code-workspace-layout.js';
+import {
+  initializeWorkspaceLayout,
+  showPane,
+} from './code-workspace-layout.ts';
 type SessionLoader = (
   panel: HTMLElement,
   revision: string,
   signal: AbortSignal
 ) => Promise<void>;
 const loadSession: SessionLoader = async (panel, revision, signal) => {
-  const { createSession } = await import('./jai/workspace-ui.js');
+  const { createSession } = await import('./jai/workspace-ui.ts');
   if (signal.aborted) throw new DOMException('Closed', 'AbortError');
   await createSession(panel, revision, signal);
 };
@@ -34,6 +37,7 @@ export function initializeJaiPlayground(
     ready = false;
     status.textContent = '';
     retry.hidden = true;
+    showPane(panel, 'code');
   }
   function prepare() {
     if (ready) return Promise.resolve();
@@ -55,7 +59,7 @@ export function initializeJaiPlayground(
         status.textContent = '';
         root.dispatchEvent(new CustomEvent('project-demo-ready'));
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         if (current === generation) {
           controller?.abort();
           controller = undefined;

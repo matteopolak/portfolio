@@ -1,11 +1,36 @@
+import type { JsonRpcMessage } from './lsp-types.ts';
+
+// Status and byte exports return i32 numbers; result exports return i64 BigInts.
+type Export = (...args: number[]) => number;
+
+export interface RunOptions {
+  arguments?: string[];
+  files?: Record<string, string>;
+  fuel?: number;
+}
+
+export interface Engine {
+  lsp?: (message: JsonRpcMessage) => JsonRpcMessage[];
+  run(
+    source: string,
+    options?: RunOptions
+  ): { exitCode: bigint; steps: number };
+}
+
 // The browser and Node verification harness instantiate the exact same Rust VM.
-export async function createEngine(wasmBytes) {
+export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
   const module = await WebAssembly.compile(wasmBytes);
   if (WebAssembly.Module.imports(module).length !== 0) {
     throw new Error('This runtime build unexpectedly requires host imports.');
   }
   const instance = await WebAssembly.instantiate(module, {});
-  const api = instance.exports;
+  const exports = instance.exports;
+  const fn = (name: string): Export => {
+    const value = exports[name];
+    if (typeof value !== 'function')
+      throw new Error('Compiler module is missing the runtime bridge.');
+    return value as Export;
+  };
   const required = [
     'jai_script_reset',
     'jai_script_push',
@@ -17,9 +42,10 @@ export async function createEngine(wasmBytes) {
     'jai_script_steps',
     'jai_script_diagnostic_len',
     'jai_script_diagnostic_byte',
-  ];
-  if (required.some((name) => typeof api[name] !== 'function'))
-    throw new Error('Compiler module is missing the runtime bridge.');
+  ] as const;
+  const api = Object.fromEntries(required.map((name) => [name, fn(name)])) as {
+    [K in (typeof required)[number]]: Export;
+  };
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   function diagnostic() {
@@ -28,11 +54,11 @@ export async function createEngine(wasmBytes) {
       bytes[i] = api.jai_script_diagnostic_byte(i);
     return decoder.decode(bytes);
   }
-  function check(status) {
+  function check(status: number) {
     if (status !== 0)
       throw new Error(diagnostic() || 'Runtime boundary rejected the request.');
   }
-  function push(channel, text) {
+  function push(channel: number, text: string) {
     for (const byte of encoder.encode(text))
       check(api.jai_script_push(channel, byte));
   }
@@ -45,48 +71,53 @@ export async function createEngine(wasmBytes) {
     'output_byte',
     'diagnostic_len',
     'diagnostic_byte',
-  ];
+  ] as const;
   const supportsLsp = lspExports.every(
-    (name) => typeof api[`jai_lsp_${name}`] === 'function'
+    (name) => typeof exports[`jai_lsp_${name}`] === 'function'
   );
-  function readLanguage(kind, limit) {
-    const length = api[`jai_lsp_${kind}_len`]();
+  const lsp = (name: (typeof lspExports)[number]) => fn(`jai_lsp_${name}`);
+  function readLanguage(kind: 'output' | 'diagnostic', limit: number) {
+    const length = lsp(`${kind}_len`)();
     if (!Number.isInteger(length) || length < 0 || length > limit)
       throw new Error('Language response byte limit exceeded.');
+    const read = lsp(`${kind}_byte`);
     const bytes = new Uint8Array(length);
     for (let i = 0; i < length; i++) {
-      const byte = api[`jai_lsp_${kind}_byte`](i);
+      const byte = read(i);
       if (byte < 0 || byte > 255)
         throw new Error('Invalid language response byte.');
       bytes[i] = byte;
     }
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   }
-  function languageCheck(status) {
+  function languageCheck(status: number) {
     if (status !== 0)
       throw new Error(
         readLanguage('diagnostic', 2 * 1024 * 1024) ||
           'Language boundary rejected the request.'
       );
   }
-  if (supportsLsp) languageCheck(api.jai_lsp_reset());
+  if (supportsLsp) languageCheck(lsp('reset')());
   return {
     ...(supportsLsp
       ? {
-          lsp(message) {
+          lsp(message: JsonRpcMessage): JsonRpcMessage[] {
             const text = JSON.stringify(message);
             if (typeof text !== 'string' || text.length > 1024 * 1024)
               throw new Error('Language message byte limit exceeded.');
             const bytes = encoder.encode(text);
             if (bytes.length > 1024 * 1024)
               throw new Error('Language message byte limit exceeded.');
-            languageCheck(api.jai_lsp_begin());
-            for (const byte of bytes) languageCheck(api.jai_lsp_push(byte));
-            languageCheck(api.jai_lsp_dispatch());
-            const result = JSON.parse(readLanguage('output', 2 * 1024 * 1024));
+            languageCheck(lsp('begin')());
+            const pushByte = lsp('push');
+            for (const byte of bytes) languageCheck(pushByte(byte));
+            languageCheck(lsp('dispatch')());
+            const result: unknown = JSON.parse(
+              readLanguage('output', 2 * 1024 * 1024)
+            );
             if (!Array.isArray(result))
               throw new Error('Invalid language response envelope.');
-            return result;
+            return result as JsonRpcMessage[];
           },
         }
       : {}),
@@ -122,8 +153,8 @@ export async function createEngine(wasmBytes) {
       if (api.jai_script_has_result() !== 1)
         throw new Error('Runtime produced no result.');
       return {
-        exitCode: api.jai_script_exit_code(),
-        steps: api.jai_script_steps(),
+        exitCode: BigInt(api.jai_script_exit_code() as number | bigint),
+        steps: Number(api.jai_script_steps() as number | bigint),
       };
     },
   };

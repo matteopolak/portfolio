@@ -1,31 +1,78 @@
-import { createAutoRunner } from '../code-auto-run.js';
-import { Workspace } from './workspace.js';
-import { initializeFileTree } from './file-tree.js';
-import { createEditor } from '../code-editor.js';
-import { LanguageClient, pathFromUri } from './language-client.js';
-import { definitionTarget, renameSymbol } from './language-actions.js';
+import type { EditorState } from '@codemirror/state';
+import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
+import { createEditor } from '../code-editor.ts';
+import { createCodeOutput } from '../code-output.ts';
+import { showPane } from '../code-workspace-layout.ts';
+import { Workspace } from './workspace.ts';
+import { initializeFileTree } from './file-tree.ts';
+import { LanguageClient, pathFromUri } from './language-client.ts';
+import { definitionTarget, renameSymbol } from './language-actions.ts';
+import type {
+  ServerCapabilities,
+  WorkerRequest,
+  WorkerResponse,
+} from './lsp-types.ts';
 
-export async function createSession(panel, revision, signal) {
-  const find = (name) => panel.querySelector(`[data-code-${name}]`);
-  const output = find('output'),
-    run = find('run'),
-    cancel = find('cancel');
-  const workspace = new Workspace('main :: () -> int {\n    return 42;\n}\n');
-  const states = new Map();
-  const workers = new Set();
-  let autoRun;
+const FUEL = 1_000_000;
+
+export const starterFiles: Record<string, string> = {
+  'main.jai': `// main's return value is reported as the exit code.
+#load "lib/math.jai";
+
+main :: () -> int {
+    total := 0;
+    for i: 1..10 {
+        total += square(i);
+    }
+    return total;
+}
+`,
+  'lib/math.jai': `square :: (x: int) -> int {
+    return x * x;
+}
+`,
+};
+
+interface CompilerWorker {
+  worker: Worker;
+  capabilities: { languageServer: boolean };
+}
+
+const abortError = () => new DOMException('Closed', 'AbortError');
+const errorMessage = (reason: unknown) =>
+  reason instanceof Error ? reason.message : String(reason);
+
+export async function createSession(
+  panel: HTMLElement,
+  revision: string,
+  signal: AbortSignal
+) {
+  const find = <T extends HTMLElement = HTMLElement>(name: string) =>
+    panel.querySelector<T>(`[data-code-${name}]`)!;
+  const output = createCodeOutput(panel);
+  const run = find<HTMLButtonElement>('run'),
+    cancel = find<HTMLButtonElement>('cancel'),
+    crumb = panel.querySelector<HTMLElement>('[data-code-crumb]');
+  const workspace = new Workspace(starterFiles);
+  const states = new Map<string, EditorState>();
+  const workers = new Set<Worker>();
   let running = false;
-  let pendingExecution;
+  let pendingExecution: AbortController | undefined;
   let editedDuringBoot = false;
-  let languageCapabilities;
-  let language,
-    execution,
-    ready = false,
-    job = 0,
-    syncTimer;
+  let languageCapabilities: ServerCapabilities | undefined;
+  let language: LanguageClient | undefined;
+  let execution: Worker | undefined;
+  let ready = false;
+  let job = 0;
+  let syncTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const showError = (message: string) => output.write(message, 'error');
+  // Function declarations below are hoisted; the runner only calls them later.
+  const runner: AutoRunner = createAutoRunner(execute, cancelExecution);
+
   const editor = createEditor(find('editor'), {
-    text: workspace.selected.text,
-    onCursor: () => {},
+    text: workspace.selected?.text ?? '',
+    language: 'jai',
     canDefine: () =>
       Boolean(language && languageCapabilities?.definitionProvider),
     canRename: () => Boolean(language && languageCapabilities?.renameProvider),
@@ -56,7 +103,7 @@ export async function createSession(panel, revision, signal) {
         });
         editor.focus();
       } catch (error) {
-        if (!signal.aborted) output.textContent = error.message;
+        if (!signal.aborted) showError(errorMessage(error));
       }
     },
     onRename: async (offset, newName) => {
@@ -76,17 +123,15 @@ export async function createSession(panel, revision, signal) {
         for (const update of updates) {
           const previous = states.get(update.path);
           const state = previous
-            ? previous.update({
-                changes: update.changes,
-              }).state
+            ? previous.update({ changes: update.changes }).state
             : editor.createState(update.text);
           states.set(update.path, state);
         }
         showSelected();
         language.sync(workspace.documents);
-        autoRun?.changed();
+        runner.changed();
       } catch (error) {
-        if (!signal.aborted) output.textContent = error.message;
+        if (!signal.aborted) showError(errorMessage(error));
         throw error;
       }
     },
@@ -102,7 +147,7 @@ export async function createSession(panel, revision, signal) {
     },
     onChange: (text) => {
       if (workspace.selected) workspace.edit(text);
-      if (ready) autoRun?.changed();
+      if (ready) runner.changed();
       else editedDuringBoot = true;
       editor.diagnostics([], text);
       clearTimeout(syncTimer);
@@ -110,6 +155,7 @@ export async function createSession(panel, revision, signal) {
     },
   });
 
+  let filesBefore = new Set<string>();
   function saveState() {
     if (workspace.selected)
       states.set(workspace.selected.path.name, editor.view.state);
@@ -123,16 +169,21 @@ export async function createSession(panel, revision, signal) {
     );
     editor.setEditable(Boolean(selected));
     editor.diagnostics([], selected?.text ?? '');
+    if (crumb) crumb.textContent = selected?.path.name ?? 'No file open';
   }
   const tree = initializeFileTree(
     panel,
     workspace,
     {
-      beforeChange: saveState,
+      beforeChange: () => {
+        filesBefore = new Set(workspace.names);
+        saveState();
+      },
       select: (path) => {
         saveState();
         workspace.select(path);
         showSelected();
+        showPane(panel, 'code');
         editor.focus();
       },
       changed: (moves) => {
@@ -149,23 +200,29 @@ export async function createSession(panel, revision, signal) {
           if (!names.has(path)) states.delete(path);
         showSelected();
         language?.sync(workspace.documents);
-        autoRun?.changed();
+        runner.changed();
+        // A newly created file opens straight into the editor.
+        const selected = workspace.selected?.path.name;
+        if (!moves && selected && !filesBefore.has(selected)) {
+          showPane(panel, 'code');
+          editor.focus();
+        }
       },
-      error: (message) => {
-        output.textContent = message;
-      },
+      error: showError,
     },
     signal
   );
 
-  function terminate(worker) {
-    worker?.terminate();
+  function terminate(worker: Worker | undefined) {
+    if (!worker) return;
+    worker.terminate();
     workers.delete(worker);
   }
-  function initializeWorker(workerSignal = signal) {
-    if (workerSignal.aborted)
-      return Promise.reject(new DOMException('Closed', 'AbortError'));
-    const worker = new Worker(new URL('./worker.js', import.meta.url), {
+  const post = (worker: Worker, message: WorkerRequest) =>
+    worker.postMessage(message);
+  function initializeWorker(workerSignal = signal): Promise<CompilerWorker> {
+    if (workerSignal.aborted) return Promise.reject(abortError());
+    const worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
     });
     workers.add(worker);
@@ -176,17 +233,17 @@ export async function createSession(panel, revision, signal) {
         worker.removeEventListener('message', message);
         worker.removeEventListener('error', error);
       };
-      const fail = (reason) => {
+      const fail = (reason: unknown) => {
         cleanup();
         terminate(worker);
         reject(reason);
       };
-      const aborted = () => fail(new DOMException('Closed', 'AbortError'));
-      const error = (event) =>
+      const aborted = () => fail(abortError());
+      const error = (event: ErrorEvent) =>
         fail(new Error(event.message || 'Compiler failed'));
-      const message = ({ data }) => {
+      const message = ({ data }: MessageEvent<WorkerResponse>) => {
         if (data.type !== 'init') return;
-        if (data.error) fail(new Error(data.error));
+        if (data.error !== undefined) fail(new Error(data.error));
         else {
           cleanup();
           resolve({ worker, capabilities: data.capabilities });
@@ -199,33 +256,38 @@ export async function createSession(panel, revision, signal) {
       worker.addEventListener('message', message);
       worker.addEventListener('error', error);
       workerSignal.addEventListener('abort', aborted, { once: true });
-      worker.postMessage({
-        type: 'init',
-        url: `/jai/${revision}/jai_wasm.wasm`,
-      });
+      post(worker, { type: 'init', url: `/jai/${revision}/jai_wasm.wasm` });
     });
   }
   function idle() {
     running = false;
     run.disabled = !ready;
+    run.hidden = false;
     cancel.hidden = true;
   }
-  function connect(worker) {
+  function connect(worker: Worker) {
     execution = worker;
-    worker.addEventListener('message', ({ data }) => {
-      if (
-        signal.aborted ||
-        worker !== execution ||
-        data.type !== 'run' ||
-        data.id !== job
-      )
-        return;
-      output.textContent = data.error ?? `Exit code: ${data.result.exitCode}`;
-      idle();
-    });
+    worker.addEventListener(
+      'message',
+      ({ data }: MessageEvent<WorkerResponse>) => {
+        if (
+          signal.aborted ||
+          worker !== execution ||
+          data.type !== 'run' ||
+          data.id !== job
+        )
+          return;
+        if (data.error !== undefined) output.write(data.error, 'error');
+        else
+          output.write(`Exit code: ${data.result.exitCode}`, 'stdout', [
+            `${data.result.steps.toLocaleString()} steps`,
+          ]);
+        idle();
+      }
+    );
     worker.addEventListener('error', (event) => {
       if (worker !== execution || signal.aborted) return;
-      output.textContent = event.message || 'Execution failed';
+      showError(event.message || 'Execution failed');
       terminate(worker);
       execution = undefined;
       idle();
@@ -240,8 +302,9 @@ export async function createSession(panel, revision, signal) {
     const id = ++job;
     running = true;
     run.disabled = true;
+    run.hidden = true;
     cancel.hidden = false;
-    output.textContent = '';
+    output.start();
     try {
       const snapshot = workspace.snapshot();
       if (!execution) {
@@ -255,15 +318,16 @@ export async function createSession(panel, revision, signal) {
         }
         connect(worker);
       }
-      execution.postMessage({
+      if (!execution) return;
+      post(execution, {
         type: 'run',
         id,
         source: snapshot.source,
-        options: { files: snapshot.files, fuel: 1000000 },
+        options: { files: snapshot.files, fuel: FUEL },
       });
     } catch (error) {
       if (id !== job || signal.aborted) return;
-      output.textContent = error.message;
+      showError(errorMessage(error));
       idle();
     }
   }
@@ -274,25 +338,25 @@ export async function createSession(panel, revision, signal) {
     if (!running) return;
     terminate(execution);
     execution = undefined;
+    output.write('Stopped', 'error');
     idle();
   }
-  autoRun = createAutoRunner(execute, cancelExecution);
-  find('editor').addEventListener(
-    'compositionstart',
-    autoRun.compositionStart,
-    { signal }
-  );
-  find('editor').addEventListener('compositionend', autoRun.compositionEnd, {
+  const editorHost = find('editor');
+  editorHost.addEventListener('compositionstart', runner.compositionStart, {
+    signal,
+  });
+  editorHost.addEventListener('compositionend', runner.compositionEnd, {
     signal,
   });
   run.addEventListener(
     'click',
     () => {
-      void autoRun.play();
+      showPane(panel, 'output');
+      void runner.play();
     },
     { signal }
   );
-  cancel.addEventListener('click', () => autoRun.pause(), { signal });
+  cancel.addEventListener('click', () => runner.pause(), { signal });
   panel.addEventListener(
     'keydown',
     (event) => {
@@ -311,7 +375,7 @@ export async function createSession(panel, revision, signal) {
     'abort',
     () => {
       ready = false;
-      autoRun.destroy();
+      runner.destroy();
       ++job;
       clearTimeout(syncTimer);
       language?.dispose();
@@ -319,22 +383,25 @@ export async function createSession(panel, revision, signal) {
       workers.clear();
       editor.destroy();
       find('files').replaceChildren();
-      output.textContent = '';
+      output.clear();
+      if (crumb) crumb.textContent = '';
       run.disabled = true;
+      run.hidden = false;
       cancel.hidden = true;
     },
     { once: true }
   );
   if (signal.aborted) {
     editor.destroy();
-    throw new DOMException('Closed', 'AbortError');
+    throw abortError();
   }
+  showSelected();
   tree.render();
   const runtime = await initializeWorker();
   connect(runtime.worker);
   if (runtime.capabilities.languageServer) {
     const server = await initializeWorker();
-    language = new LanguageClient(server.worker, {
+    const client = new LanguageClient(server.worker, {
       diagnostics: (params) => {
         try {
           const path = pathFromUri(params.uri);
@@ -353,13 +420,15 @@ export async function createSession(panel, revision, signal) {
         language = undefined;
       },
     });
-    const initialized = await language.initialize();
+    language = client;
+    const initialized = await client.initialize();
     languageCapabilities = initialized?.capabilities;
-    language.sync(workspace.documents);
+    client.sync(workspace.documents);
   }
-  if (signal.aborted) throw new DOMException('Closed', 'AbortError');
+  if (signal.aborted) throw abortError();
   ready = true;
   idle();
-  if (editedDuringBoot) autoRun.changed();
+  if (editedDuringBoot) runner.changed();
+  else void runner.play();
   editor.focus();
 }

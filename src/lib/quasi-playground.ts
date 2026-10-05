@@ -5,7 +5,7 @@ export function initializeQuasiPlayground(
   signal: AbortSignal
 ) {
   return initializeCodePlayground(root, signal, {
-    createWorker: () => new QuasiWorker({ name: 'quasi-interpreter' }),
+    createWorker: () => new QuasiWorker(),
     language: 'quasi',
   });
 }

@@ -1,13 +1,19 @@
 ---
 import CodeWorkspace from './CodeWorkspace.astro';
-interface Props { id: string; label: string; starter: string; }
-const { id, label, starter } = Astro.props;
+import DemoModal from './DemoModal.astro';
+
+interface Props {
+  id: 'jai' | 'quasi' | 'baerscript';
+  label: string;
+  starter?: string;
+  files?: boolean;
+  enabled?: boolean;
+  revision?: string;
+}
+
+const { id, label, ...workspace } = Astro.props;
 ---
-<dialog class="code-demo-modal" data-project-demo={id} aria-label={`${label} editor`}>
-  <CodeWorkspace language={id} starter={starter} />
-</dialog>
-<style>
-  .code-demo-modal { width: min(94vw, 90rem); max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; inset: 50% auto auto 50%; transform: translate(-50%, -50%); }
-  .code-demo-modal::backdrop { background: oklch(0% 0 0 / .4); backdrop-filter: blur(.45rem); }
-  @media (max-width: 42rem) { .code-demo-modal { width: 98vw; } }
-</style>
+
+<DemoModal id={id} label={`${label} editor`} variant="workspace">
+  <CodeWorkspace language={id} label={label} {...workspace} />
+</DemoModal>

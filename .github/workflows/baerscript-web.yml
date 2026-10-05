@@ -167,7 +167,7 @@ jobs:
         run: |
           cp .build/baerscript-web-release.json baerscript-web-release.json
           if [ "$UPDATE_MODE" = assets ]; then
-            node scripts/sync-baerscript-web.mjs
+            node scripts/sync-baerscript-web.ts
             git add -f public/baerscript
           fi
           pnpm format:check

@@ -1,5 +1,9 @@
 // Stateful lexical coloring. Source always stays in CodeMirror text nodes.
-import { StreamLanguage } from '@codemirror/language';
+import {
+  StreamLanguage,
+  type StreamParser,
+  type StringStream,
+} from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 const keywords = new Set(
   'if else ifx for while break continue return defer using struct union enum operator cast remove inline no_inline interface push_context pop_context null true false new delete case switch then it_index it'.split(
@@ -11,8 +15,14 @@ const types = new Set(
     ' '
   )
 );
+export interface JaiState {
+  commentDepth: number;
+  string: boolean;
+  hereTag: string | null;
+  depth: number;
+}
 const identifier = /^[_\p{L}][_\p{L}\p{N}]*/u;
-function comment(stream, state) {
+function comment(stream: StringStream, state: JaiState) {
   while (!stream.eol()) {
     if (stream.match('/*')) state.commentDepth++;
     else if (stream.match('*/')) {
@@ -21,7 +31,7 @@ function comment(stream, state) {
   }
   return 'comment';
 }
-function string(stream, state) {
+function string(stream: StringStream, state: JaiState) {
   while (!stream.eol()) {
     const ch = stream.next();
     if (ch === '\\') stream.next();
@@ -32,7 +42,7 @@ function string(stream, state) {
   }
   return 'string';
 }
-export const jaiTokenizer = {
+export const jaiTokenizer: StreamParser<JaiState> = {
   startState: () => ({
     commentDepth: 0,
     string: false,
@@ -76,9 +86,9 @@ export const jaiTokenizer = {
       // Original lexer permits comma modifiers, including escaped characters.
       const header = stream.match(
         /^(?:\s*,\s*(?:\\\S|[_\p{L}][_\p{L}\p{N}]*))*\s+([_\p{L}][_\p{L}\p{N}]*)/u
-      );
+      ) as RegExpMatchArray | null;
       if (header) {
-        state.hereTag = header[1];
+        state.hereTag = header[1] ?? null;
         stream.skipToEnd();
       }
       return 'directive';
@@ -91,7 +101,7 @@ export const jaiTokenizer = {
       )
     )
       return 'number';
-    const name = stream.match(identifier);
+    const name = stream.match(identifier) as RegExpMatchArray | null;
     if (name) {
       if (types.has(name[0])) return 'typeName';
       if (keywords.has(name[0])) return 'keyword';
@@ -106,6 +116,7 @@ export const jaiTokenizer = {
       return 'variableName';
     }
     const ch = stream.next();
+    if (!ch) return null;
     if ('({['.includes(ch)) state.depth++;
     if (')}]'.includes(ch)) state.depth = Math.max(0, state.depth - 1);
     return '{}()[],;'.includes(ch) ? 'punctuation' : 'operator';

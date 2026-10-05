@@ -1,14 +1,32 @@
 export const AUTO_RUN_DELAY_MS = 600;
+
+type Timer = ReturnType<typeof setTimeout>;
+
+interface AutoRunOptions {
+  delay?: number;
+  schedule?: (callback: () => void, delay: number) => Timer;
+  clear?: (timer: Timer | undefined) => void;
+}
+
+export interface AutoRunner {
+  changed(): void;
+  play(): void | Promise<void>;
+  pause(): void;
+  compositionStart(): void;
+  compositionEnd(): void;
+  destroy(): void;
+}
+
 export function createAutoRunner(
-  run,
-  cancel,
+  run: () => void | Promise<void>,
+  cancel: () => void,
   {
     delay = AUTO_RUN_DELAY_MS,
     schedule = setTimeout,
     clear = clearTimeout,
-  } = {}
-) {
-  let timer;
+  }: AutoRunOptions = {}
+): AutoRunner {
+  let timer: Timer | undefined;
   let disposed = false;
   let composing = false;
   const pause = () => {

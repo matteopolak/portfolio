@@ -2,7 +2,7 @@ import rawToml from '../../portfolio.toml?raw';
 import { parse } from 'smol-toml';
 import type { Config } from '../types/config';
 
-const config = parse(rawToml) as Config;
+const config = parse(rawToml) as unknown as Config;
 
 export default config;
 

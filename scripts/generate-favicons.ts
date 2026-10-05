@@ -10,14 +10,14 @@ const sourcePath = resolve(root, 'src/assets/favicon.svg');
 const source = await readFile(sourcePath);
 await mkdir(generatedDirectory, { recursive: true });
 
-async function renderPng(size) {
+async function renderPng(size: number) {
   return sharp(source)
     .resize(size, size)
     .png({ compressionLevel: 9 })
     .toBuffer();
 }
 
-async function writeIfChanged(path, contents) {
+async function writeIfChanged(path: string, contents: Buffer | string) {
   const output = Buffer.isBuffer(contents) ? contents : Buffer.from(contents);
   const current = await readFile(path).catch(() => undefined);
   if (current?.equals(output)) return false;
@@ -25,7 +25,7 @@ async function writeIfChanged(path, contents) {
   return true;
 }
 
-function createIco(png) {
+function createIco(png: Buffer) {
   const header = Buffer.alloc(22);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
@@ -46,7 +46,7 @@ const [favicon32, appleTouchIcon, icon512, legacyWebp] = await Promise.all([
   sharp(source).resize(512, 512).webp({ lossless: true }).toBuffer(),
 ]);
 
-const outputs = [
+const outputs: [string, Buffer][] = [
   [resolve(generatedDirectory, 'favicon-32x32.png'), favicon32],
   [resolve(generatedDirectory, 'apple-touch-icon.png'), appleTouchIcon],
   [resolve(generatedDirectory, 'icon-512.png'), icon512],

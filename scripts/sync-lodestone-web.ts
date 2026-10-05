@@ -18,6 +18,25 @@ const outputPath = join(root, 'public', 'lodestone');
 const stampPath = join(outputPath, '.lodestone-bundle.json');
 const downloadAttempts = 5;
 
+interface ManifestFile {
+  path: string;
+  size: number;
+  sha256: string;
+}
+
+interface LodestoneManifest {
+  schema: string;
+  schema_version: number;
+  dirty_checkout: boolean;
+  commit: string;
+  entrypoint: string;
+  worker_entrypoint: string;
+  archive: { path: string; format: string; sha256: string; size: number };
+  files: ManifestFile[];
+}
+
+type DownloadError = Error & { retryable?: boolean };
+
 const pointer = JSON.parse(await readFile(pointerPath, 'utf8'));
 if (!pointer.enabled) {
   console.log('Lodestone web SDK is not published yet; skipping sync.');
@@ -65,18 +84,18 @@ const unpackPath = join(temporaryRoot, 'unpacked');
 const releaseRoot = `https://github.com/${pointer.repository}/releases/download/${pointer.tag}`;
 
 try {
-  console.log(`Downloading Lodestone ${pointer.lodestoneRevision ?? 'web SDK'}…`);
+  console.log(
+    `Downloading Lodestone ${pointer.lodestoneRevision ?? 'web SDK'}…`
+  );
   const manifestBytes = await download(
     `${releaseRoot}/${pointer.manifestAsset}`
   );
-  verifyDigest(
-    manifestBytes,
-    pointer.manifestSha256,
-    'Lodestone SDK manifest'
-  );
+  verifyDigest(manifestBytes, pointer.manifestSha256, 'Lodestone SDK manifest');
   const manifest = parseManifest(manifestBytes);
 
-  const archiveBytes = await download(`${releaseRoot}/${manifest.archive.path}`);
+  const archiveBytes = await download(
+    `${releaseRoot}/${manifest.archive.path}`
+  );
   verifyDigest(archiveBytes, manifest.archive.sha256, 'Lodestone SDK archive');
   if (archiveBytes.byteLength !== manifest.archive.size) {
     throw new Error(
@@ -93,7 +112,9 @@ try {
     entries.length !== expectedEntries.length ||
     entries.some((entry, index) => entry !== expectedEntries[index])
   ) {
-    throw new Error('Lodestone SDK archive inventory does not match its manifest');
+    throw new Error(
+      'Lodestone SDK archive inventory does not match its manifest'
+    );
   }
   expectedEntries.forEach(assertSafePath);
 
@@ -104,7 +125,9 @@ try {
     const file = await readFile(path);
     const details = await stat(path);
     if (details.size !== entry.size) {
-      throw new Error(`${entry.path} has ${details.size} bytes, expected ${entry.size}`);
+      throw new Error(
+        `${entry.path} has ${details.size} bytes, expected ${entry.size}`
+      );
     }
     verifyDigest(file, entry.sha256, entry.path);
   }
@@ -125,8 +148,8 @@ try {
   await rm(temporaryRoot, { recursive: true, force: true });
 }
 
-async function download(url) {
-  let lastError;
+async function download(url: string): Promise<Buffer> {
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= downloadAttempts; attempt += 1) {
     try {
@@ -139,13 +162,15 @@ async function download(url) {
         response.status === 429 ||
         response.status >= 500;
       await response.body?.cancel();
-      lastError = new Error(
+      const failure: DownloadError = new Error(
         `download failed with HTTP ${response.status}: ${url}`
       );
-      lastError.retryable = retryable;
-      if (!retryable) throw lastError;
+      failure.retryable = retryable;
+      lastError = failure;
+      if (!retryable) throw failure;
     } catch (error) {
-      if (error?.retryable === false) throw error;
+      if ((error as DownloadError | undefined)?.retryable === false)
+        throw error;
       lastError = error;
     }
 
@@ -161,13 +186,18 @@ async function download(url) {
   throw lastError;
 }
 
-function delay(milliseconds) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+function delay(milliseconds: number) {
+  return new Promise((resolvePromise) =>
+    setTimeout(resolvePromise, milliseconds)
+  );
 }
 
-function parseManifest(bytes) {
-  const manifest = JSON.parse(bytes.toString('utf8'));
-  if (manifest.schema !== 'lodestone-web-sdk' || manifest.schema_version !== 2) {
+function parseManifest(bytes: Buffer): LodestoneManifest {
+  const manifest: LodestoneManifest = JSON.parse(bytes.toString('utf8'));
+  if (
+    manifest.schema !== 'lodestone-web-sdk' ||
+    manifest.schema_version !== 2
+  ) {
     throw new Error('unsupported Lodestone SDK manifest schema');
   }
   if (
@@ -184,13 +214,16 @@ function parseManifest(bytes) {
   ) {
     throw new Error('malformed Lodestone SDK manifest');
   }
-  if (pointer.lodestoneRevision && manifest.commit !== pointer.lodestoneRevision) {
+  if (
+    pointer.lodestoneRevision &&
+    manifest.commit !== pointer.lodestoneRevision
+  ) {
     throw new Error(
       `Lodestone SDK commit ${manifest.commit} does not match pointer ${pointer.lodestoneRevision}`
     );
   }
 
-  const seen = new Set();
+  const seen = new Set<string>();
   for (const entry of manifest.files) {
     if (
       typeof entry?.path !== 'string' ||
@@ -201,7 +234,8 @@ function parseManifest(bytes) {
       throw new Error('malformed file entry in Lodestone SDK manifest');
     }
     assertSafePath(entry.path);
-    if (seen.has(entry.path)) throw new Error(`duplicate SDK path: ${entry.path}`);
+    if (seen.has(entry.path))
+      throw new Error(`duplicate SDK path: ${entry.path}`);
     seen.add(entry.path);
   }
   for (const required of [
@@ -211,7 +245,8 @@ function parseManifest(bytes) {
     'lodestone-resources.zip',
     'blocks.json',
   ]) {
-    if (!seen.has(required)) throw new Error(`Lodestone SDK is missing ${required}`);
+    if (!seen.has(required))
+      throw new Error(`Lodestone SDK is missing ${required}`);
   }
   for (const forbidden of [
     'client.jar',
@@ -227,7 +262,7 @@ function parseManifest(bytes) {
   return manifest;
 }
 
-function assertSafePath(path) {
+function assertSafePath(path: string) {
   const normalized = normalize(path);
   if (
     !path ||
@@ -240,16 +275,20 @@ function assertSafePath(path) {
   }
 }
 
-function verifyDigest(bytes, expected, label) {
+function verifyDigest(bytes: Buffer, expected: string, label: string) {
   const actual = createHash('sha256').update(bytes).digest('hex');
   if (actual !== expected) {
-    throw new Error(`${label} checksum mismatch: expected ${expected}, got ${actual}`);
+    throw new Error(
+      `${label} checksum mismatch: expected ${expected}, got ${actual}`
+    );
   }
 }
 
-function run(command, args) {
+function run(command: string, args: string[]): Promise<string> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'inherit'] });
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
     let stdout = '';
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk) => {

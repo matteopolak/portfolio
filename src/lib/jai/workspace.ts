@@ -2,16 +2,16 @@ const entryName = 'main.jai';
 const sourcePathAuthority = Symbol('parsed source path');
 
 export class SourcePath {
-  #name;
+  #name: string;
 
-  constructor(name, authority) {
+  constructor(name: string, authority: symbol) {
     if (authority !== sourcePathAuthority)
       throw new TypeError('Use SourcePath.parse().');
     this.#name = name;
     Object.freeze(this);
   }
 
-  static parse(value) {
+  static parse(value: unknown): SourcePath {
     if (
       typeof value !== 'string' ||
       value.startsWith('/') ||
@@ -19,7 +19,7 @@ export class SourcePath {
     ) {
       throw new TypeError('Use a relative file name with forward slashes.');
     }
-    const parts = [];
+    const parts: string[] = [];
     for (const part of value.split('/')) {
       if (part === '' || part === '.') continue;
       if (part === '..') {
@@ -49,21 +49,49 @@ export class SourcePath {
   }
 }
 
+export interface WorkspaceFile {
+  readonly path: SourcePath;
+  readonly text: string;
+  readonly version: number;
+}
+
+export interface WorkspaceDocument {
+  readonly path: string;
+  readonly text: string;
+  readonly version: number;
+}
+
+export interface DocumentUpdate {
+  path: string;
+  version: number;
+  text: string;
+}
+
+export type TreeNode =
+  | { kind: 'file'; name: string; path: string }
+  | { kind: 'directory'; name: string; path: string; children: TreeNode[] };
+
+type DirectoryNode = Extract<TreeNode, { kind: 'directory' }>;
+
 export class Workspace {
-  #files = new Map();
-  #selected;
-  #folders = new Set();
+  #files = new Map<string, WorkspaceFile>();
+  #selected: string | undefined;
+  #folders = new Set<string>();
   #revision = 0;
 
-  constructor(source) {
-    this.add(entryName, source);
+  /** Creates a workspace from `main.jai` source, or from a map of files. */
+  constructor(source: string | Record<string, string>) {
+    const files = typeof source === 'string' ? { [entryName]: source } : source;
+    for (const [name, text] of Object.entries(files)) this.add(name, text);
+    if (this.#files.has(entryName)) this.#selected = entryName;
   }
 
-  get selected() {
+  get selected(): WorkspaceFile | undefined {
+    if (this.#selected === undefined) return undefined;
     return this.#files.get(this.#selected);
   }
 
-  get names() {
+  get names(): string[] {
     return [...this.#files.keys()].sort((a, b) => {
       if (a === entryName) return -1;
       if (b === entryName) return 1;
@@ -71,23 +99,35 @@ export class Workspace {
     });
   }
 
-  get documents() {
-    return this.names.map((name) =>
-      Object.freeze({
+  get documents(): WorkspaceDocument[] {
+    return this.names.map((name) => {
+      const file = this.#files.get(name)!;
+      return Object.freeze({
         path: name,
-        text: this.#files.get(name).text,
-        version: this.#files.get(name).version,
-      })
-    );
+        text: file.text,
+        version: file.version,
+      });
+    });
   }
 
-  get tree() {
-    const root = { kind: 'directory', name: '', path: '', children: [] };
-    const directories = new Map([['', root]]);
-    const directory = (path) => {
-      if (directories.has(path)) return directories.get(path);
+  get tree(): DirectoryNode {
+    const root: DirectoryNode = {
+      kind: 'directory',
+      name: '',
+      path: '',
+      children: [],
+    };
+    const directories = new Map<string, DirectoryNode>([['', root]]);
+    const directory = (path: string): DirectoryNode => {
+      const existing = directories.get(path);
+      if (existing) return existing;
       const parts = path.split('/');
-      const node = { kind: 'directory', name: parts.pop(), path, children: [] };
+      const node: DirectoryNode = {
+        kind: 'directory',
+        name: parts.pop() ?? '',
+        path,
+        children: [],
+      };
       directory(parts.join('/')).children.push(node);
       directories.set(path, node);
       return node;
@@ -95,14 +135,14 @@ export class Workspace {
     for (const path of this.#folders) directory(path);
     for (const name of this.names) {
       const parts = name.split('/');
-      const leaf = parts.pop();
+      const leaf = parts.pop() ?? name;
       directory(parts.join('/')).children.push({
         kind: 'file',
         name: leaf,
         path: name,
       });
     }
-    const sort = (node) => {
+    const sort = (node: DirectoryNode): DirectoryNode => {
       node.children.sort((a, b) =>
         a.kind === b.kind
           ? a.name.localeCompare(b.name)
@@ -117,7 +157,7 @@ export class Workspace {
     return sort(root);
   }
 
-  #parents(name) {
+  #parents(name: string) {
     const parts = name.split('/');
     parts.pop();
     let path = '';
@@ -126,7 +166,7 @@ export class Workspace {
       this.#folders.add(path);
     }
   }
-  #assertFree(name, ignored = new Set()) {
+  #assertFree(name: string, ignored = new Set<string>()) {
     if (
       !ignored.has(name) &&
       (this.#files.has(name) || this.#folders.has(name))
@@ -141,13 +181,13 @@ export class Workspace {
         throw new Error('A file cannot contain other files.');
     }
   }
-  addFolder(name) {
+  addFolder(name: string) {
     const path = SourcePath.parse(name).name;
     this.#assertFree(path);
     this.#parents(path);
     this.#folders.add(path);
   }
-  rename(name, destination) {
+  rename(name: string, destination: string): Map<string, string> {
     const old = SourcePath.parse(name).name,
       next = SourcePath.parse(destination).name;
     if (!this.#files.has(old) && !this.#folders.has(old))
@@ -159,20 +199,20 @@ export class Workspace {
       (path) => path === old || path.startsWith(old + '/')
     );
     const ignored = new Set(paths),
-      moves = new Map(
+      moves = new Map<string, string>(
         paths.map((path) => [path, next + path.slice(old.length)])
       );
     for (const target of moves.values()) this.#assertFree(target, ignored);
     const files = paths
       .filter((path) => this.#files.has(path))
-      .map((path) => [path, this.#files.get(path)]);
+      .map((path) => [path, this.#files.get(path)!] as const);
     const folders = paths.filter((path) => this.#folders.has(path));
     for (const path of paths) {
       this.#files.delete(path);
       this.#folders.delete(path);
     }
     for (const [path, file] of files) {
-      const target = moves.get(path);
+      const target = moves.get(path)!;
       this.#parents(target);
       this.#files.set(
         target,
@@ -184,14 +224,15 @@ export class Workspace {
       );
     }
     for (const path of folders) {
-      const target = moves.get(path);
+      const target = moves.get(path)!;
       this.#parents(target);
       this.#folders.add(target);
     }
-    this.#selected = moves.get(this.#selected) ?? this.#selected;
+    if (this.#selected !== undefined)
+      this.#selected = moves.get(this.#selected) ?? this.#selected;
     return moves;
   }
-  remove(name) {
+  remove(name: string) {
     const path = SourcePath.parse(name).name;
     if (!this.#files.has(path) && !this.#folders.has(path))
       throw new Error('That item does not exist.');
@@ -201,7 +242,7 @@ export class Workspace {
     for (const folder of this.#folders)
       if (folder === path || folder.startsWith(path + '/'))
         this.#folders.delete(folder);
-    if (!this.#files.has(this.#selected))
+    if (this.#selected === undefined || !this.#files.has(this.#selected))
       this.#selected = this.#files.has(entryName) ? entryName : this.names[0];
   }
 
@@ -209,7 +250,7 @@ export class Workspace {
     return this.#selected !== undefined;
   }
 
-  add(name, text = '') {
+  add(name: string, text: unknown = '') {
     const path = SourcePath.parse(name);
     if (typeof text !== 'string')
       throw new TypeError('Source files must contain text.');
@@ -222,21 +263,23 @@ export class Workspace {
     this.#selected = path.name;
   }
 
-  select(name) {
+  select(name: string) {
     const path = SourcePath.parse(name);
     if (!this.#files.has(path.name))
       throw new Error('That file does not exist.');
     this.#selected = path.name;
   }
 
-  edit(text) {
+  edit(text: unknown) {
     if (typeof text !== 'string')
       throw new TypeError('Source files must contain text.');
-    if (text === this.selected.text) return;
+    const selected = this.selected;
+    if (!selected || this.#selected === undefined || text === selected.text)
+      return;
     this.#files.set(
       this.#selected,
       Object.freeze({
-        path: this.selected.path,
+        path: selected.path,
         text,
         version: ++this.#revision,
       })
@@ -247,7 +290,7 @@ export class Workspace {
     if (this.#selected) this.remove(this.#selected);
   }
 
-  applyDocumentEdits(updates) {
+  applyDocumentEdits(updates: DocumentUpdate[]) {
     const seen = new Set();
     for (const update of updates) {
       const document = this.#files.get(update.path);
@@ -261,7 +304,7 @@ export class Workspace {
       seen.add(update.path);
     }
     for (const update of updates) {
-      const document = this.#files.get(update.path);
+      const document = this.#files.get(update.path)!;
       this.#files.set(
         update.path,
         Object.freeze({
@@ -273,16 +316,16 @@ export class Workspace {
     }
   }
 
-  snapshot() {
-    if (!this.#files.has(entryName))
-      throw new Error('Create main.jai to run the program.');
+  snapshot(): { source: string; files: Record<string, string> } {
+    const entry = this.#files.get(entryName);
+    if (!entry) throw new Error('Create main.jai to run the program.');
     const files = Object.fromEntries(
       [...this.#files]
         .filter(([name]) => name !== entryName)
         .map(([name, file]) => [name, file.text])
     );
     return Object.freeze({
-      source: this.#files.get(entryName).text,
+      source: entry.text,
       files: Object.freeze(files),
     });
   }
