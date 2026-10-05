@@ -1,21 +1,35 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import { normalize, sep } from 'node:path';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
 // Execute the actual validators without running downloads or mounting a DOM element.
-const syncSource = await readFile(new URL('../../scripts/sync-lodestone-web.mjs', import.meta.url), 'utf8');
+const syncSource = await readFile(new URL('../../scripts/sync-lodestone-web.ts', import.meta.url), 'utf8');
 const browserSource = await readFile(new URL('../../src/lib/lodestone-game.ts', import.meta.url), 'utf8');
 const parseSource = syncSource.slice(syncSource.indexOf('function parseManifest('), syncSource.indexOf('function verifyDigest('));
-const parseManifest = runInNewContext(`${parseSource}\nparseManifest`, {
+const parseManifest: (bytes: Buffer) => unknown = runInNewContext(`${stripTypeScriptTypes(parseSource)}\nparseManifest`, {
   pointer: { lodestoneRevision: 'a'.repeat(40) }, normalize, sep,
 });
-const loadSource = browserSource.slice(browserSource.indexOf('  async #loadManifest('), browserSource.indexOf('  #launchWorker('))
-  .replace('async #loadManifest(signal: AbortSignal)', 'async function loadManifest(signal)')
-  .replace(' as SdkManifest', '');
+const loadSource = stripTypeScriptTypes(
+  browserSource.slice(browserSource.indexOf('  async #loadManifest('), browserSource.indexOf('  #launchWorker('))
+    .replace('async #loadManifest(', 'async function loadManifest(')
+);
 
-function fixture() {
+interface Manifest {
+  schema: string;
+  schema_version: number;
+  dirty_checkout: boolean;
+  commit: string;
+  entrypoint: string;
+  worker_entrypoint: string;
+  archive: { path: string; format: string; size: number; sha256: string };
+  files: { path: string; size: number; sha256: string }[];
+}
+type Mutation = [label: string, mutate: (manifest: Manifest) => void];
+
+function fixture(): Manifest {
   const entrypoint = 'lodestone-web-0123456789abcdef.js';
   const worker = 'lodestone-render-worker-0123456789abcdef.js';
   return {
@@ -28,19 +42,20 @@ function fixture() {
   };
 }
 
-async function validateBrowser(manifest) {
-  const loadManifest = runInNewContext(`${loadSource}\nloadManifest`, {
+async function validateBrowser(manifest: Manifest): Promise<unknown> {
+  const loadManifest: (signal: AbortSignal) => Promise<unknown> = runInNewContext(`${loadSource}\nloadManifest`, {
     SDK_MANIFEST_URL: '/lodestone/lodestone-web-sdk.manifest.json',
     fetch: async () => ({ ok: true, json: async () => manifest }),
   });
   return loadManifest(new AbortController().signal);
 }
 
-function validateSync(manifest) {
+function validateSync(manifest: Manifest): unknown {
   return parseManifest(Buffer.from(JSON.stringify(manifest)));
 }
 
-for (const [name, validate] of [['sync', validateSync], ['browser', validateBrowser]]) {
+const validators: [string, (manifest: Manifest) => unknown][] = [['sync', validateSync], ['browser', validateBrowser]];
+for (const [name, validate] of validators) {
   test(`${name}: accepts merged resource archive without legacy assets`, async () => {
     await validate(fixture());
   });
@@ -58,14 +73,15 @@ for (const [name, validate] of [['sync', validateSync], ['browser', validateBrow
       await assert.rejects(async () => validate(manifest));
     });
   }
-  for (const [label, mutate] of [
+  const mutations: Mutation[] = [
     ['schema', (m) => { m.schema_version = 1; }],
     ['worker path', (m) => { m.worker_entrypoint = '../worker.js'; }],
-    ['digest', (m) => { m.files[0].sha256 = 'invalid'; }],
-    ['size', (m) => { m.files[0].size = -1; }],
-    ['unsafe path', (m) => { m.files[0].path = '../entry.js'; }],
-    ['duplicate', (m) => { m.files.push(m.files[0]); }],
-  ]) {
+    ['digest', (m) => { m.files[0]!.sha256 = 'invalid'; }],
+    ['size', (m) => { m.files[0]!.size = -1; }],
+    ['unsafe path', (m) => { m.files[0]!.path = '../entry.js'; }],
+    ['duplicate', (m) => { m.files.push(m.files[0]!); }],
+  ];
+  for (const [label, mutate] of mutations) {
     test(`${name}: rejects invalid ${label}`, async () => {
       const manifest = fixture();
       mutate(manifest);
@@ -74,11 +90,12 @@ for (const [name, validate] of [['sync', validateSync], ['browser', validateBrow
   }
 }
 
-for (const [label, mutate] of [
+const syncMutations: Mutation[] = [
   ['dirty checkout', (m) => { m.dirty_checkout = true; }],
   ['revision mismatch', (m) => { m.commit = 'd'.repeat(40); }],
   ['archive digest', (m) => { m.archive.sha256 = 'invalid'; }],
-]) {
+];
+for (const [label, mutate] of syncMutations) {
   test(`sync: rejects ${label}`, async () => {
     const manifest = fixture();
     mutate(manifest);

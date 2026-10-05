@@ -149,6 +149,7 @@ export function initializeProjectActions() {
     document.documentElement.classList.remove('has-project-demo');
   };
 
+  // Every demo shares DemoModal's exit animation; close once it finishes.
   const closeAnimated = (dialog: HTMLDialogElement | null) => {
     if (!dialog?.open || dialog.dataset.closing === 'true') return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -156,10 +157,17 @@ export function initializeProjectActions() {
       return;
     }
     dialog.dataset.closing = 'true';
-    window.setTimeout(() => {
+    const finish = () => {
+      window.clearTimeout(fallback);
+      dialog.removeEventListener('animationend', ended);
       if (dialog.open) dialog.close();
       delete dialog.dataset.closing;
-    }, 170);
+    };
+    const ended = (event: AnimationEvent) => {
+      if (event.target === dialog) finish();
+    };
+    const fallback = window.setTimeout(finish, 300);
+    dialog.addEventListener('animationend', ended);
   };
 
   const closeMinecraft = () => {
@@ -200,7 +208,7 @@ export function initializeProjectActions() {
         if (!demo.dialog.open) return;
         setDemoLoading(demo.dialog, 1, 'Ready', 'ready');
         demo.dialog
-          .querySelector<HTMLTextAreaElement>('[data-code-source]')
+          .querySelector<HTMLElement>('.cm-content')
           ?.focus({ preventScroll: true });
       } catch {
         // The shared modal loader receives the worker's error event.
@@ -215,7 +223,8 @@ export function initializeProjectActions() {
       ?.addEventListener(
         'click',
         () => {
-          if (demo.panel) void demo.panel.requestFullscreen();
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else if (demo.panel) void demo.panel.requestFullscreen();
         },
         { signal }
       );
@@ -237,7 +246,7 @@ export function initializeProjectActions() {
     demo.dialog.addEventListener(
       'close',
       () => {
-        if (demo.id === 'jai') demo.playground.destroy();
+        demo.playground.destroy();
         document.documentElement.classList.remove('has-project-demo');
         activeTrigger?.focus();
         activeTrigger = undefined;

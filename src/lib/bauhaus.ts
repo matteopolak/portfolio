@@ -87,33 +87,25 @@ export function generateBauhausPattern({
   const moduleColumns = Math.floor(columns / 2);
   const moduleRows = Math.floor(rows / 2);
   const placedColors = Array.from({ length: moduleRows }, () =>
-    Array.from<Set<BauhausColor> | undefined>(
+    Array.from(
       { length: moduleColumns },
-      () => undefined
+      (): Set<BauhausColor> | undefined => undefined
     )
   );
   const shapes: BauhausShape[] = [];
 
   const neighboringColors = (moduleColumn: number, moduleRow: number) => {
     const neighbors: BauhausColor[] = [];
-    if (moduleRow > 0 && placedColors[moduleRow - 1][moduleColumn]) {
-      neighbors.push(...placedColors[moduleRow - 1][moduleColumn]);
-    }
-    if (
-      moduleRow + 1 < moduleRows &&
-      placedColors[moduleRow + 1][moduleColumn]
-    ) {
-      neighbors.push(...placedColors[moduleRow + 1][moduleColumn]);
-    }
-    if (moduleColumn > 0 && placedColors[moduleRow][moduleColumn - 1]) {
-      neighbors.push(...placedColors[moduleRow][moduleColumn - 1]);
-    }
-    if (
-      moduleColumn + 1 < moduleColumns &&
-      placedColors[moduleRow][moduleColumn + 1]
-    ) {
-      neighbors.push(...placedColors[moduleRow][moduleColumn + 1]);
-    }
+    const add = (row: number, column: number) => {
+      if (row < 0 || row >= moduleRows || column < 0 || column >= moduleColumns)
+        return;
+      const colors = placedColors[row]?.[column];
+      if (colors) neighbors.push(...colors);
+    };
+    add(moduleRow - 1, moduleColumn);
+    add(moduleRow + 1, moduleColumn);
+    add(moduleRow, moduleColumn - 1);
+    add(moduleRow, moduleColumn + 1);
     return neighbors;
   };
 

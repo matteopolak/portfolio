@@ -115,7 +115,7 @@ try {
   await rm(temporaryRoot, { recursive: true, force: true });
 }
 
-function run(command, args) {
+function run(command: string, args: string[]): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'inherit'],

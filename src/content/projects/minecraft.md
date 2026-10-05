@@ -4,7 +4,7 @@ date: 2026-08-11
 tags: [rust, wasm, agents]
 repository: https://github.com/matteopolak/lodestone
 ai:
-  usage: agent-led
+  usage: agent-orchestrated
   summary: Opus 5 orchestrated Sonnet 5 subagents; shortly before GPT-6 Astra released, I moved the workflow to Codex with GPT-5.6 Sol and Luna subagents.
   models: [Claude Opus 5, Claude Sonnet 5, GPT-5.6 Sol, GPT-5.6 Luna]
   approximateTokens: 100000000000
