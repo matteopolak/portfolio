@@ -85,6 +85,35 @@
     overflow-wrap: anywhere;
   }
 
+  pre {
+    transition: opacity 140ms ease;
+  }
+
+  pre[data-state='stale'] {
+    opacity: 0.4;
+  }
+
+  pre.is-fresh {
+    animation: ide-output-in 180ms ease-out;
+  }
+
+  @keyframes ide-output-in {
+    from {
+      opacity: 0.4;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    pre,
+    pre.is-fresh {
+      transition: none;
+      animation: none;
+    }
+  }
+
   pre:focus-visible {
     outline: 2px solid var(--yellow);
     outline-offset: -2px;

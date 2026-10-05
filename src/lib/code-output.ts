@@ -39,6 +39,15 @@ export function createCodeOutput(panel: HTMLElement): CodeOutput {
   const output = panel.querySelector<HTMLElement>('[data-code-output]')!;
   const summary = panel.querySelector<HTMLElement>('[data-code-summary]');
   let startedAt: number | undefined;
+  // Most runs finish in a few milliseconds. Until this long has passed the
+  // previous output stays, dimmed, so a fast re-run fades from old to new
+  // instead of flashing an empty "Running…" pane in between.
+  const PLACEHOLDER_DELAY_MS = 300;
+  let placeholder: ReturnType<typeof setTimeout> | undefined;
+  const cancelPlaceholder = () => {
+    clearTimeout(placeholder);
+    placeholder = undefined;
+  };
 
   const markUnread = () => {
     if (panel.dataset.pane !== 'output') panel.dataset.outputUnread = 'true';
@@ -47,23 +56,43 @@ export function createCodeOutput(panel: HTMLElement): CodeOutput {
   return {
     clear() {
       startedAt = undefined;
+      cancelPlaceholder();
+      delete output.dataset.state;
       clearOutput(panel);
     },
     start() {
       startedAt = performance.now();
-      output.textContent = '';
-      delete output.dataset.kind;
       output.setAttribute('aria-busy', 'true');
-      if (summary) summary.textContent = 'Running…';
+      cancelPlaceholder();
+      if (!output.hasChildNodes()) {
+        if (summary) summary.textContent = 'Running…';
+        return;
+      }
+      output.dataset.state = 'stale';
+      placeholder = setTimeout(() => {
+        placeholder = undefined;
+        output.textContent = '';
+        delete output.dataset.kind;
+        delete output.dataset.state;
+        if (summary) summary.textContent = 'Running…';
+      }, PLACEHOLDER_DELAY_MS);
     },
     write(content, kind = 'stdout', details = []) {
       const elapsed =
         startedAt === undefined ? undefined : performance.now() - startedAt;
       startedAt = undefined;
+      cancelPlaceholder();
+      delete output.dataset.state;
       if (typeof content === 'string') output.textContent = content;
       else output.replaceChildren(...content);
       output.dataset.kind = kind;
       output.removeAttribute('aria-busy');
+      // Restart the fade-in for this result.
+      output.classList.remove('is-fresh');
+      void output.offsetWidth;
+      output.classList.add('is-fresh');
+      // Long output opens at its end, where the latest lines and the exit code are.
+      output.scrollTop = output.scrollHeight;
       if (summary)
         summary.textContent = [
           kind === 'error' ? 'Failed' : undefined,
