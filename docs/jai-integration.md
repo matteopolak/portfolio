@@ -14,8 +14,10 @@ header, file tree, CodeMirror editor and output pane described in
 [Shared code workspace](code-workspace.md). There is no embedded release page,
 editor footer, or Website action.
 `src/lib/code-editor.ts` and `src/lib/jai/` contain the shared editor, Jai tokenizer, workspace, language
-client, worker and Wasm bridge. The only release file used at runtime is
-`/jai/<full-commit>/jai_wasm.wasm`.
+client, worker and Wasm bridge. The release files used at runtime are
+`/jai/<full-commit>/jai_wasm.wasm` and, for the Format button,
+`/jai/<full-commit>/jaifmt-playground.jai` (see [Jai formatter](jai-formatter.md); releases
+without it simply hide the button).
 
 Opening the modal initializes separate execution and language-service workers.
 The language client preserves completion, hover and inline diagnostics without Hover text is syntax-highlighted with the editor's own grammar (`highlightedHover` in `src/lib/code-editor.ts`), using the same colors as the source.
@@ -95,7 +97,12 @@ separate operation and does not rename symbols or rewrite imports.
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
-Run `pnpm sync:web-assets` to stage the pinned release. `sync-jai-web.ts` validates
+Run `pnpm sync:web-assets` to stage the pinned release. To try an unreleased compiler,
+build it with `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
+repo and run `JAI_WEB_LOCAL=<dir> node scripts/sync-jai-web.ts`: it copies that build's
+`jai_wasm.wasm` and `jaifmt-playground.jai` into `public/jai/<pinned revision>/` without
+verification (public/jai is ignored). `pnpm dev`'s `predev` re-syncs the pinned release, so start
+the server with `pnpm exec astro dev` afterwards; the next normal sync restores the release. `sync-jai-web.ts` validates
 the pointer and release digests; `verify-jai-bundle.py` validates the exact archive
 inventory, paths, regular-file modes, sizes, digests and Wasm header before writing
 anything. `pnpm test:jai` covers identity mismatch, tampering, traversal, extra

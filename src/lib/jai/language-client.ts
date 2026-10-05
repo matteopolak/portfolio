@@ -225,6 +225,8 @@ export class LanguageClient {
     if (this.#stopped) return;
     const current = new Set<string>();
     for (const { path, text, version } of documents) {
+      // Only Jai sources are language documents (not jaifmt.toml).
+      if (!path.endsWith('.jai')) continue;
       const uri = documentUri(path);
       current.add(uri);
       const previous = this.#opened.get(uri);
