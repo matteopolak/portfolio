@@ -1,13 +1,23 @@
-import type { EditorState } from '@codemirror/state';
+import { EditorSelection, type EditorState } from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
 import { showPane } from '../code-workspace-layout.ts';
 import { Workspace } from './workspace.ts';
+import { starterFiles } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
 import { LanguageClient, pathFromUri } from './language-client.ts';
 import { definitionTarget, renameSymbol } from './language-actions.ts';
 import type { RunOutput } from './engine.ts';
+import {
+  FORMAT_DRIVER_ASSET,
+  FORMAT_DRIVER_PATH,
+  formatChange,
+  formatFiles,
+  formatOutcome,
+  isFormattable,
+  mapOffset,
+} from './format.ts';
 import type {
   ServerCapabilities,
   WorkerRequest,
@@ -17,25 +27,6 @@ import type {
 /** Interpreter budget in basic blocks; runaway programs fail instead of hanging. */
 const BUDGET = 200_000_000;
 
-export const starterFiles: Record<string, string> = {
-  'main.jai': `#import "Basic";
-#load "lib/math.jai";
-
-main :: () {
-    total := 0;
-    for i: 1..10 {
-        total += square(i);
-        print("% squared is %\\n", i, square(i));
-    }
-    print("Sum of squares: %\\n", total);
-}
-`,
-  'lib/math.jai': `square :: (x: int) -> int {
-    return x * x;
-}
-`,
-};
-
 interface CompilerWorker {
   worker: Worker;
   capabilities: { languageServer: boolean };
@@ -44,6 +35,8 @@ interface CompilerWorker {
 const abortError = () => new DOMException('Closed', 'AbortError');
 const errorMessage = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
+
+const extension = (path: string) => path.slice(path.lastIndexOf('.') + 1);
 
 export async function createSession(
   panel: HTMLElement,
@@ -55,6 +48,8 @@ export async function createSession(
   const output = createCodeOutput(panel);
   const run = find<HTMLButtonElement>('run'),
     cancel = find<HTMLButtonElement>('cancel'),
+    formatButton = panel.querySelector<HTMLButtonElement>('[data-code-format]'),
+    status = panel.querySelector<HTMLElement>('[data-code-status]'),
     crumb = panel.querySelector<HTMLElement>('[data-code-crumb]');
   const workspace = new Workspace(starterFiles);
   const states = new Map<string, EditorState>();
@@ -68,6 +63,12 @@ export async function createSession(
   let ready = false;
   let job = 0;
   let syncTimer: ReturnType<typeof setTimeout> | undefined;
+  // Format button state; see formatSelected().
+  let driver: string | undefined;
+  let formatter: Promise<Worker> | undefined;
+  let formatting = false;
+  let formatJob = 0;
+  let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
   const showError = (message: string) => output.write(message, 'error');
   // Function declarations below are hoisted; the runner only calls them later.
@@ -132,7 +133,7 @@ export async function createSession(
           const previous = states.get(update.path);
           const state = previous
             ? previous.update({ changes: update.changes }).state
-            : editor.createState(update.text);
+            : editor.createState(update.text, update.path);
           states.set(update.path, state);
         }
         showSelected();
@@ -149,8 +150,10 @@ export async function createSession(
       version: workspace.selected?.version ?? 0,
     }),
     service: () => {
-      // A read-only stdlib view is not a workspace document: no hover or completion.
-      if (viewing) return undefined;
+      // A read-only stdlib view or a non-Jai file (jaifmt.toml) is not a
+      // language document: no hover or completion.
+      if (viewing || !isFormattable(workspace.selected?.path.name ?? ''))
+        return undefined;
       clearTimeout(syncTimer);
       language?.sync(workspace.documents);
       return language;
@@ -174,22 +177,25 @@ export async function createSession(
   }
   function showReadOnly(path: string, text: string) {
     viewing = path;
-    editor.setState(editor.createState(text));
+    editor.setState(editor.createState(text, path));
     editor.setEditable(false);
     editor.diagnostics([], text);
     if (crumb) crumb.textContent = `${path} (read-only)`;
+    updateFormat();
   }
   function showSelected() {
     viewing = undefined;
     const selected = workspace.selected;
     editor.setState(
       selected
-        ? (states.get(selected.path.name) ?? editor.createState(selected.text))
+        ? (states.get(selected.path.name) ??
+            editor.createState(selected.text, selected.path.name))
         : editor.createState('')
     );
     editor.setEditable(Boolean(selected));
     editor.diagnostics([], selected?.text ?? '');
     if (crumb) crumb.textContent = selected?.path.name ?? 'No file open';
+    updateFormat();
   }
   const tree = initializeFileTree(
     panel,
@@ -212,7 +218,9 @@ export async function createSession(
           for (const [from, to] of moves) {
             const state = saved.find(([path]) => path === from)?.[1];
             states.delete(from);
-            if (state) states.set(to, state);
+            // A new extension needs new highlighting, which a saved state can't change.
+            if (state && extension(from) === extension(to))
+              states.set(to, state);
           }
         }
         const names = new Set(workspace.names);
@@ -391,6 +399,151 @@ export async function createSession(
     output.write('Stopped', 'error');
     idle();
   }
+  /*
+   * Format runs jaifmt's browser driver (`jaifmt-playground.jai` from the
+   * release) in its own worker, so it never waits on or cancels a program run.
+   */
+  function updateFormat() {
+    if (!formatButton) return;
+    formatButton.hidden = driver === undefined;
+    formatButton.disabled =
+      !ready ||
+      formatting ||
+      viewing !== undefined ||
+      !isFormattable(workspace.selected?.path.name ?? '');
+  }
+  function announce(message: string) {
+    if (!status) return;
+    clearTimeout(statusTimer);
+    status.textContent = message;
+    statusTimer = setTimeout(() => {
+      if (status.textContent === message) status.textContent = '';
+    }, 3000);
+  }
+  async function loadDriver() {
+    try {
+      const response = await fetch(`/jai/${revision}/${FORMAT_DRIVER_ASSET}`, {
+        signal,
+      });
+      // Releases built before jaifmt shipped have no driver: no Format button.
+      if (!response.ok) return;
+      const text = await response.text();
+      if (!/^TARGET :: ".*";$/m.test(text)) return;
+      driver = text;
+    } catch {
+      /* Without the driver the button stays hidden. */
+    }
+    updateFormat();
+  }
+  function formatWorker() {
+    formatter ??= initializeWorker().then(({ worker }) => {
+      worker.addEventListener('error', () => {
+        terminate(worker);
+        formatter = undefined;
+      });
+      return worker;
+    });
+    formatter.catch(() => (formatter = undefined));
+    return formatter;
+  }
+  function play(worker: Worker, files: Record<string, string>, main: string) {
+    const id = ++formatJob;
+    return new Promise<RunOutput>((resolve, reject) => {
+      const done = () => {
+        worker.removeEventListener('message', message);
+        worker.removeEventListener('error', failed);
+        signal.removeEventListener('abort', failed);
+      };
+      const message = ({ data }: MessageEvent<WorkerResponse>) => {
+        if (data.type !== 'play' || data.id !== id) return;
+        done();
+        if (data.error !== undefined) reject(new Error(data.error));
+        else resolve(data.result);
+      };
+      const failed = () => {
+        done();
+        reject(signal.aborted ? abortError() : new Error('Formatter failed'));
+      };
+      worker.addEventListener('message', message);
+      worker.addEventListener('error', failed);
+      signal.addEventListener('abort', failed, { once: true });
+      post(worker, { type: 'play', id, files, main, budget: BUDGET });
+    });
+  }
+  async function formatSelected() {
+    const selected = workspace.selected;
+    if (!formatButton || formatButton.disabled || !driver || !selected) return;
+    const path = selected.path.name;
+    formatting = true;
+    updateFormat();
+    formatButton.setAttribute('aria-busy', 'true');
+    try {
+      saveState();
+      const files = formatFiles(workspace.documents, path, driver);
+      const result = await play(
+        await formatWorker(),
+        files,
+        FORMAT_DRIVER_PATH
+      );
+      if (signal.aborted) return;
+      const outcome = formatOutcome(result);
+      if ('error' in outcome) {
+        // The file is left as it was.
+        showError(outcome.error);
+        return;
+      }
+      const current = workspace.selected;
+      if (
+        viewing ||
+        current?.path.name !== path ||
+        current.version !== selected.version
+      ) {
+        showError(
+          `jaifmt: ${path} changed while formatting; it was not modified.`
+        );
+        return;
+      }
+      const before = editor.view.state.doc.toString();
+      const change = formatChange(before, outcome.text);
+      if (!change) {
+        announce(`${path} is already formatted`);
+        return;
+      }
+      const cursor = editor.view.state.selection;
+      const selection = EditorSelection.create(
+        cursor.ranges.map((range) =>
+          EditorSelection.range(
+            mapOffset(before, change, range.anchor),
+            mapOffset(before, change, range.head)
+          )
+        ),
+        cursor.mainIndex
+      );
+      // One transaction: a single undo step restores the original text.
+      editor.view.dispatch({
+        changes: change,
+        selection,
+        scrollIntoView: true,
+        userEvent: 'input.format',
+      });
+      announce(`Formatted ${path}`);
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    } finally {
+      formatting = false;
+      formatButton.removeAttribute('aria-busy');
+      updateFormat();
+    }
+  }
+  formatButton?.addEventListener(
+    'click',
+    () => {
+      void formatSelected();
+      editor.focus();
+    },
+    { signal }
+  );
+
   const editorHost = find('editor');
   editorHost.addEventListener('compositionstart', runner.compositionStart, {
     signal,
@@ -417,6 +570,17 @@ export async function createSession(
       ) {
         event.preventDefault();
         run.click();
+      } else if (
+        event.shiftKey &&
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.code === 'KeyF' &&
+        formatButton &&
+        !formatButton.hidden
+      ) {
+        event.preventDefault();
+        void formatSelected();
       }
     },
     { signal }
@@ -425,6 +589,7 @@ export async function createSession(
     'abort',
     () => {
       ready = false;
+      clearTimeout(statusTimer);
       runner.destroy();
       ++job;
       clearTimeout(syncTimer);
@@ -438,6 +603,10 @@ export async function createSession(
       run.disabled = true;
       run.hidden = false;
       cancel.hidden = true;
+      if (formatButton) {
+        formatButton.hidden = true;
+        formatButton.disabled = true;
+      }
     },
     { once: true }
   );
@@ -445,8 +614,13 @@ export async function createSession(
     editor.destroy();
     throw abortError();
   }
+  // A playground deep link (`/playground/jai#lib/math.jai`) opens that file.
+  const requested = panel.dataset.codeOpen;
+  if (requested && workspace.names.includes(requested))
+    workspace.select(requested);
   showSelected();
   tree.render();
+  const driverLoaded = loadDriver();
   const runtime = await initializeWorker();
   connect(runtime.worker);
   if (runtime.capabilities.languageServer) {
@@ -475,9 +649,11 @@ export async function createSession(
     languageCapabilities = initialized?.capabilities;
     client.sync(workspace.documents);
   }
+  await driverLoaded;
   if (signal.aborted) throw abortError();
   ready = true;
   idle();
+  updateFormat();
   if (editedDuringBoot) runner.changed();
   else void runner.play();
   editor.focus();

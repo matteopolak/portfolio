@@ -2,6 +2,8 @@ jobs/
 docs/*
 !docs/bauhaus-grid-state.md
 !docs/code-workspace.md
+!docs/jai-formatter.md
+!docs/playground-pages.md
 !docs/baerscript-web-playground.md
 !docs/continuous-integration.md
 !docs/favicon-pipeline.md

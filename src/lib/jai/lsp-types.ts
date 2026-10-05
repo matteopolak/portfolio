@@ -99,6 +99,14 @@ export type WorkerRequest =
       id: number;
       source: string;
       options: { files: Record<string, string>; budget: number };
+    }
+  | {
+      /** Runs `main` from a whole `/workspace` file map (the formatter driver). */
+      type: 'play';
+      id: number;
+      files: Record<string, string>;
+      main: string;
+      budget: number;
     };
 
 export type WorkerResponse =
@@ -109,4 +117,5 @@ export type WorkerResponse =
     }
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }
   | { type: 'run'; id: number; result: RunOutput; error?: undefined }
+  | { type: 'play'; id: number; result: RunOutput; error?: undefined }
   | { type: WorkerRequest['type']; id?: number; error: string };

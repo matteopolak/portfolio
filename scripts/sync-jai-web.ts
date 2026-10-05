@@ -5,6 +5,7 @@ import {
   writeFile,
   rm,
   rename,
+  copyFile,
 } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
@@ -42,6 +43,29 @@ if (
   throw new Error('Invalid immutable Jai release pointer.');
 }
 const destination = join(root, 'public/jai', pointer.revision);
+
+/*
+ * JAI_WEB_LOCAL=<dir> stages a local `tools/build_scripting_wasm.py --output <dir>`
+ * build under the pinned revision instead of the release, for testing compiler
+ * changes before a pin bump. Unverified and never committed (public/jai is
+ * ignored); the next sync without it restores the pinned release.
+ */
+const local = process.env.JAI_WEB_LOCAL;
+if (local) {
+  const source = resolve(local);
+  await rm(destination, { recursive: true, force: true });
+  await mkdir(destination, { recursive: true });
+  for (const name of ['jai_wasm.wasm', 'jaifmt-playground.jai']) {
+    try {
+      await copyFile(join(source, name), join(destination, name));
+    } catch (error) {
+      if (name === 'jai_wasm.wasm') throw error;
+      console.warn(`Local Jai build has no ${name}; Format stays hidden.`);
+    }
+  }
+  console.log(`Staged local Jai build from ${source} as ${pointer.revision}.`);
+  process.exit(0);
+}
 const temp = await mkdtemp(join(tmpdir(), 'jai-web-'));
 try {
   const base = `https://github.com/${pointer.repository}/releases/download/${pointer.tag}`;

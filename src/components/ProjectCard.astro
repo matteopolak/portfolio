@@ -10,9 +10,11 @@ interface Props {
     id: string;
     label: string;
   };
+  /** Full-page playground route, linked next to the action. */
+  playground?: string;
 }
 
-const { project, action } = Astro.props;
+const { project, action, playground } = Astro.props;
 const { Content, remarkPluginFrontmatter } = await render(project);
 // Astro's dev content store can retain the pre-schema shape after this optional
 // field is introduced. The rendered frontmatter is the same source document and
@@ -63,6 +65,11 @@ const date = project.data.date.toLocaleDateString('en-US', {
         <button type="button" data-project-action={action.id} data-project-slug={project.id}>
           {action.label}
         </button>
+      )}
+      {playground && (
+        <a href={playground} data-astro-reload>
+          Playground
+        </a>
       )}
       {project.data.website && (
         <a href={project.data.website} target="_blank" rel="noopener noreferrer">

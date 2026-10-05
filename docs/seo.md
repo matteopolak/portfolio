@@ -8,7 +8,7 @@ The site emits crawlable metadata, canonical URLs, social previews, structured d
 
 `src/components/Head.astro` owns page titles, descriptions, self-referencing canonical links, Open Graph and Twitter fields, and a Schema.org JSON-LD graph. The graph describes Matthew as the site publisher, normal routes as `WebPage`, and blog posts as `BlogPosting` with their publication date. `src/lib/urls.ts` removes Astro's static `.html` output filename from public canonicals so metadata and sitemap URLs stay aligned.
 
-`src/pages/sitemap.xml.ts` is a prerendered Astro endpoint. At build time it reads the blog content collection, excludes drafts, and writes absolute canonical URLs for the home, Projects, Blog, and every published post. Blog entries use their publication date as `lastmod`; static pages omit it because the repository does not track a reliable content-modification date. The prerendered `src/pages/robots.txt.ts` route allows normal crawling and advertises the sitemap using the same configured production origin.
+`src/pages/sitemap.xml.ts` is a prerendered Astro endpoint. At build time it reads the blog content collection, excludes drafts, and writes absolute canonical URLs for the home, Projects, Blog, the playground index and each `/playground/<language>` page (from `src/data/code-demos.ts`), and every published post. Blog entries use their publication date as `lastmod`; static pages omit it because the repository does not track a reliable content-modification date. The prerendered `src/pages/robots.txt.ts` route allows normal crawling and advertises the sitemap using the same configured production origin.
 
 ## How to change it
 

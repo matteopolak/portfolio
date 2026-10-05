@@ -51,7 +51,7 @@ runner.
 ## How to change it
 
 Edit the visual layout in `CodeWorkspace.astro` and `CodeOutput.astro` and the starter program in
-`src/pages/projects.astro`. Change shared execution lifecycle, timeout
+`src/data/code-demos.ts` (shared by the modal and `/playground/quasi`). Change shared execution lifecycle, timeout
 messaging, or shortcuts in `src/lib/code-playground.ts`; change only Quasi's
 worker selection in `src/lib/quasi-playground.ts` and tokenizer in `src/lib/code-editor.ts`, and the generated-module bridge in
 `src/lib/quasi-worker.ts`. Keep untrusted execution inside the disposable worker

@@ -30,7 +30,14 @@ export interface RunOutput {
 
 export interface Engine {
   lsp?: (message: JsonRpcMessage) => JsonRpcMessage[];
+  /** Runs `main.jai` from `source` plus `options.files`. */
   run(source: string, options?: RunOptions): RunOutput;
+  /** Runs the file named `main` from `files` (the `/workspace` file map). */
+  play(
+    files: Record<string, string>,
+    main: string,
+    options?: Pick<RunOptions, 'budget'>
+  ): RunOutput;
 }
 
 // The browser and Node verification harness instantiate the exact same Rust compiler (jaic).
@@ -147,33 +154,37 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
     run(source, { files = {}, budget } = {}) {
       if (typeof source !== 'string')
         throw new TypeError('Source must be text.');
-      if (
-        budget !== undefined &&
-        (!Number.isSafeInteger(budget) || budget <= 0)
-      )
-        throw new RangeError('Budget must be a positive integer.');
-      if (setBudget)
-        check(
-          setBudget(
-            budget === undefined
-              ? 0
-              : Math.min(0xffffffff, Math.ceil(budget / 1000))
-          )
-        );
-      check(api.jai_play_reset());
-      for (const [name, text] of Object.entries({
-        ...files,
-        'main.jai': source,
-      })) {
-        if (typeof text !== 'string')
-          throw new TypeError('Every supplied source file must be text.');
-        push(0, name);
-        push(1, text);
-        check(api.jai_play_finish_file());
-      }
-      push(2, 'main.jai');
-      check(api.jai_play_run());
-      return JSON.parse(read('output')) as RunOutput;
+      return play({ ...files, 'main.jai': source }, 'main.jai', { budget });
     },
+    play,
   };
+  function play(
+    files: Record<string, string>,
+    main: string,
+    { budget }: Pick<RunOptions, 'budget'> = {}
+  ): RunOutput {
+    if (typeof main !== 'string' || !files || typeof files !== 'object')
+      throw new TypeError('Play needs a file map and a main path.');
+    if (budget !== undefined && (!Number.isSafeInteger(budget) || budget <= 0))
+      throw new RangeError('Budget must be a positive integer.');
+    if (setBudget)
+      check(
+        setBudget(
+          budget === undefined
+            ? 0
+            : Math.min(0xffffffff, Math.ceil(budget / 1000))
+        )
+      );
+    check(api.jai_play_reset());
+    for (const [name, text] of Object.entries(files)) {
+      if (typeof text !== 'string')
+        throw new TypeError('Every supplied source file must be text.');
+      push(0, name);
+      push(1, text);
+      check(api.jai_play_finish_file());
+    }
+    push(2, main);
+    check(api.jai_play_run());
+    return JSON.parse(read('output')) as RunOutput;
+  }
 }

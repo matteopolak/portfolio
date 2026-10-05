@@ -26,11 +26,12 @@ prevented unless `closedby` says otherwise.
 
 `ProjectDemoLoading.astro` is composed into each modal: over the whole 16:9 stage
 for Minecraft, and over the workspace body (below its header) for the editors. The small state
-helper in `src/lib/project-actions.ts` listens on every `[data-project-demo]`
-dialog for three bubbling events: `project-demo-progress`,
+helper (`setDemoLoading`/`watchDemoLoading` in `src/lib/code-demos.ts`, used by
+`src/lib/project-actions.ts`) listens on every `dialog[data-project-demo]` for three bubbling events: `project-demo-progress`,
 `project-demo-ready`, and `project-demo-error`. This keeps the modal agnostic to
 whether the underlying demo is a WebAssembly compiler, a renderer worker, or a
-future project runtime.
+future project runtime. The full-page playgrounds reuse the same helpers on
+their `[data-playground-page]` element (see [Full-page playgrounds](playground-pages.md)).
 
 `Layout.astro` loads the action controller on every route and initializes it
 after each `astro:page-load`. This matters for Astro client navigation: the

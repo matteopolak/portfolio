@@ -1,7 +1,10 @@
 import './lodestone-game';
-import { initializeBaerscriptPlayground } from './baerscript-playground';
-import { initializeQuasiPlayground } from './quasi-playground';
-import { initializeJaiPlayground } from './jai-playground';
+import {
+  codeDemos as codeDemoDefinitions,
+  setDemoLoading,
+  watchDemoLoading,
+  wireFullscreen,
+} from './code-demos';
 
 type ProjectActionCallback = (
   trigger: HTMLButtonElement
@@ -13,16 +16,6 @@ interface LodestoneGameElement extends HTMLElement {
   enterFullscreen(): Promise<void>;
 }
 
-interface DemoProgressEvent extends CustomEvent {
-  detail: { progress: number; message: string };
-}
-
-interface CodePlayground {
-  prepare(): Promise<void>;
-  isReady(): boolean;
-  destroy(): void;
-}
-
 const callbacks = new Map<string, ProjectActionCallback>();
 let cleanup: (() => void) | undefined;
 
@@ -31,43 +24,6 @@ export function registerProjectAction(
   callback: ProjectActionCallback
 ) {
   callbacks.set(id, callback);
-}
-
-function replaceWithInlineCode(element: HTMLElement, message: string) {
-  const parts = message.split('`');
-  element.replaceChildren(
-    ...parts.map((part, index) => {
-      if (index % 2 === 0) return document.createTextNode(part);
-      const code = document.createElement('code');
-      code.textContent = part;
-      return code;
-    })
-  );
-}
-
-function setDemoLoading(
-  dialog: HTMLDialogElement,
-  progress: number,
-  message: string,
-  state: 'loading' | 'ready' | 'error' = 'loading'
-) {
-  const bounded = Math.max(0, Math.min(1, progress));
-  dialog.dataset.demoState = state;
-  const loader = dialog.querySelector<HTMLElement>(
-    '[data-project-demo-loading]'
-  );
-  const progressElement = dialog.querySelector<HTMLElement>(
-    '[data-project-demo-loading-progress]'
-  );
-  loader?.setAttribute('data-state', state);
-  const label = loader?.querySelector<HTMLElement>(
-    '[data-project-demo-loading-label]'
-  );
-  if (label) replaceWithInlineCode(label, message);
-  progressElement?.setAttribute(
-    'aria-valuenow',
-    String(Math.round(bounded * 100))
-  );
 }
 
 export function initializeProjectActions() {
@@ -82,29 +38,15 @@ export function initializeProjectActions() {
     '[data-project-demo-game]'
   );
   const projectDialogs = [
-    ...document.querySelectorAll<HTMLDialogElement>('[data-project-demo]'),
+    ...document.querySelectorAll<HTMLDialogElement>(
+      'dialog[data-project-demo]'
+    ),
   ];
   let activeTrigger: HTMLButtonElement | undefined;
-  const codeDemos = [
-    {
-      id: 'quasi',
-      actionId: 'try-quasi',
-      initialize: initializeQuasiPlayground,
-    },
-    {
-      id: 'baerscript',
-      actionId: 'try-baerscript',
-      initialize: initializeBaerscriptPlayground,
-    },
-    {
-      id: 'jai',
-      actionId: 'try-jai',
-      initialize: initializeJaiPlayground,
-    },
-  ]
+  const codeDemos = codeDemoDefinitions
     .map(({ id, actionId, initialize }) => {
       const dialog = document.querySelector<HTMLDialogElement>(
-        `[data-project-demo="${id}"]`
+        `dialog[data-project-demo="${id}"]`
       );
       if (!dialog) return undefined;
       return {
@@ -114,35 +56,12 @@ export function initializeProjectActions() {
         panel: dialog.querySelector<HTMLElement>(
           '[data-code-fullscreen-target]'
         ),
-        playground: initialize(dialog, signal) as CodePlayground,
+        playground: initialize(dialog, signal),
       };
     })
     .filter((demo) => demo !== undefined);
 
-  for (const dialog of projectDialogs) {
-    dialog.addEventListener(
-      'project-demo-progress',
-      (event) => {
-        const { progress, message } = (event as DemoProgressEvent).detail;
-        setDemoLoading(dialog, progress, message);
-      },
-      { signal }
-    );
-    dialog.addEventListener(
-      'project-demo-ready',
-      () => setDemoLoading(dialog, 1, 'Ready', 'ready'),
-      { signal }
-    );
-    dialog.addEventListener(
-      'project-demo-error',
-      (event) => {
-        const message = (event as CustomEvent<{ message: string }>).detail
-          .message;
-        setDemoLoading(dialog, 1, message, 'error');
-      },
-      { signal }
-    );
-  }
+  for (const dialog of projectDialogs) watchDemoLoading(dialog, signal);
 
   const destroyGame = () => {
     gameHost?.replaceChildren();
@@ -218,16 +137,7 @@ export function initializeProjectActions() {
     demo.dialog
       .querySelector<HTMLButtonElement>('[data-code-close]')
       ?.addEventListener('click', () => closeAnimated(demo.dialog), { signal });
-    demo.dialog
-      .querySelector<HTMLButtonElement>('[data-code-fullscreen]')
-      ?.addEventListener(
-        'click',
-        () => {
-          if (document.fullscreenElement) void document.exitFullscreen();
-          else if (demo.panel) void demo.panel.requestFullscreen();
-        },
-        { signal }
-      );
+    wireFullscreen(demo.dialog, demo.panel, signal);
     // Escape never closes a demo: editors (Vim mode, completion, search) and
     // games use it. The close button and the backdrop do.
     demo.dialog.addEventListener('cancel', (event) => event.preventDefault(), {

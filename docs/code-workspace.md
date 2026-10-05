@@ -4,14 +4,16 @@
 
 The jai, Quasi, and BaerScript project cards open the same in-browser editor. It is a dark IDE surface with these parts:
 
-- a header bar with the language, the active file, status, Run/Stop, full screen and close;
+- a header bar with the language, the active file, status, Run/Stop, Format (jai), Vim, full screen, and close plus "Open in playground" (modal) or a back arrow (page);
 - an optional file tree (jai only);
 - a CodeMirror editor;
 - an output pane.
 
-On phones it becomes a full-screen sheet with a bottom tab bar.
+It is mounted in a modal on the Projects page and as a full page at `/playground/<language>` ([Full-page playgrounds](playground-pages.md)). On phones it becomes a full-screen sheet with a bottom tab bar.
 
 ## How it works
+
+Highlighting is chosen per file: in the Jai workspace, `.jai` files use the Jai tokenizer, `.toml` files (`jaifmt.toml`) use `src/lib/toml-language.ts`, and anything else is plain text (`syntaxFor` in `src/lib/code-editor.ts`). Renaming a file to a different extension drops its saved editor state so it is re-highlighted.
 
 `CodeDemoModal.astro` wraps `CodeWorkspace.astro` in the shared `DemoModal.astro` dialog. Every project demo, including Minecraft, therefore opens and closes with the same animation. `CodeDemoModal` takes:
 
@@ -21,7 +23,7 @@ On phones it becomes a full-screen sheet with a bottom tab bar.
 
 `CodeWorkspace.astro` owns the markup and styling:
 
-- **Header bar.** The language mark uses `--ide-accent`: red for jai, blue for Quasi, yellow for BaerScript. The breadcrumb (`data-code-crumb`) shows the open file. The status text (`data-code-status`) and Retry (`data-code-retry`) appear while loading or after a failure. Run (`data-code-run`) is swapped for Stop (`data-code-cancel`) while a program runs.
+- **Header bar.** The language mark uses `--ide-accent`: red for jai, blue for Quasi, yellow for BaerScript. The breadcrumb (`data-code-crumb`) shows the open file. The status text (`data-code-status`) and Retry (`data-code-retry`) appear while loading or after a failure. Run (`data-code-run`) is swapped for Stop (`data-code-cancel`) while a program runs. Format (`data-code-format`, jai only) is described in [Jai formatter](jai-formatter.md). `mode="modal"` adds an "Open in playground" link (`data-code-open-page`) before Close (`data-code-close`); `mode="page"` replaces Close with a back link to `/projects#<id>` (`data-code-back`).
 - **File tree** (`data-code-files-pane`). The pane header has visible New file / New folder buttons. Each row has a `⋯` menu button, so nothing depends on right-click. Right-click, arrow keys, F2 (rename) and Shift+F10 (menu) still work. The new-item input appears inline at the end of the target folder's children (like VS Code), pushing later rows down.
 - **Editor host** (`data-code-editor`) and **output pane** (`CodeOutput.astro`, `data-code-output-pane`). They are separated by resize handles that work with the pointer and keyboard.
 - **Loader.** `ProjectDemoLoading` covers only the body, so close and Retry stay usable while it is shown.
@@ -64,8 +66,8 @@ Both run the starter once as soon as the runtime is ready, then auto-run 600 ms 
 - **Adding a language:**
   1. Add a tokenizer and name in `code-editor.ts`.
   2. Add a worker wrapper modeled on `quasi-playground.ts`.
-  3. Register it in `project-actions.ts`.
-  4. Mount another `<CodeDemoModal>` in `src/pages/projects.astro`.
+  3. Register it in `src/lib/code-demos.ts` (used by both the modals and the playground pages).
+  4. Add its page copy, starter and workspace props to `src/data/code-demos.ts`; `projects.astro` mounts a `<CodeDemoModal>` per entry and `/playground/<id>` is generated from it.
 
 Keep the `data-code-*` hooks stable. The jai host tests and `tests/jai/modal_browser.py` select on them.
 
