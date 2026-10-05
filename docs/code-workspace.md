@@ -22,7 +22,7 @@ On phones it becomes a full-screen sheet with a bottom tab bar.
 `CodeWorkspace.astro` owns the markup and styling:
 
 - **Header bar.** The language mark uses `--ide-accent`: red for jai, blue for Quasi, yellow for BaerScript. The breadcrumb (`data-code-crumb`) shows the open file. The status text (`data-code-status`) and Retry (`data-code-retry`) appear while loading or after a failure. Run (`data-code-run`) is swapped for Stop (`data-code-cancel`) while a program runs.
-- **File tree** (`data-code-files-pane`). The pane header has visible New file / New folder buttons. Each row has a `⋯` menu button, so nothing depends on right-click. Right-click, arrow keys, F2 (rename) and Shift+F10 (menu) still work.
+- **File tree** (`data-code-files-pane`). The pane header has visible New file / New folder buttons. Each row has a `⋯` menu button, so nothing depends on right-click. Right-click, arrow keys, F2 (rename) and Shift+F10 (menu) still work. The new-item input appears inline at the end of the target folder's children (like VS Code), pushing later rows down.
 - **Editor host** (`data-code-editor`) and **output pane** (`CodeOutput.astro`, `data-code-output-pane`). They are separated by resize handles that work with the pointer and keyboard.
 - **Loader.** `ProjectDemoLoading` covers only the body, so close and Retry stay usable while it is shown.
 - **Tab bar** (`data-pane-tab`). It is shown only at phone widths.

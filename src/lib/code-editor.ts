@@ -45,7 +45,7 @@ import {
   setDiagnostics,
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
-import { tags } from '@lezer/highlight';
+import { tags, highlightTree } from '@lezer/highlight';
 import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
 import {
   documentUri,
@@ -132,7 +132,7 @@ const theme = EditorView.theme(
       padding: '14px 0 40px',
       caretColor: 'var(--yellow)',
     },
-    '.cm-line': { padding: '0 16px 0 12px' },
+    '.cm-line': { padding: '0 16px 0 4px' },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: 'var(--yellow)',
       borderLeftWidth: '2px',
@@ -144,9 +144,10 @@ const theme = EditorView.theme(
       paddingLeft: '6px',
     },
     '.cm-lineNumbers .cm-gutterElement': { minWidth: '2.5ch' },
+    '.cm-gutter-lint': { width: '14px' },
     '.cm-activeLine': { backgroundColor: 'var(--ide-active-line)' },
     '.cm-activeLineGutter': {
-      backgroundColor: 'transparent',
+      backgroundColor: 'var(--ide-active-line)',
       color: 'var(--ide-fg)',
     },
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection':
@@ -158,9 +159,16 @@ const theme = EditorView.theme(
       outline: '1px solid var(--ide-muted)',
     },
     '.cm-foldGutter .cm-gutterElement': {
+      width: '10px',
+      padding: '0',
       color: 'var(--ide-faint)',
       cursor: 'pointer',
+      textAlign: 'center',
     },
+    '.cm-fold-marker': { opacity: '0', transition: 'opacity 120ms ease' },
+    '.cm-fold-marker--closed': { opacity: '1' },
+    '.cm-gutters:hover .cm-fold-marker, .cm-foldGutter .cm-gutterElement:focus-within .cm-fold-marker':
+      { opacity: '1' },
     '.cm-foldPlaceholder': {
       backgroundColor: 'var(--ide-raised)',
       border: 'none',
@@ -259,6 +267,45 @@ function textContent(value: MarkupText | undefined): string {
   return typeof value?.value === 'string' ? value.value : '';
 }
 
+/**
+ * Hover text is plain, but it is code: type signatures and declarations. Color
+ * it with the editor's own grammar. Markdown fences, when present, mark the
+ * code regions and everything outside them stays plain.
+ */
+function highlightedHover(
+  text: string,
+  { parser }: StreamLanguage<unknown>
+): (Node | string)[] {
+  const nodes: (Node | string)[] = [];
+  const code = (source: string) => {
+    const fragment = document.createDocumentFragment();
+    let at = 0;
+    const plain = (to: number) => {
+      if (to > at) fragment.append(source.slice(at, to));
+      at = to;
+    };
+    highlightTree(parser.parse(source), colors, (from, to, cls) => {
+      plain(from);
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = source.slice(from, to);
+      fragment.append(span);
+      at = to;
+    });
+    plain(source.length);
+    return fragment;
+  };
+  if (!/```/u.test(text)) return [code(text)];
+  let last = 0;
+  for (const match of text.matchAll(/```[^\n]*\n([\s\S]*?)```/gu)) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    nodes.push(code(match[1].replace(/\n$/u, '')));
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
 const completionType = (kind: number | undefined) =>
   kind === 3
     ? 'function'
@@ -267,6 +314,13 @@ const completionType = (kind: number | undefined) =>
       : kind === 14
         ? 'keyword'
         : 'variable';
+
+const languageFor = (language: EditorLanguage) =>
+  language === 'baerscript'
+    ? baerscriptLanguage
+    : language === 'quasi'
+      ? quasiLanguage
+      : jaiLanguage;
 
 export interface EditorDocument {
   path: string;
@@ -425,7 +479,7 @@ export function createEditor(
         create() {
           const dom = document.createElement('div');
           dom.className = 'jai-hover';
-          dom.textContent = text;
+          dom.append(...highlightedHover(text, languageFor(language)));
           return { dom };
         },
       };
@@ -438,13 +492,10 @@ export function createEditor(
       doc,
       extensions: [
         EditorState.lineSeparator.of('\n'),
-        language === 'baerscript'
-          ? baerscriptLanguage
-          : language === 'quasi'
-            ? quasiLanguage
-            : jaiLanguage,
+        languageFor(language),
         syntaxHighlighting(colors),
         theme,
+        lintGutter(),
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightSpecialChars(),
@@ -458,7 +509,9 @@ export function createEditor(
         foldGutter({
           markerDOM: (open) => {
             const marker = document.createElement('span');
-            marker.className = 'cm-fold-marker';
+            marker.className = open
+              ? 'cm-fold-marker'
+              : 'cm-fold-marker cm-fold-marker--closed';
             marker.textContent = open ? '⌄' : '›';
             return marker;
           },
@@ -467,7 +520,6 @@ export function createEditor(
         crosshairCursor(),
         highlightActiveLine(),
         highlightSelectionMatches(),
-        lintGutter(),
         autocompletion({ override: [completions], icons: false }),
         hover,
         editable.of(EditorView.editable.of(true)),

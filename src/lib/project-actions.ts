@@ -255,19 +255,48 @@ export function initializeProjectActions() {
     );
   }
 
+  const getOpenProjectDialog = () =>
+    projectDialogs.find((dialog) => dialog.open);
+  // `#<project>/try` deep-links the demo modal: opening a demo writes it to
+  // the URL, closing restores the plain `#<project>` anchor.
+  const openAction = (button: HTMLButtonElement) => {
+    const id = button.dataset.projectAction;
+    const callback = id ? callbacks.get(id) : undefined;
+    if (!callback) return;
+    const slug = button.dataset.projectSlug;
+    if (slug) history.replaceState(history.state, '', `#${slug}/try`);
+    void callback(button);
+  };
+  const openFromHash = () => {
+    const slug = /^#(.+)\/try$/u.exec(location.hash)?.[1];
+    if (!slug || getOpenProjectDialog()) return;
+    const button = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-project-slug]'),
+    ].find((candidate) => candidate.dataset.projectSlug === slug);
+    if (!button) return;
+    document.getElementById(slug)?.scrollIntoView({ block: 'center' });
+    openAction(button);
+  };
   document
     .querySelectorAll<HTMLButtonElement>('[data-project-action]')
     .forEach((button) => {
-      button.addEventListener(
-        'click',
-        () => {
-          const id = button.dataset.projectAction;
-          const callback = id ? callbacks.get(id) : undefined;
-          if (callback) void callback(button);
-        },
-        { signal }
-      );
+      button.addEventListener('click', () => openAction(button), { signal });
     });
+  for (const dialog of projectDialogs) {
+    dialog.addEventListener(
+      'close',
+      () => {
+        if (location.hash.endsWith('/try'))
+          history.replaceState(
+            history.state,
+            '',
+            location.hash.slice(0, -'/try'.length)
+          );
+      },
+      { signal }
+    );
+  }
+  window.addEventListener('hashchange', openFromHash, { signal });
 
   minecraftDialog
     ?.querySelector<HTMLButtonElement>('[data-project-demo-close]')
@@ -298,8 +327,6 @@ export function initializeProjectActions() {
     },
     { signal }
   );
-  const getOpenProjectDialog = () =>
-    projectDialogs.find((dialog) => dialog.open);
   const isModalScrollRegion = (target: EventTarget | null) =>
     target instanceof Element &&
     Boolean(target.closest('[data-project-demo-scroll]'));
@@ -412,13 +439,16 @@ export function initializeProjectActions() {
     { signal }
   );
 
+  queueMicrotask(openFromHash);
+
   cleanup = () => {
     controller.abort();
     for (const demo of codeDemos) {
       demo.playground.destroy();
-      closeAnimated(demo.dialog);
+      // Close immediately: a re-initialization may deep-link straight back in.
+      if (demo.dialog.open) demo.dialog.close();
     }
-    closeMinecraft();
+    if (minecraftDialog?.open) minecraftDialog.close();
     destroyGame();
   };
 }

@@ -177,7 +177,8 @@ export function initializeFileTree(
         renamed.parentElement.style.getPropertyValue('--depth')
       );
       renamed.parentElement.replaceWith(field);
-    } else target.prepend(field);
+    } else target.append(field);
+    field.scrollIntoView({ block: 'nearest' });
     let finished = false;
     const cancel = () => {
       finished = true;

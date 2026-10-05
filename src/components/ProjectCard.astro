@@ -2,6 +2,7 @@
 import { render } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
 import { ExternalLink } from '@lucide/astro';
+import AnchorLink from './AnchorLink.astro';
 
 interface Props {
   project: CollectionEntry<'projects'>;
@@ -35,9 +36,12 @@ const date = project.data.date.toLocaleDateString('en-US', {
 
 <article class="project-card">
   <h2 class="project-card__heading">
-    <a class="project-card__title" href={project.data.website ?? project.data.repository}>
-      {project.data.title}
-    </a>
+    <span class="project-card__name">
+      <a class="project-card__title" href={project.data.website ?? project.data.repository}>
+        {project.data.title}
+      </a>
+      <AnchorLink id={project.id} label={project.data.title} />
+    </span>
     {aiLabel && (
       <span class="project-ai" aria-label={`AI usage: ${aiLabel}`}>
         {usage !== 'none' && (
@@ -56,7 +60,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
     <time datetime={project.data.date.toISOString().slice(0, 10)}>{date}</time>
     <div class="project-links">
       {action && (
-        <button type="button" data-project-action={action.id}>
+        <button type="button" data-project-action={action.id} data-project-slug={project.id}>
           {action.label}
         </button>
       )}
