@@ -6,7 +6,7 @@ The BaerScript project card opens a lazy, in-browser interpreter with the same s
 
 ## How it works
 
-`CodeDemoModal.astro` provides the shared 16:9 editor, output console, loading state, controls, and responsive layout. `src/lib/baerscript-playground.ts` supplies a small Prism grammar for BaerScript's movement and mutation symbols, then delegates the editor and execution lifecycle to `src/lib/code-playground.ts`.
+`CodeDemoModal.astro` composes the shared `CodeWorkspace.astro` and `CodeTerminal.astro` without a filesystem. `code-editor.js` provides CodeMirror with BaerScript tokenization; Run and output sit below the editor. `baerscript-playground.ts` chooses the runtime worker and delegates lifecycle to `code-playground.ts`. See [Shared code workspace](code-workspace.md).
 
 `src/lib/baerscript-worker.ts` fetches `/baerscript/baerscript_wasm.js` and `/baerscript/baerscript_wasm_bg.wasm`, initializes the wasm-bindgen module inside the worker, and calls `execute(source, input, ascii, maxSteps)`. `baerscript-playground.ts` imports that entrypoint with Vite's `?worker` loader so production emits executable JavaScript instead of an unprocessed TypeScript data URL. The portfolio currently supplies empty input, numeric mode, and a 250,000-step instruction budget. The shared controller also terminates the worker after one second, on modal close, or during Astro navigation.
 
@@ -16,7 +16,7 @@ Before development and production builds, `scripts/sync-baerscript-web.mjs` down
 
 ## How to change it
 
-Edit the starter program in `src/pages/projects.astro`. Change BaerScript highlighting or the worker selection in `src/lib/baerscript-playground.ts`; change module filenames, input mode, or the instruction budget in `src/lib/baerscript-worker.ts`. Shared editor, timeout, and modal behavior belongs in `CodeDemoModal.astro`, `src/lib/code-playground.ts`, and `src/lib/project-actions.ts` rather than in BaerScript-specific wrappers.
+Edit the starter program in `src/pages/projects.astro`. Change BaerScript highlighting in `src/lib/code-editor.js` or worker selection in `src/lib/baerscript-playground.ts`; change module filenames, input mode, or the instruction budget in `src/lib/baerscript-worker.ts`. Shared editor, timeout, and modal behavior belongs in `CodeDemoModal.astro`, `src/lib/code-playground.ts`, and `src/lib/project-actions.ts` rather than in BaerScript-specific wrappers.
 
 Keep the starter's first line executable. BaerScript begins on row one, so a leading comment exits successfully without running the example; the current starter prints `2`.
 
@@ -32,4 +32,4 @@ Run the `Publish BaerScript web build` action when the upstream Wasm API changes
 
 ## Dependencies
 
-The playground depends on Web Workers, WebAssembly, Prism, the upstream `baerscript-wasm` crate, and its wasm-bindgen output. Publication uses GitHub Actions, GitHub Releases, stable Rust, `wasm-pack`, and the portfolio's static prebuild sync.
+The playground depends on Web Workers, WebAssembly, CodeMirror, the upstream `baerscript-wasm` crate, and its wasm-bindgen output. Publication uses GitHub Actions, GitHub Releases, stable Rust, `wasm-pack`, and the portfolio's static prebuild sync.

@@ -1,36 +1,5 @@
 ---
 import release from '../../jai-web-release.json';
-interface Props { modal?: boolean; }
-const { modal = false } = Astro.props;
-const revision = release.revision ?? '';
+import CodeWorkspace from './CodeWorkspace.astro';
 ---
-<section class:list={['jai-panel', modal && 'jai-panel--modal']} data-jai-playground data-jai-revision={revision} data-jai-enabled={String(release.enabled)} data-code-fullscreen-target data-project-demo-scroll>
-  <header class="jai-toolbar">
-    <div><strong>Jai workspace</strong><span>Experimental compiler</span></div>
-    <div class="jai-actions">
-      <a href="https://github.com/matteopolak/jai" target="_blank" rel="noopener noreferrer">Source</a>
-      {modal && <button type="button" data-code-fullscreen aria-label="Enter full screen">Full screen</button>}
-      {modal && <button type="button" data-code-close aria-label="Close Jai workspace">Close</button>}
-    </div>
-  </header>
-  <div class="jai-frame" data-jai-frame></div>
-  <div class="jai-status" data-jai-status role="status" aria-live="polite">
-    <p>{release.enabled ? 'Loading the compiler workspace…' : 'The browser compiler is awaiting its first verified release.'}</p>
-    <button type="button" data-jai-retry hidden>Retry</button>
-  </div>
-</section>
-<style>
-  .jai-panel { position: relative; display: flex; flex-direction: column; height: min(76svh, 54rem); min-height: 26rem; background: var(--paper); border: 1px solid var(--ink); }
-  .jai-panel.jai-panel--modal { height: 84svh; min-height: 0; }
-  .jai-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; border-bottom: 1px solid var(--ink); background: var(--paper); }
-  .jai-toolbar span { display: block; font-size: .72rem; color: var(--muted); }
-  .jai-actions { display: flex; align-items: center; gap: .75rem; font-size: .75rem; }
-  button { cursor: pointer; padding: .4rem .65rem; color: var(--ink); background: var(--paper); border: 1px solid var(--ink); }
-  button:focus-visible, a:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
-  .jai-frame { flex: 1; min-height: 0; }
-  .jai-frame :global(iframe) { display: block; width: 100%; height: 100%; border: 0; }
-  .jai-status { position: absolute; inset: 5rem 1rem 1rem; display: grid; align-content: center; justify-items: center; text-align: center; padding: 1rem; background: var(--paper); }
-  .jai-status[hidden] { display: none; }
-  .jai-panel:fullscreen { height: 100%; }
-  @media (max-width: 42rem) { .jai-panel { height: 80svh; min-height: 24rem; } .jai-actions { gap: .4rem; } }
-</style>
+<CodeWorkspace language="jai" files enabled={release.enabled} revision={release.revision ?? ''} />

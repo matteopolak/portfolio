@@ -237,7 +237,7 @@ export function initializeProjectActions() {
     demo.dialog.addEventListener(
       'close',
       () => {
-        if (demo.id === 'jai') demo.playground.destroy();
+        demo.playground.destroy();
         document.documentElement.classList.remove('has-project-demo');
         activeTrigger?.focus();
         activeTrigger = undefined;
