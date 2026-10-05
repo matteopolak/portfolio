@@ -304,17 +304,81 @@ export function initializeProjectActions() {
     target instanceof Element &&
     Boolean(target.closest('[data-project-demo-scroll]'));
 
-  for (const eventName of ['wheel', 'touchmove'] as const) {
-    window.addEventListener(
-      eventName,
-      (event) => {
-        if (getOpenProjectDialog() && !isModalScrollRegion(event.target)) {
-          event.preventDefault();
-        }
-      },
-      { capture: true, passive: false, signal }
-    );
-  }
+  // True when some scroll container between the target and its modal scroll
+  // region can still move by (dx, dy); otherwise the browser would chain the
+  // scroll to the page behind the dialog.
+  const canScrollWithin = (
+    target: EventTarget | null,
+    dx: number,
+    dy: number
+  ) => {
+    if (!(target instanceof Element)) return false;
+    const region = target.closest('[data-project-demo-scroll]');
+    for (
+      let node: Element | null = target;
+      node && region?.contains(node);
+      node = node.parentElement
+    ) {
+      const style = getComputedStyle(node);
+      const scrollsY = /auto|scroll/.test(style.overflowY);
+      const scrollsX = /auto|scroll/.test(style.overflowX);
+      if (
+        scrollsY &&
+        ((dy < 0 && node.scrollTop > 0) ||
+          (dy > 0 &&
+            Math.ceil(node.scrollTop + node.clientHeight) < node.scrollHeight))
+      )
+        return true;
+      if (
+        scrollsX &&
+        ((dx < 0 && node.scrollLeft > 0) ||
+          (dx > 0 &&
+            Math.ceil(node.scrollLeft + node.clientWidth) < node.scrollWidth))
+      )
+        return true;
+    }
+    return false;
+  };
+  let lastTouch: { x: number; y: number } | undefined;
+  window.addEventListener(
+    'touchstart',
+    (event) => {
+      const touch = event.touches[0];
+      lastTouch = touch ? { x: touch.clientX, y: touch.clientY } : undefined;
+    },
+    { capture: true, passive: true, signal }
+  );
+  window.addEventListener(
+    'wheel',
+    (event) => {
+      if (
+        getOpenProjectDialog() &&
+        !canScrollWithin(event.target, event.deltaX, event.deltaY)
+      )
+        event.preventDefault();
+    },
+    { capture: true, passive: false, signal }
+  );
+  window.addEventListener(
+    'touchmove',
+    (event) => {
+      if (!getOpenProjectDialog()) return;
+      const touch = event.touches[0];
+      const previous = lastTouch;
+      lastTouch = touch ? { x: touch.clientX, y: touch.clientY } : undefined;
+      // Finger movement is opposite to scroll direction.
+      const dx = touch && previous ? previous.x - touch.clientX : 0;
+      const dy = touch && previous ? previous.y - touch.clientY : 0;
+      if (
+        event.touches.length === 1 &&
+        isModalScrollRegion(event.target) &&
+        canScrollWithin(event.target, dx, dy)
+      )
+        return;
+      if (event.cancelable) event.preventDefault();
+    },
+    { capture: true, passive: false, signal }
+  );
   window.addEventListener(
     'keydown',
     (event) => {

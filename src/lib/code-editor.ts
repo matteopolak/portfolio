@@ -124,6 +124,7 @@ const theme = EditorView.theme(
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': {
       overflow: 'auto',
+      overscrollBehavior: 'contain',
       fontFamily: 'var(--ide-mono)',
       lineHeight: '1.6',
     },
