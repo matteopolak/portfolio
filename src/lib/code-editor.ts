@@ -48,6 +48,7 @@ import {
 } from '@codemirror/lint';
 import { tags, highlightTree } from '@lezer/highlight';
 import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
+import { tomlLanguage } from './toml-language.ts';
 import {
   documentUri,
   positionAt,
@@ -359,6 +360,16 @@ const languageFor = (language: EditorLanguage) =>
       ? quasiLanguage
       : jaiLanguage;
 
+/**
+ * Highlighting for one file. A Jai workspace also holds other files
+ * (`jaifmt.toml`, notes), which must not be read as Jai.
+ */
+const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
+  if (language !== 'jai' || !path || path.endsWith('.jai'))
+    return languageFor(language);
+  return path.endsWith('.toml') ? tomlLanguage : [];
+};
+
 export interface EditorDocument {
   path: string;
   text: string;
@@ -615,14 +626,15 @@ export function createEditor(
       return null;
     }
   });
-  function state(doc: string) {
+  /** `path` picks the highlighting; without it the editor's language is used. */
+  function state(doc: string, path?: string) {
     return EditorState.create({
       doc,
       extensions: [
         // First, so Vim sees keys before the default keymaps.
         vimMode.of(vimExtension(vimEnabled)),
         EditorState.lineSeparator.of('\n'),
-        languageFor(language),
+        syntaxFor(language, path),
         syntaxHighlighting(colors),
         theme,
         lintGutter(),

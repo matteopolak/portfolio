@@ -36,6 +36,8 @@ const abortError = () => new DOMException('Closed', 'AbortError');
 const errorMessage = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
 
+const extension = (path: string) => path.slice(path.lastIndexOf('.') + 1);
+
 export async function createSession(
   panel: HTMLElement,
   revision: string,
@@ -131,7 +133,7 @@ export async function createSession(
           const previous = states.get(update.path);
           const state = previous
             ? previous.update({ changes: update.changes }).state
-            : editor.createState(update.text);
+            : editor.createState(update.text, update.path);
           states.set(update.path, state);
         }
         showSelected();
@@ -175,7 +177,7 @@ export async function createSession(
   }
   function showReadOnly(path: string, text: string) {
     viewing = path;
-    editor.setState(editor.createState(text));
+    editor.setState(editor.createState(text, path));
     editor.setEditable(false);
     editor.diagnostics([], text);
     if (crumb) crumb.textContent = `${path} (read-only)`;
@@ -186,7 +188,8 @@ export async function createSession(
     const selected = workspace.selected;
     editor.setState(
       selected
-        ? (states.get(selected.path.name) ?? editor.createState(selected.text))
+        ? (states.get(selected.path.name) ??
+            editor.createState(selected.text, selected.path.name))
         : editor.createState('')
     );
     editor.setEditable(Boolean(selected));
@@ -215,7 +218,9 @@ export async function createSession(
           for (const [from, to] of moves) {
             const state = saved.find(([path]) => path === from)?.[1];
             states.delete(from);
-            if (state) states.set(to, state);
+            // A new extension needs new highlighting, which a saved state can't change.
+            if (state && extension(from) === extension(to))
+              states.set(to, state);
           }
         }
         const names = new Set(workspace.names);
