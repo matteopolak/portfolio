@@ -14,6 +14,7 @@ const { id, label, variant = 'media' } = Astro.props;
   data-project-demo={id}
   data-demo-state="loading"
   aria-label={label}
+  closedby="none"
 >
   <slot />
 </dialog>

@@ -18,6 +18,12 @@ that slides up on phones (see [Shared code workspace](code-workspace.md)).
 the exit animation's `animationend` (with a 300 ms fallback), then closes the
 dialog. Teardown runs from the dialog's `close` event.
 
+Only the close button and a backdrop click close a demo. Escape never does: the
+editors (Vim mode, completion, search) and the game need the key. The dialog
+has `closedby="none"` and every `cancel` event is prevented; both are needed,
+because Chrome lets a repeated Escape close a dialog whose `cancel` was
+prevented unless `closedby` says otherwise.
+
 `ProjectDemoLoading.astro` is composed into each modal: over the whole 16:9 stage
 for Minecraft, and over the workspace body (below its header) for the editors. The small state
 helper in `src/lib/project-actions.ts` listens on every `[data-project-demo]`

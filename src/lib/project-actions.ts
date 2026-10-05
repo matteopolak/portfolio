@@ -228,14 +228,11 @@ export function initializeProjectActions() {
         },
         { signal }
       );
-    demo.dialog.addEventListener(
-      'cancel',
-      (event) => {
-        event.preventDefault();
-        closeAnimated(demo.dialog);
-      },
-      { signal }
-    );
+    // Escape never closes a demo: editors (Vim mode, completion, search) and
+    // games use it. The close button and the backdrop do.
+    demo.dialog.addEventListener('cancel', (event) => event.preventDefault(), {
+      signal,
+    });
     demo.dialog.addEventListener(
       'click',
       (event) => {
@@ -314,10 +311,7 @@ export function initializeProjectActions() {
     );
   minecraftDialog?.addEventListener(
     'cancel',
-    (event) => {
-      event.preventDefault();
-      closeMinecraft();
-    },
+    (event) => event.preventDefault(),
     { signal }
   );
   minecraftDialog?.addEventListener(
