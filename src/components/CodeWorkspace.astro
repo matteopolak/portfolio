@@ -1,0 +1,63 @@
+---
+import CodeTerminal from './CodeTerminal.astro';
+interface Props { language: string; starter?: string; files?: boolean; enabled?: boolean; revision?: string; }
+const { language, starter = '', files = false, enabled = true, revision = '' } = Astro.props;
+---
+<section class:list={['code-panel', !files && 'code-panel--single']} data-code-workspace data-code-language={language} data-code-starter={starter} data-jai-revision={revision} data-jai-enabled={String(enabled)} data-code-fullscreen-target data-project-demo-scroll>
+  {files && <aside class="code-files">
+    <nav data-code-files aria-label="Files"></nav>
+  </aside>}
+  {files && <div class="code-divider code-divider--files" data-code-resize="files" role="separator" aria-label="Resize file tree" aria-orientation="vertical" aria-valuenow="176" aria-valuemin="90" aria-valuemax="1200" tabindex="0"></div>}
+  <div class="code-workspace">
+    <div class="code-controls">
+      <button type="button" data-code-run disabled aria-label="Run program" title="Run (Ctrl/Command + Enter)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5 16 10 6 16.5Z" /></svg></button>
+      <button type="button" data-code-fullscreen aria-label="Enter full screen" title="Full screen">⛶</button>
+      <button type="button" data-code-close aria-label="Close editor" title="Close">×</button>
+    </div>
+    <div class="code-editor" data-code-editor></div>
+    <div class="code-divider code-divider--terminal" data-code-resize="terminal" role="separator" aria-label="Resize terminal" aria-orientation="horizontal" aria-valuenow="140" aria-valuemin="72" aria-valuemax="1000" tabindex="0"></div>
+    <CodeTerminal />
+  </div>
+</section>
+<style>
+  .code-panel { position: relative; display: grid; grid-template-columns: var(--files-width, 11rem) 5px minmax(0, 1fr); height: 84svh; color: #252525; background: #fff; border: 1px solid #d8d8d8; }
+  .code-panel--single { grid-template-columns: minmax(0, 1fr); }
+  .code-files { overflow: auto; padding: 2.75rem .35rem .75rem; background: #fafafa; min-width: 0; }
+  .code-files nav { min-height: 100%; }
+  button { color: inherit; cursor: pointer; border: 0; background: transparent; font: inherit; }
+  button:focus-visible { outline: 2px solid #777; outline-offset: -2px; }
+  [hidden] { display: none !important; }
+  .code-files :global(.file), .code-files :global(summary) { display: flex; align-items: center; gap: .45rem; width: 100%; text-align: left; padding: .35rem .5rem; border-radius: .2rem; font: .78rem/1.4 monospace; cursor: pointer; white-space: nowrap; overflow: hidden; }
+  .code-files :global(.file:hover), .code-files :global(summary:hover) { background: #eee; }
+  .code-files :global(.file[aria-current]) { background: #e6e6e6; color: #111; }
+  .code-files :global(.tree-icon) { width: .95rem; height: .95rem; flex: none; fill: none; stroke: #888; stroke-width: 1.4; }
+  .code-files :global(.file-label) { overflow: hidden; text-overflow: ellipsis; }
+  .code-files :global(summary) { list-style: none; }
+  .code-files :global(summary::-webkit-details-marker) { display: none; }
+  .code-files :global(summary::before) { content: '›'; width: .45rem; font: 1rem/1 sans-serif; color: #888; }
+  .code-files :global(details[open] > summary::before) { transform: rotate(90deg); }
+  .code-files :global(.file) { padding-left: 1.4rem; }
+  .code-files :global(.children) { padding-left: .85rem; margin-left: .75rem; border-left: 1px solid #e4e4e4; }
+  .code-files :global(.tree-name-input) { width: calc(100% - .5rem); min-width: 0; margin: .2rem; padding: .3rem; border: 1px solid #888; background: #fff; color: #222; font: .78rem/1.4 monospace; }
+  .code-files :global(.tree-name-input:focus), .code-files :global(.tree-name-input:focus-visible) { outline: none !important; box-shadow: none !important; border-color: #777; }
+  .code-panel :global(.tree-menu) { position: absolute; z-index: 20; min-width: 10rem; padding: .3rem; background: #fff; border: 1px solid #ddd; border-radius: .35rem; box-shadow: 0 4px 18px #0002; }
+  .code-panel :global(.tree-menu button) { display: block; width: 100%; text-align: left; padding: .45rem .7rem; color: #222; font: .8rem/1.4 sans-serif; border-radius: .2rem; }
+  .code-panel :global(.tree-menu button:hover), .code-panel :global(.tree-menu button:focus) { background: #eee; outline: none; }
+  .code-workspace { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) 5px var(--terminal-height, 9rem); }
+  .code-controls { position: absolute; z-index: 5; right: .4rem; top: .4rem; display: flex; background: #fff; }
+  .code-controls button { width: 2rem; height: 2rem; font-size: 1.25rem; }
+  .code-controls button:hover { background: #eee; }
+  .code-controls button:disabled { opacity: .4; cursor: default; }
+  [data-code-run] { display: grid; place-items: center; }
+  [data-code-run] svg { display: block; width: 1rem; height: 1rem; fill: currentColor; }
+  .code-editor { min-height: 0; overflow: hidden; padding-top: 2.5rem; }
+  .code-divider { background: #e5e5e5; touch-action: none; position: relative; z-index: 6; }
+  .code-divider:hover, .code-divider:focus-visible { background: #aaa; outline: none; }
+  .code-divider--files { cursor: col-resize; }
+  .code-divider--terminal { cursor: row-resize; }
+  .code-divider--files::after { content: ''; position: absolute; inset: 0 -3px; }
+  .code-divider--terminal::after { content: ''; position: absolute; inset: -3px 0; }
+  .code-panel.resizing { user-select: none; }
+  .code-panel:fullscreen { height: 100%; }
+  @media (max-width: 42rem) { .code-panel:not(.code-panel--single) { grid-template-columns: var(--files-width, 7.25rem) 5px minmax(0, 1fr); } }
+</style>

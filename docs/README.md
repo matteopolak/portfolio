@@ -24,3 +24,5 @@
 | [Resume job decisions](./resume-tailoring/job-decisions.json)                                      | Exact evidence selections, assumptions, and gaps for all 105 jobs                    |
 | [Job application hub](../jobs/README.md)                                                           | Tier and pay-ordered links, compensation, tailored resumes, and application tracking |
 | [Job compensation data](./resume-tailoring/job-compensation.json)                                  | Sourced compensation breakdowns and confidence for all 162 jobs                      |
+
+- [Shared code workspace](code-workspace.md) — reusable editor, terminal, optional filesystem and runtime adapters.

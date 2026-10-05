@@ -8,41 +8,18 @@ Minecraft demo while keeping arbitrary programs off the page's main thread.
 
 ## How it works
 
-`CodeDemoModal.astro` owns the unlabelled editor and console panes, the Run
-control anchored at the source pane's lower-right, responsive layout, and
-floating fullscreen/close controls. It composes the same aggregate loading
-surface as the Minecraft modal. `src/lib/quasi-playground.ts` configures the
-shared controller in `src/lib/code-playground.ts` and prewarms a module Web
-Worker when the modal opens. The worker in
-`src/lib/quasi-worker.ts` fetches `/quasi/quasi.js` and
-`/quasi/quasi_bg.wasm` as opaque static assets, initializes the generated module
-inside the worker, and calls Quasi's exported `execute` function. The wrapper is
-loaded through a temporary blob URL because Vite intentionally does not
-transform ESM files under `public/`. `quasi-playground.ts` imports the worker
-with Vite's `?worker` loader, which produces a JavaScript worker asset in the
-production build.
+`CodeDemoModal.astro` composes the shared `CodeWorkspace.astro` and
+`CodeTerminal.astro` without a filesystem. All three language demos use the same
+CodeMirror editor, with Run/output beneath it. Quasi chooses its tokenizer and
+worker via `quasi-playground.ts`; the shared lifecycle is `code-playground.ts`.
+See [Shared code workspace](code-workspace.md) for UI ownership and extension points.
 
-The source textarea fills its pane and receives focus when the dialog opens.
-Its native scrollbar and focus ring are visually suppressed to keep the editor
-surface uninterrupted; scrolling, selection, caret visibility, and keyboard
-focus continue to work normally.
-
-An inert Prism layer behind the transparent textarea uses the Rust grammar for
-close-enough live highlighting, while a synchronized, low-contrast gutter
-renders compact line numbers without a separate background block. Source edits
-and scrolling update both layers without replacing the
-native textarea editing model. Successful output uses the console foreground;
-parser, runtime, worker, and timeout errors are marked as stderr and rendered in
-red.
-
-The editor is revealed only after the worker has downloaded and compiled the
-Wasm module. The one-second execution timer begins only when a program is sent
-to that ready worker. While a program runs, the existing console output remains
-visible and the disabled Run control shows a spinner; the output is replaced
-only when execution succeeds, fails, or times out. Successful executions reuse
-the warm worker. If a program does not finish, the page terminates the worker,
-so an infinite Quasi loop cannot stall navigation or rendering. Closing the
-dialog or navigating away also terminates it.
+`quasi-worker.ts` fetches `/quasi/quasi.js` and `/quasi/quasi_bg.wasm` as opaque
+assets, initializes the generated module inside its worker and calls `execute`.
+The wrapper is imported through a temporary blob URL because Vite does not
+transform ESM files in `public/`. Vite's `?worker` loader emits the owned worker
+for production. Execution has a one-second wall-clock limit; cancellation, close,
+and navigation terminate it. Reopening creates a fresh editor and runtime.
 
 `.github/workflows/quasi-web.yml` checks out a requested revision of
 `matteopolak/quasi`, compiles the `wasm` library for `wasm32-unknown-unknown`
@@ -73,10 +50,10 @@ runner.
 
 ## How to change it
 
-Edit the visual layout in `CodeDemoModal.astro` and the starter program in
+Edit the visual layout in `CodeWorkspace.astro` and `CodeTerminal.astro` and the starter program in
 `src/pages/projects.astro`. Change shared execution lifecycle, timeout
 messaging, or shortcuts in `src/lib/code-playground.ts`; change only Quasi's
-highlighting and worker selection in `src/lib/quasi-playground.ts`, and the generated-module bridge in
+worker selection in `src/lib/quasi-playground.ts` and tokenizer in `src/lib/code-editor.js`, and the generated-module bridge in
 `src/lib/quasi-worker.ts`. Keep untrusted execution inside the disposable worker
 and never move `execute` onto the main thread.
 
