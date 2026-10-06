@@ -1,5 +1,5 @@
 ---
-title: jai compiler
+title: jai{c,lsp,fmt,lint}
 date: 2026-10-01
 tags: [rust, compiler, web assembly, language tooling]
 repository: https://github.com/matteopolak/jai
@@ -10,4 +10,4 @@ ai:
   models: []
 ---
 
-A complete compiler for Jai, the systems language Jonathan Blow designed for games, built around fast compilation and running arbitrary code at compile time. Written in Rust and compiled to WebAssembly, it runs in the browser with a multi-file workspace, a language server for diagnostics, and an interpreter that executes programs.
+An independent Jai toolchain written in Rust: a compiler with a compile-time interpreter and an LLVM backend, a language server, a formatter and a linter. The compiler and language server also build to WebAssembly and run the in-browser playground.
