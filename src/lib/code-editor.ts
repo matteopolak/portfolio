@@ -267,6 +267,26 @@ const theme = EditorView.theme(
       fontSize: '12.5px',
     },
     '.jai-hover--overloads': { padding: '4px 0' },
+    '.jai-hover--sections': { padding: '0' },
+    '.jai-hover--sections > .jai-hover': { maxWidth: 'none' },
+    // A rule with the label set into it: `──── expands to ────`.
+    '.jai-hover__divider': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '0 10px',
+      color: 'var(--ide-muted)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '10.5px',
+      lineHeight: '1',
+      letterSpacing: '0.02em',
+      whiteSpace: 'nowrap',
+    },
+    '.jai-hover__divider::before, .jai-hover__divider::after': {
+      content: '""',
+      flex: '1',
+      borderTop: '1px solid var(--ide-rule)',
+    },
     '.jai-hover__format-head': { padding: '2px 10px 6px' },
     '.jai-hover__format-row': { padding: '4px 10px', textIndent: '0' },
     '.jai-hover__format-row[data-current]': {
@@ -670,6 +690,8 @@ function hoverContent(
 ): HTMLElement {
   const format = serverFormatHover(text);
   if (format) return format;
+  const sections = dividedHover(text, language);
+  if (sections) return sections;
   const dom = document.createElement('div');
   dom.className = 'jai-hover';
   const lines = text.split('\n');
@@ -690,6 +712,42 @@ function hoverContent(
     row.append(...highlightedHover(line, language));
     dom.append(row);
   }
+  return dom;
+}
+
+/**
+ * The server puts produced code (a macro's expansion, `#run` output) last,
+ * under a `─── label ───` line. That line becomes a rule with the label set
+ * into it; each section is rendered as a hover of its own.
+ */
+const dividerLine = /^─── (.+) ───$/u;
+function dividedHover(
+  text: string,
+  language: StreamLanguage<unknown>
+): HTMLElement | undefined {
+  const lines = text.split('\n');
+  if (!lines.some((line) => dividerLine.test(line))) return undefined;
+  const dom = document.createElement('div');
+  dom.className = 'jai-hover jai-hover--sections';
+  let section: string[] = [];
+  const flush = () => {
+    if (section.length) dom.append(hoverContent(section.join('\n'), language));
+    section = [];
+  };
+  for (const line of lines) {
+    const label = dividerLine.exec(line)?.[1];
+    if (label === undefined) {
+      section.push(line);
+      continue;
+    }
+    flush();
+    const divider = document.createElement('div');
+    divider.className = 'jai-hover__divider';
+    divider.setAttribute('role', 'separator');
+    divider.textContent = label;
+    dom.append(divider);
+  }
+  flush();
   return dom;
 }
 
