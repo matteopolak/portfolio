@@ -44,10 +44,12 @@ import {
 import type {
   CodeAction,
   CodeLens,
+  Diagnostic,
   DocumentHighlight,
   DocumentLink,
   FoldingRange,
   InlayHint,
+  Range,
   ServerCapabilities,
   SignatureHelp,
 } from './lsp-types.ts';
@@ -72,6 +74,8 @@ export interface LanguageHost {
   runLens(view: EditorView, lens: CodeLens, pos: number): void;
   /** The lightbulb was clicked. */
   codeActions(view: EditorView, pos: number): void;
+  /** Published diagnostics touching `range`, sent as a code action request's context. */
+  diagnosticsAt?(range: Range): Diagnostic[];
   /** Mac uses Cmd for link clicks, others Ctrl. */
   modifier(event: MouseEvent | KeyboardEvent): boolean;
 }
@@ -667,14 +671,17 @@ export function languageFeatures(host: LanguageHost): Extension {
         const reply = await this.ask<CodeAction[] | null>(
           'bulb',
           'textDocument/codeAction',
-          (uri, text) => ({
-            textDocument: { uri },
-            range: {
+          (uri, text) => {
+            const range = {
               start: positionAt(text, selection.from),
               end: positionAt(text, selection.to),
-            },
-            context: { diagnostics: [] },
-          })
+            };
+            return {
+              textDocument: { uri },
+              range,
+              context: { diagnostics: host.diagnosticsAt?.(range) ?? [] },
+            };
+          }
         );
         if (!reply) return;
         if (!reply.result?.length || !this.view.hasFocus) {
