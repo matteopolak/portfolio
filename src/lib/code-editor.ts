@@ -50,6 +50,8 @@ import {
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
 import { tags, highlightTree } from '@lezer/highlight';
+import DOMPurify from 'dompurify';
+import { markdownHover, renderHoverMarkdown } from './hover-markdown.ts';
 import {
   jaiTokenizer,
   jaiLanguage,
@@ -267,8 +269,6 @@ const theme = EditorView.theme(
       fontSize: '12.5px',
     },
     '.jai-hover--overloads': { padding: '4px 0' },
-    '.jai-hover--sections': { padding: '0' },
-    '.jai-hover--sections > .jai-hover': { maxWidth: 'none' },
     // A rule with the label set into it: `──── expands to ────`.
     '.jai-hover__divider': {
       display: 'flex',
@@ -319,6 +319,45 @@ const theme = EditorView.theme(
       textIndent: '-2ch',
       borderTop: '1px solid var(--ide-rule)',
     },
+    // Markdown hovers: code in the mono face, prose in the UI face, every
+    // block on the same 10px inset so sections line up.
+    '.jai-hover--markdown': {
+      padding: '4px 0',
+      whiteSpace: 'normal',
+      fontFamily: 'var(--font-sans)',
+      lineHeight: '1.45',
+    },
+    '.jai-hover--markdown > *': { margin: '0' },
+    '.jai-hover--markdown pre, .jai-hover--markdown code': {
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12.5px',
+    },
+    '.jai-hover--markdown pre': {
+      padding: '4px 10px',
+      whiteSpace: 'pre-wrap',
+      overflowWrap: 'anywhere',
+    },
+    '.jai-hover--markdown pre.jai-hover__overload': {
+      padding: '5px 10px 5px calc(10px + 2ch)',
+    },
+    '.jai-hover--markdown p': { padding: '4px 10px' },
+    '.jai-hover--markdown .jai-hover__divider': { margin: '6px 0 2px' },
+    '.jai-hover--markdown hr': {
+      border: 'none',
+      borderTop: '1px solid var(--ide-rule)',
+      margin: '6px 0',
+    },
+    // A list is a format-string hover: rows like the client-side one.
+    '.jai-hover--markdown ul, .jai-hover--markdown ol': {
+      listStyle: 'none',
+      padding: '0',
+    },
+    '.jai-hover--markdown li': {
+      borderTop: '1px solid var(--ide-rule)',
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12.5px',
+    },
+    '.jai-hover--markdown li strong': { fontWeight: 'inherit' },
     // Semantic tokens refine the tokenizer's colours; `span` covers either nesting.
     '.cm-sem-type, .cm-sem-type span': { color: 'var(--ide-syntax-type)' },
     '.cm-sem-namespace, .cm-sem-namespace span': {
@@ -688,10 +727,6 @@ function hoverContent(
   text: string,
   language: StreamLanguage<unknown>
 ): HTMLElement {
-  const format = serverFormatHover(text);
-  if (format) return format;
-  const sections = dividedHover(text, language);
-  if (sections) return sections;
   const dom = document.createElement('div');
   dom.className = 'jai-hover';
   const lines = text.split('\n');
@@ -716,76 +751,46 @@ function hoverContent(
 }
 
 /**
- * The server puts produced code (a macro's expansion, `#run` output) last,
- * under a `─── label ───` line. That line becomes a rule with the label set
- * into it; each section is rendered as a hover of its own.
+ * A Markdown hover (see `hover-markdown.ts`), sanitized, with its code in the
+ * editor's colours. Fenced blocks in the editor's language (or untagged) and
+ * inline code are highlighted; other fences (`text`: what `#run` printed)
+ * stay plain. A list is a format-string hover: one row per `%`, the leading
+ * code of each row is the specifier, and a bold one is the hovered row.
  */
-const dividerLine = /^─── (.+) ───$/u;
-function dividedHover(
-  text: string,
-  language: StreamLanguage<unknown>
-): HTMLElement | undefined {
-  const lines = text.split('\n');
-  if (!lines.some((line) => dividerLine.test(line))) return undefined;
+function markdownHoverContent(
+  markdown: string,
+  language: EditorLanguage
+): HTMLElement {
+  const syntax = languageFor(language);
   const dom = document.createElement('div');
-  dom.className = 'jai-hover jai-hover--sections';
-  let section: string[] = [];
-  const flush = () => {
-    if (section.length) dom.append(hoverContent(section.join('\n'), language));
-    section = [];
-  };
-  for (const line of lines) {
-    const label = dividerLine.exec(line)?.[1];
-    if (label === undefined) {
-      section.push(line);
-      continue;
-    }
-    flush();
-    const divider = document.createElement('div');
-    divider.className = 'jai-hover__divider';
-    divider.setAttribute('role', 'separator');
-    divider.textContent = label;
-    dom.append(divider);
+  dom.className = 'jai-hover jai-hover--markdown';
+  dom.innerHTML = DOMPurify.sanitize(renderHoverMarkdown(markdown));
+  for (const code of dom.querySelectorAll<HTMLElement>('pre > code')) {
+    const fence = code.parentElement?.dataset.lang ?? '';
+    if (fence !== '' && fence !== language) continue;
+    const source = code.textContent ?? '';
+    // A string literal on its own is a format string: colour it as the
+    // argument of a `print` call so its `%` specifiers stand out.
+    code.replaceChildren(
+      language === 'jai' && /^"(?:[^"\\\n]|\\.)*"$/u.test(source)
+        ? highlighted(`print(${source})`, jaiLanguage, 6, source.length)
+        : highlighted(source, syntax)
+    );
   }
-  flush();
-  return dom;
-}
-
-/**
- * The server's format-string hover is plain text: the literal, then one row
- * per `%` (`▸` marks the hovered one):
- *
- *     "% and %2\n"
- *       %  → total: s64
- *     ▸ %2 → s: s64
- *
- * It gets the same layout as the client-side fallback below.
- */
-const formatRow = /^([▸ ]) (\S+?)\s*→\s?(.*)$/u;
-function serverFormatHover(text: string): HTMLElement | undefined {
-  const [literal, ...rows] = text.split('\n');
-  if (!literal.startsWith('"') || !rows.length) return undefined;
-  const parsed = rows.map((row) => formatRow.exec(row));
-  if (parsed.some((row) => !row)) return undefined;
-  const dom = document.createElement('div');
-  dom.className = 'jai-hover jai-hover--overloads jai-hover--format';
-  const head = document.createElement('div');
-  head.className = 'jai-hover__format-head';
-  head.append(highlighted(`print(${literal})`, jaiLanguage, 6, literal.length));
-  dom.append(head);
-  for (const match of parsed as RegExpExecArray[]) {
-    const [, marker, spec, rest] = match;
-    const row = document.createElement('div');
-    row.className = 'jai-hover__overload jai-hover__format-row';
-    if (marker === '▸') row.dataset.current = 'true';
-    const mark = document.createElement('span');
-    mark.className = 'jai-hover__format-spec';
-    mark.textContent = spec;
-    const code = document.createElement('code');
-    code.className = 'jai-hover__format-argument';
-    code.append(highlighted(rest, jaiLanguage));
-    row.append(mark, ' → ', code);
-    dom.append(row);
+  for (const code of dom.querySelectorAll<HTMLElement>(':not(pre) > code')) {
+    const row = code.closest('li');
+    const leading =
+      row &&
+      (row.firstElementChild === code ||
+        (row.firstElementChild?.tagName === 'STRONG' &&
+          code.parentElement === row.firstElementChild));
+    if (leading) code.classList.add('jai-hover__format-spec');
+    else code.replaceChildren(highlighted(code.textContent ?? '', syntax));
+  }
+  for (const row of dom.querySelectorAll<HTMLElement>('li')) {
+    row.classList.add('jai-hover__format-row');
+    if (row.firstElementChild?.tagName === 'STRONG')
+      row.dataset.current = 'true';
   }
   return dom;
 }
@@ -1090,13 +1095,20 @@ export function createEditor(
         view.state.doc.toString() !== text
       )
         return null;
-      const contents = result ? textContent(result.contents) : '';
-      if (!result || !contents) return local;
+      // Markdown from servers that support it; older bundles send plain text.
+      const markdown = result ? markdownHover(result.contents) : undefined;
+      const contents = result ? (markdown ?? textContent(result.contents)) : '';
+      if (!result || !contents.trim()) return local;
       return {
         pos: result.range ? offsetAt(text, result.range.start) : position,
         end: result.range ? offsetAt(text, result.range.end) : undefined,
         create() {
-          return { dom: hoverContent(contents, languageFor(language)) };
+          return {
+            dom:
+              markdown === undefined
+                ? hoverContent(contents, languageFor(language))
+                : markdownHoverContent(markdown, language),
+          };
         },
       };
     } catch {

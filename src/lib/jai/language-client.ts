@@ -263,7 +263,7 @@ export class LanguageClient {
             definition: { linkSupport: true },
             typeDefinition: { linkSupport: false },
             rename: { prepareSupport: true },
-            hover: { contentFormat: ['plaintext'] },
+            hover: { contentFormat: ['markdown', 'plaintext'] },
             signatureHelp: {
               signatureInformation: {
                 parameterInformation: { labelOffsetSupport: true },

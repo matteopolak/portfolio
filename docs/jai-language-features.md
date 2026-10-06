@@ -28,6 +28,7 @@ simply shows less with it. Never assume a provider exists.
 | `src/lib/jai/picker.ts` | The small list used for code actions, references, polymorph instances and symbol search. |
 | `src/lib/jai/workspace-ui.ts` | Wires it together: what the current language document is, key bindings, navigation into tabs, applying edits. |
 | `src/lib/code-editor.ts` | Theme classes (`cm-sem-*`, `cm-inlay-hint`, `cm-lsp-*`, `jai-picker*`), hover rendering, F2/F12/Cmd-click. |
+| `src/lib/hover-markdown.ts` | Markdown hover to HTML (section dividers, overload rows); pure, unit-tested. |
 
 ### Requests and staleness
 
@@ -56,10 +57,32 @@ That state is stored like a visited tab's state, so the click shows the decorati
 on its first frame instead of a moment later. The reply is dropped if the file
 changed meanwhile, and the plugin still refetches as usual once the file is shown.
 
-**Hover dividers.** A hover line `─── label ───` from the server (a macro's
-expansion, `#run` output) is drawn as a rule with the label set into it
-(`dividedHover` in `code-editor.ts`); the sections around it render as ordinary
-hovers.
+**Markdown hovers.** The client lists `markdown` (then `plaintext`) in
+`textDocument.hover.contentFormat` (`initialize` in `language-client.ts`).
+Servers that support it answer `{ kind: 'markdown' }`; `markdownHover` in
+`hover-markdown.ts` picks those out, and anything else (older bundles, plain
+strings) takes the plain-text path (`hoverContent` in `code-editor.ts`, which
+still splits `name :: (` overload lines into rows). The Markdown is rendered by
+`renderHoverMarkdown` (`marked`; raw HTML is escaped, links and images show
+their text), sanitized with DOMPurify, then coloured in
+`markdownHoverContent`:
+
+- Fenced blocks tagged `jai` (or untagged) and inline code use the editor's
+  highlighter (`highlighted`). A block that is only a string literal is coloured
+  as a `print` argument, so a format string's `%` specifiers stand out. Other
+  fences (`text`: what `#run` printed) stay plain.
+- A `---` break followed by a paragraph that is only emphasis
+  (`*expands to*`, `*prints*`) becomes a `.jai-hover__divider`: a rule with the
+  label set into it. A break followed by anything else stays a rule.
+- A fenced block whose every line is `name :: (...` is an overload set: an
+  "N overloads" count and one `.jai-hover__overload` row per line.
+- A list is a format-string hover: each item is a `.jai-hover__format-row`, its
+  leading code span is the specifier (`.jai-hover__format-spec`), and an item
+  that starts with bold is the hovered one (`data-current`).
+
+Only standard Markdown is read, so the same hovers render in VS Code and any
+other editor. The server's side is in the compiler's
+`docs/compiler/language-server.md`.
 
 ### Feature notes
 
@@ -122,9 +145,15 @@ hovers.
 - Gotcha: library previews count toward the server's open-document limit (32);
   only one is open at a time.
 
+- **A new hover layout:** key it off standard Markdown structure in
+  `renderHoverMarkdown` (pure, testable) or `markdownHoverContent` (DOM), never
+  off private text conventions, so editors without this client still render it.
+
 Tests: `tests/jai/language-features.test.ts` (URI mapping, WorkspaceEdit
 planning, location normalization, legend mapping and token decoding, inlay
-labels, signature splitting, capability checks).
+labels, signature splitting, capability checks) and
+`tests/jai/hover-markdown.test.ts` (Markdown detection, section dividers,
+overload rows, format rows, escaping).
 
 To try a compiler that has these features before the pin moves, build it with
 `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
@@ -138,6 +167,7 @@ the `--ide-*` tokens from `CodeWorkspace.astro`.
 
 ## Dependencies
 
+- `marked` and `dompurify` (Markdown hovers).
 - `@codemirror/view` (decorations, widgets, tooltips, keymaps),
   `@codemirror/state`, `@codemirror/language` (`foldService`).
 - The compiler's language server via the worker (`engine.lsp`), including the
