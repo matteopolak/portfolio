@@ -11,6 +11,8 @@ export interface OpenTab {
 export class OpenTabs {
   #tabs: OpenTab[] = [];
   #active: OpenTab | undefined;
+  // Tabs in the order they were last focused, most recent last.
+  #recent: OpenTab[] = [];
 
   get tabs(): readonly OpenTab[] {
     return this.#tabs;
@@ -18,6 +20,12 @@ export class OpenTabs {
 
   get active(): OpenTab | undefined {
     return this.#active;
+  }
+
+  #focus(tab: OpenTab) {
+    this.#recent = this.#recent.filter((item) => item !== tab);
+    this.#recent.push(tab);
+    this.#active = tab;
   }
 
   #insert(tab: OpenTab) {
@@ -32,7 +40,7 @@ export class OpenTabs {
       tab = Object.freeze({ path, preview: false });
       this.#insert(tab);
     }
-    this.#active = tab;
+    this.#focus(tab);
     return tab;
   }
 
@@ -40,17 +48,20 @@ export class OpenTabs {
   preview(path: string): OpenTab {
     const tab = Object.freeze({ path, preview: true });
     const index = this.#tabs.findIndex((item) => item.preview);
-    if (index >= 0) this.#tabs[index] = tab;
-    else this.#insert(tab);
-    this.#active = tab;
+    if (index >= 0) {
+      const replaced = this.#tabs[index];
+      this.#recent = this.#recent.filter((item) => item !== replaced);
+      this.#tabs[index] = tab;
+    } else this.#insert(tab);
+    this.#focus(tab);
     return tab;
   }
 
   activate(tab: OpenTab) {
-    if (this.#tabs.includes(tab)) this.#active = tab;
+    if (this.#tabs.includes(tab)) this.#focus(tab);
   }
 
-  /** Closes the tab; returns the new active tab (a neighbour, or none). */
+  /** Closes the tab; returns the new active tab (the last one focused, or none). */
   close(tab: OpenTab): OpenTab | undefined {
     this.#remove(new Set([tab]));
     return this.#active;
@@ -63,6 +74,7 @@ export class OpenTabs {
       if (target === undefined) return tab;
       const moved = Object.freeze({ path: target, preview: false });
       if (this.#active === tab) this.#active = moved;
+      this.#recent = this.#recent.map((item) => (item === tab ? moved : item));
       return moved;
     });
   }
@@ -76,17 +88,21 @@ export class OpenTabs {
 
   clear() {
     this.#tabs = [];
+    this.#recent = [];
     this.#active = undefined;
   }
 
-  // The active tab passes to the nearest survivor on its right, then its left.
+  // Like VS Code, the active tab passes to the most recently focused survivor;
+  // a tab that was never focused falls back to its nearest neighbour.
   #remove(closed: ReadonlySet<OpenTab>) {
     if (!closed.size) return;
     const before = this.#tabs;
     this.#tabs = before.filter((tab) => !closed.has(tab));
+    this.#recent = this.#recent.filter((tab) => !closed.has(tab));
     if (!this.#active || !closed.has(this.#active)) return;
     const index = before.indexOf(this.#active);
     this.#active =
+      this.#recent.at(-1) ??
       before.slice(index + 1).find((tab) => !closed.has(tab)) ??
       before
         .slice(0, index)

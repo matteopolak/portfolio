@@ -17,14 +17,27 @@ test('opening focuses an existing tab or inserts after the active one', () => {
   assert.equal(tabs.active, again);
 });
 
-test('closing the active tab activates its right neighbour, then its left', () => {
+test('closing the active tab returns to the previously focused tab', () => {
   const tabs = new OpenTabs();
   for (const path of ['a', 'b', 'c']) tabs.open(path);
-  tabs.activate(tabs.tabs[1]);
-  assert.equal(tabs.close(tabs.tabs[1])?.path, 'c');
+  tabs.activate(tabs.tabs[0]);
+  // Go to definition from `a` opens a preview right after it.
+  tabs.preview('modules/Basic/Print.jai');
+  assert.deepEqual(paths(tabs), ['a', '~modules/Basic/Print.jai', 'b', 'c']);
   assert.equal(tabs.close(tabs.tabs[1])?.path, 'a');
+  assert.equal(tabs.close(tabs.tabs[0])?.path, 'c');
+  assert.equal(tabs.close(tabs.tabs[1])?.path, 'b');
   assert.equal(tabs.close(tabs.tabs[0]), undefined);
   assert.deepEqual(paths(tabs), []);
+});
+
+test('a replaced preview drops out of the focus history', () => {
+  const tabs = new OpenTabs();
+  tabs.open('a');
+  tabs.open('b');
+  tabs.preview('x');
+  tabs.preview('y');
+  assert.equal(tabs.close(tabs.active!)?.path, 'b');
 });
 
 test('closing an inactive tab keeps the active one', () => {
@@ -59,7 +72,8 @@ test('renames follow files and deletes close tabs', () => {
   assert.equal(tabs.active?.path, 'src/b.jai');
   tabs.retain(new Set(['main.jai', 'c.jai']));
   assert.deepEqual(paths(tabs), ['main.jai', 'c.jai', '~lib/a.jai']);
-  assert.equal(tabs.active?.path, 'c.jai');
+  // The preview was focused just before the deleted file.
+  assert.equal(tabs.active?.preview, true);
 });
 
 test('labels add the folder only when names collide', () => {
