@@ -273,8 +273,11 @@ export class LanguageClient {
             documentLink: { tooltipSupport: false },
             foldingRange: { lineFoldingOnly: true },
             codeAction: {
+              // jailint's fixes are `quickfix`; expansions are `refactor.inline`.
               codeActionLiteralSupport: {
-                codeActionKind: { valueSet: ['refactor.inline'] },
+                codeActionKind: {
+                  valueSet: ['quickfix', 'refactor', 'refactor.inline'],
+                },
               },
             },
             codeLens: {},

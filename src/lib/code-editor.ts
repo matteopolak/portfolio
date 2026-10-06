@@ -47,6 +47,7 @@ import {
 import {
   lintGutter,
   setDiagnostics,
+  type Action as LintAction,
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
 import { tags, highlightTree } from '@lezer/highlight';
@@ -59,6 +60,12 @@ import {
   formatPercentTag,
 } from './jai/language.ts';
 import { formatStringAt } from './jai/format-string.ts';
+import {
+  LINT_DOCS,
+  isUnusedRule,
+  lintMessage,
+  lintRule,
+} from './jai/lint-fixes.ts';
 import { tomlLanguage } from './toml-language.ts';
 import { markdownSyntax } from './markdown-language.ts';
 import {
@@ -232,6 +239,34 @@ const theme = EditorView.theme(
     '.cm-diagnostic-error': { borderLeftColor: 'var(--red)' },
     '.cm-diagnostic-warning': { borderLeftColor: 'var(--yellow)' },
     '.cm-diagnostic-info': { borderLeftColor: 'var(--blue)' },
+    '.cm-diagnostic': { display: 'flex', flexWrap: 'wrap', gap: '4px 8px' },
+    '.cm-diagnosticText': { flex: '1 1 100%', whiteSpace: 'pre-wrap' },
+    '.cm-diagnosticAction': {
+      backgroundColor: 'var(--ide-selection)',
+      color: 'var(--ide-fg-strong)',
+      borderRadius: '3px',
+      padding: '1px 8px',
+      margin: '0',
+      cursor: 'pointer',
+    },
+    '.cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible': {
+      backgroundColor: 'var(--blue)',
+      color: 'var(--ide-bg)',
+    },
+    '.jai-lint': { display: 'grid', gap: '2px' },
+    '.jai-lint code': { fontFamily: 'inherit' },
+    '.jai-lint__help': { color: 'var(--ide-muted)' },
+    '.jai-lint__rule': {
+      justifySelf: 'start',
+      color: 'var(--ide-muted)',
+      fontSize: '85%',
+      textDecoration: 'none',
+    },
+    '.jai-lint__rule:hover': {
+      color: 'var(--blue)',
+      textDecoration: 'underline',
+    },
+    '.cm-lint-unused': { opacity: '0.6' },
     '.cm-lintRange-error': {
       backgroundImage: 'none',
       textDecoration: 'underline wavy var(--red)',
@@ -824,6 +859,47 @@ function highlighted(
   return fragment;
 }
 
+/** Text with `code` spans highlighted as Jai, as jailint writes names and snippets. */
+function withCode(text: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  text.split(/(`[^`\n]+`)/u).forEach((part, index) => {
+    if (index % 2 === 0) {
+      if (part) fragment.append(part);
+      return;
+    }
+    const code = document.createElement('code');
+    code.append(highlighted(part.slice(1, -1), jaiLanguage));
+    fragment.append(code);
+  });
+  return fragment;
+}
+
+/** A jailint finding in the diagnostic tooltip: the finding, its help line and the rule's docs. */
+function lintContent(message: string, rule: string): HTMLElement {
+  const { text, help } = lintMessage(message);
+  const root = document.createElement('span');
+  root.className = 'jai-lint';
+  const finding = document.createElement('span');
+  finding.className = 'jai-lint__message';
+  finding.append(withCode(text));
+  root.append(finding);
+  if (help) {
+    const line = document.createElement('span');
+    line.className = 'jai-lint__help';
+    line.append('help: ', withCode(help));
+    root.append(line);
+  }
+  const link = document.createElement('a');
+  link.className = 'jai-lint__rule';
+  link.href = LINT_DOCS;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.title = `What jailint's ${rule} rule finds, and how to silence it`;
+  link.textContent = `jailint(${rule})`;
+  root.append(link);
+  return root;
+}
+
 const formatNodes = new Set([
   'formatString',
   'formatSpecifier',
@@ -1226,10 +1302,22 @@ export function createEditor(
       const line = view.state.doc.lineAt(cursor);
       onCursor(line.number, cursor - line.from + 1);
     },
-    diagnostics(values: readonly Diagnostic[], documentText: string) {
+    /**
+     * Shows a document's published diagnostics. `actions` gives a diagnostic
+     * its tooltip buttons (a lint's quick fixes); jailint findings also get
+     * their help line, a link to the rule's docs and, for `unused_*` rules,
+     * a faded range.
+     */
+    diagnostics(
+      values: readonly Diagnostic[],
+      documentText: string,
+      actions?: (value: Diagnostic) => readonly LintAction[] | undefined
+    ) {
       const checked: EditorDiagnostic[] = [];
       for (const value of values) {
         try {
+          const rule = lintRule(value);
+          const message = String(value.message);
           checked.push({
             from: offsetAt(documentText, value.range.start),
             to: offsetAt(documentText, value.range.end),
@@ -1239,9 +1327,19 @@ export function createEditor(
                 : value.severity === 3 || value.severity === 4
                   ? 'info'
                   : 'error',
-            message: String(value.message),
-            // `jai-format`, `jai-parser`, ... say which check reported it.
-            source: typeof value.code === 'string' ? value.code : value.source,
+            message,
+            // `jai-format`, `jai-parser`, ... say which check reported it;
+            // a lint names its rule in its own footer instead.
+            source: rule
+              ? undefined
+              : typeof value.code === 'string'
+                ? value.code
+                : value.source,
+            ...(rule && {
+              renderMessage: () => lintContent(message, rule),
+              markClass: isUnusedRule(rule) ? 'cm-lint-unused' : undefined,
+            }),
+            actions: actions?.(value),
           });
         } catch {
           /* Invalid server ranges never become guessed editor positions. */

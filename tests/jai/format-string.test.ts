@@ -164,3 +164,14 @@ test('formatStringAt lists what each specifier formats', () => {
   assert.equal(formatStringAt(text, text.indexOf('player')), null);
   assert.equal(formatStringAt('x := 1; // "%"', 13), null);
 });
+
+test('ranges and leading-dot floats lex like jaic', () => {
+  assert.deepEqual(tokens('for 1..12 {}').slice(1, 4), [
+    ['1', 'number'],
+    ['..', 'operator'],
+    ['12', 'number'],
+  ]);
+  assert.ok(tokens('x := .5;').some(([t, s]) => t === '.5' && s === 'number'));
+  assert.deepEqual(tokens('a.5').map(([t]) => t), ['a', '.', '5']);
+  assert.deepEqual(tokens('1.5..2')[0], ['1.5', 'number']);
+});

@@ -7,7 +7,7 @@ import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
 import { showPane } from '../code-workspace-layout.ts';
-import { Workspace } from './workspace.ts';
+import { Workspace, type WorkspaceDocument } from './workspace.ts';
 import { loadStarter } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
 import {
@@ -21,10 +21,12 @@ import {
   applyWorkspaceEdit,
   definitionTarget,
   normalizeLocations,
+  planWorkspaceEdit,
   positionRequest,
   prepareRename,
   renameSymbol,
   resolveLocation,
+  sameWorkspace,
   type NavigationTarget,
   type PlannedEdit,
 } from './language-actions.ts';
@@ -50,19 +52,39 @@ import {
   isFormattable,
   mapOffset,
 } from './format.ts';
+import {
+  QUICKFIX,
+  combineFixes,
+  diagnosticsAt,
+  fixLabel,
+  fixesFor,
+  lintRule,
+} from './lint-fixes.ts';
+import type { Action as LintAction } from '@codemirror/lint';
 import type {
   CodeAction,
   Command,
+  Diagnostic,
   Expansion,
   Range,
   ServerCapabilities,
   SymbolInformation,
+  WorkspaceEdit,
   WorkerRequest,
   WorkerResponse,
 } from './lsp-types.ts';
 
 /** Interpreter budget in basic blocks; runaway programs fail instead of hanging. */
 const BUDGET = 200_000_000;
+/** Lints per file whose quick fixes are looked up for the tooltip's Fix buttons. */
+const MAX_LINT_FIXES = 50;
+
+/** A document's last published diagnostics, and the quick fixes of its lints once known. */
+interface Published {
+  version: number;
+  diagnostics: Diagnostic[];
+  fixes?: Map<Diagnostic, CodeAction[]>;
+}
 
 interface CompilerWorker {
   worker: Worker;
@@ -228,6 +250,197 @@ export async function createSession(
   const selectedPath = () =>
     !viewing && language ? workspace.selected?.path.name : undefined;
 
+  /*
+   * Diagnostics by URI, kept so a tab shows its squiggles again when it is
+   * reopened, and so code action requests can send the ones they touch.
+   */
+  const published = new Map<string, Published>();
+  /** The selected file's diagnostics, if they are for its current text. */
+  function currentDiagnostics(): Published | undefined {
+    const selected = workspace.selected;
+    if (viewing || !selected) return undefined;
+    const entry = published.get(documentUri(selected.path.name));
+    return entry?.version === selected.version ? entry : undefined;
+  }
+  /** `context.diagnostics` for a code action request over `range` of the selected file. */
+  const diagnosticsFor = (range: Range) =>
+    diagnosticsAt(currentDiagnostics()?.diagnostics ?? [], range);
+  /** How many lints in `entry` have a quick fix. */
+  const fixableCount = (entry: Published | undefined) =>
+    entry?.fixes
+      ? [...entry.fixes.values()].filter((fixes) => fixes.length).length
+      : 0;
+  function showDiagnostics() {
+    const selected = workspace.selected;
+    const entry = currentDiagnostics();
+    if (!selected || !entry) {
+      editor.diagnostics([], selected?.text ?? '');
+      return;
+    }
+    const fixable = fixableCount(entry);
+    editor.diagnostics(entry.diagnostics, selected.text, (diagnostic) => {
+      const rule = lintRule(diagnostic);
+      const fixes = entry.fixes?.get(diagnostic);
+      if (!rule || !fixes?.length) return undefined;
+      const actions: LintAction[] = fixes.map((fix) => ({
+        name: fixes.length === 1 ? 'Fix' : `Fix: ${fixLabel(fix)}`,
+        apply: (_view, from, to) =>
+          void applyLintFix(rule, fix.title, from, to),
+      }));
+      if (fixable > 1)
+        actions.push({
+          name: `Fix all (${fixable})`,
+          apply: () => void fixAllLints(),
+        });
+      return actions;
+    });
+  }
+  /** Finds which lints of `entry` have quick fixes, then shows their Fix buttons. */
+  async function loadFixes(uri: string, entry: Published) {
+    const client = language;
+    if (!client || !can('codeActionProvider')) return;
+    const lints = entry.diagnostics
+      .filter((diagnostic) => lintRule(diagnostic))
+      .slice(0, MAX_LINT_FIXES);
+    if (!lints.length) return;
+    const fixes = new Map<Diagnostic, CodeAction[]>();
+    try {
+      await Promise.all(
+        lints.map(async (diagnostic) => {
+          const actions = await client.request<CodeAction[] | null>(
+            'textDocument/codeAction',
+            {
+              textDocument: { uri },
+              range: diagnostic.range,
+              context: { diagnostics: [diagnostic], only: [QUICKFIX] },
+            },
+            signal
+          );
+          fixes.set(diagnostic, fixesFor(actions, lintRule(diagnostic)!));
+        })
+      );
+    } catch {
+      return;
+    }
+    // A newer publish (an edit) replaced this entry: its own lookup follows.
+    if (signal.aborted || published.get(uri) !== entry) return;
+    entry.fixes = fixes;
+    if (currentDiagnostics() === entry) showDiagnostics();
+  }
+  /**
+   * Applies a code action's edit computed against `documents`. An edit of
+   * only the file on screen goes through the editor, as one undo step that
+   * keeps the scroll position; anything else updates the workspace.
+   */
+  function applyEdit(
+    documents: readonly WorkspaceDocument[],
+    edit: WorkspaceEdit
+  ) {
+    if (!sameWorkspace(documents, workspace.documents))
+      throw new Error('Edit is stale; no files were changed.');
+    const updates = planWorkspaceEdit(documents, edit);
+    const [only] = updates;
+    if (
+      updates.length === 1 &&
+      !viewing &&
+      only.path === workspace.selected?.path.name &&
+      editor.view.state.doc.toString() === workspace.selected.text
+    ) {
+      editor.view.dispatch({ changes: only.changes, userEvent: 'input.fix' });
+      return;
+    }
+    saveState();
+    applied(applyWorkspaceEdit(workspace, documents, edit));
+  }
+  /**
+   * A lint's Fix button. The fix is asked for again at the lint's current
+   * range, so it always applies to the text on screen; `title` picks the
+   * same fix when a range has several.
+   */
+  async function applyLintFix(
+    rule: string,
+    title: string,
+    from: number,
+    to: number
+  ) {
+    const path = selectedPath();
+    if (!path || !language) return;
+    const documents = workspace.documents;
+    const document = documents.find((item) => item.path === path);
+    if (!document) return;
+    language.sync(documents);
+    try {
+      const range = {
+        start: positionAt(document.text, from),
+        end: positionAt(document.text, to),
+      };
+      const actions = await language.request<CodeAction[] | null>(
+        'textDocument/codeAction',
+        {
+          textDocument: { uri: documentUri(path) },
+          range,
+          context: { diagnostics: diagnosticsFor(range), only: [QUICKFIX] },
+        },
+        signal
+      );
+      if (signal.aborted) return;
+      const fixes = fixesFor(actions, rule);
+      const fix = fixes.find((item) => item.title === title) ?? fixes[0];
+      if (!fix?.edit) {
+        announce('This lint has no automatic fix now');
+        return;
+      }
+      applyEdit(documents, fix.edit);
+      editor.focus();
+      announce(`Fixed ${rule}`);
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+  /**
+   * Applies every lint fix in the selected file as one edit (one undo).
+   * jailint has no `source.fixAll` action, so this asks for the code actions
+   * of the whole file and merges its quick fixes; fixes that overlap an
+   * earlier one wait for the next run.
+   */
+  async function fixAllLints() {
+    const path = selectedPath();
+    if (!path || !language) return;
+    const documents = workspace.documents;
+    const document = documents.find((item) => item.path === path);
+    if (!document) return;
+    language.sync(documents);
+    try {
+      const range = {
+        start: { line: 0, character: 0 },
+        end: positionAt(document.text, document.text.length),
+      };
+      const actions = await language.request<CodeAction[] | null>(
+        'textDocument/codeAction',
+        {
+          textDocument: { uri: documentUri(path) },
+          range,
+          context: { diagnostics: diagnosticsFor(range), only: [QUICKFIX] },
+        },
+        signal
+      );
+      if (signal.aborted) return;
+      const { edit, applied: count, skipped } = combineFixes(actions);
+      if (!count) {
+        announce('No lints to fix in this file');
+        return;
+      }
+      applyEdit(documents, edit);
+      editor.focus();
+      announce(
+        `Fixed ${count} lint${count === 1 ? '' : 's'}` +
+          (skipped ? `; ${skipped} overlapping, run Fix all again` : '')
+      );
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
   const editor = createEditor(find('editor'), {
     text: workspace.selected?.text ?? '',
     language: 'jai',
@@ -296,6 +509,7 @@ export async function createSession(
       openLink: (target) => void openUri(target),
       runLens: (view, lens, pos) => void runCommand(view, lens.command, pos),
       codeActions: (view) => void codeActions(view),
+      diagnosticsAt: diagnosticsFor,
     }),
     keys: [
       { key: 'Shift-F12', run: when('referencesProvider', references) },
@@ -600,41 +814,52 @@ export async function createSession(
     const { from, to, head } = view.state.selection.main;
     language.sync(documents);
     try {
+      const range = {
+        start: positionAt(document.text, from),
+        end: positionAt(document.text, to),
+      };
       const actions = await language.request<CodeAction[] | null>(
         'textDocument/codeAction',
         {
           textDocument: { uri: documentUri(path) },
-          range: {
-            start: positionAt(document.text, from),
-            end: positionAt(document.text, to),
-          },
-          context: { diagnostics: [] },
+          range,
+          context: { diagnostics: diagnosticsFor(range) },
         },
         signal
       );
       if (signal.aborted) return;
-      if (!actions?.length) {
+      const fixable = fixableCount(currentDiagnostics());
+      if (!actions?.length && !fixable) {
         announce('No code actions here');
         return;
       }
+      const items: PickerItem[] = (actions ?? []).map((action) => ({
+        label: action.title,
+        detail:
+          action.kind === QUICKFIX
+            ? 'quick fix'
+            : action.kind === 'refactor.inline'
+              ? 'inline'
+              : undefined,
+        run: () => {
+          try {
+            if (action.edit) applyEdit(documents, action.edit);
+            if (action.command) void runCommand(view, action.command, head);
+          } catch (error) {
+            showError(errorMessage(error));
+          }
+        },
+      }));
+      if (fixable > 1)
+        items.push({
+          label: `Fix all lints in this file`,
+          detail: `${fixable} fixable`,
+          run: () => void fixAllLints(),
+        });
       picker(view, {
         title: 'Code actions',
         at: pickerAt(view, head),
-        items: actions.map((action) => ({
-          label: action.title,
-          detail: action.kind === 'refactor.inline' ? 'inline' : undefined,
-          run: () => {
-            try {
-              if (action.edit) {
-                saveState();
-                applied(applyWorkspaceEdit(workspace, documents, action.edit));
-              }
-              if (action.command) void runCommand(view, action.command, head);
-            } catch (error) {
-              showError(errorMessage(error));
-            }
-          },
-        })),
+        items,
       });
     } catch (error) {
       if (!signal.aborted) showError(errorMessage(error));
@@ -726,7 +951,7 @@ export async function createSession(
           : editor.createState('')
       );
       editor.setEditable(Boolean(selected));
-      editor.diagnostics([], selected?.text ?? '');
+      showDiagnostics();
     }
     const open = Boolean(workspace.selected || viewing);
     editorHost.hidden = !open;
@@ -1378,19 +1603,19 @@ export async function createSession(
     const server = await initializeWorker();
     const client = new LanguageClient(server.worker, {
       diagnostics: (params) => {
-        try {
-          const path = pathFromUri(params.uri);
-          const selected = workspace.selected;
-          if (
-            path !== undefined &&
-            selected &&
-            path === selected.path.name &&
-            params.version === selected.version
-          )
-            editor.diagnostics(params.diagnostics, selected.text);
-        } catch {
-          /* Ignore diagnostics outside the current document. */
-        }
+        if (
+          pathFromUri(params.uri) === undefined ||
+          !Number.isInteger(params.version) ||
+          !Array.isArray(params.diagnostics)
+        )
+          return;
+        const entry: Published = {
+          version: params.version!,
+          diagnostics: params.diagnostics,
+        };
+        published.set(params.uri, entry);
+        if (currentDiagnostics() === entry) showDiagnostics();
+        void loadFixes(params.uri, entry);
       },
       failure: () => {
         language = undefined;
