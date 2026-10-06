@@ -10,8 +10,12 @@ from pathlib import Path, PurePosixPath
 
 def verify(directory, revision):
     manifest = json.loads((directory / "jai-playground.manifest.json").read_text())
-    if (manifest.get("schema_version") != 1 or manifest.get("commit") != revision
-            or manifest.get("dirty_checkout") is not False or manifest.get("entrypoint") != "index.html"):
+    # Schema 1 bundles carried the compiler repo's own playground page; schema 2 ships only the
+    # wasm, its engine and the jaifmt driver, which is all this site uses.
+    schema = manifest.get("schema_version")
+    if (schema not in (1, 2) or manifest.get("commit") != revision
+            or manifest.get("dirty_checkout") is not False
+            or (schema == 1 and manifest.get("entrypoint") != "index.html")):
         raise ValueError("Jai manifest identity mismatch")
     records = manifest.get("files")
     if not isinstance(records, list) or not 1 <= len(records) <= 4096:
@@ -29,8 +33,9 @@ def verify(directory, revision):
         if type(size) is not int or not 0 <= size <= 64 * 1024 * 1024 or not re.fullmatch(r"[a-f0-9]{64}", record["sha256"]):
             raise ValueError("Invalid Jai file metadata")
         expected[name] = record
-    if not {"index.html", "worker.mjs", "jai_wasm.wasm"} <= expected.keys():
-        raise ValueError("Missing Jai entrypoint, worker or Wasm")
+    required = {"index.html", "worker.mjs", "jai_wasm.wasm"} if schema == 1 else {"jai_wasm.wasm", "jaifmt-playground.jai"}
+    if not required <= expected.keys():
+        raise ValueError("Missing Jai Wasm or bundle files")
     with zipfile.ZipFile(directory / "jai-playground.zip") as archive:
         members = archive.infolist()
         if len(members) != len(expected) or {i.filename for i in members} != expected.keys():
