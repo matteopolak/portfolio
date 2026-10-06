@@ -37,6 +37,34 @@ const {
   aria-label={`${label} code editor`}
 >
   <header class="ide-bar">
+    {/* Editor tools start at the editor column's left edge, not above the file tree. */}
+    <div class="ide-tools" role="group" aria-label="Editor tools">
+      {
+        language === 'jai' && files && (
+          <button
+            type="button"
+            class="ide-icon ide-tool"
+            data-code-format
+            hidden={!enabled}
+            disabled
+            aria-label="Format file"
+            aria-keyshortcuts="Shift+Alt+F"
+            title="Format file (Shift+Alt+F)"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M8.5 8.5H17M8.5 12H17M3 15.5h14M3.5 7.75 6 10.25l-2.5 2.5"></path></svg>
+          </button>
+        )
+      }
+      <button type="button" class="ide-icon ide-tool ide-tool--vim" data-code-vim aria-pressed="false" aria-label="Vim mode" title="Vim mode">
+        {/* Monochrome Vim mark: a diamond with the slab V cut out (even-odd). */}
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            fill-rule="evenodd"
+            d="M10 1.2 18.8 10 10 18.8 1.2 10ZM6.2 6.4h3.2v1.2h-.6l1.8 4.6 1.6-4.6h-.5V6.4h2.1v1.2h-.5l-2.7 7h-1L7 7.6h-.8Z"
+          ></path>
+        </svg>
+      </button>
+    </div>
     <span class="ide-status" data-code-status role="status" aria-live="polite"></span>
     <button type="button" class="ide-text-button" data-code-retry hidden>Retry</button>
     <button type="button" class="ide-run" data-code-run disabled aria-label="Run program" title="Run">
@@ -48,22 +76,6 @@ const {
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5h10v10H5z"></path></svg>
       <span>Stop</span>
     </button>
-    {
-      language === 'jai' && files && (
-        <button
-          type="button"
-          class="ide-text-button ide-format"
-          data-code-format
-          hidden
-          disabled
-          aria-keyshortcuts="Shift+Alt+F"
-          title="Format file (Shift+Alt+F)"
-        >
-          Format
-        </button>
-      )
-    }
-    <button type="button" class="ide-text-button ide-vim" data-code-vim aria-pressed="false" aria-label="Vim keybindings" title="Vim keybindings">Vim</button>
     <button type="button" class="ide-icon ide-icon--fullscreen" data-code-fullscreen aria-label="Enter full screen" title="Full screen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
     </button>
@@ -268,16 +280,82 @@ const {
 
   /* Header */
   .ide-bar {
+    /*
+     * Where the editor column starts: right of the file tree and its divider
+     * (multi-file), else the left edge. Capped so a very wide tree never pushes
+     * Run and the window buttons out of the bar.
+     */
+    --ide-editor-start: 0px;
+
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
     height: 3rem;
-    padding: 0 0.5rem 0 1rem;
+    padding: 0 0.5rem 0 calc(var(--ide-editor-start) + 0.4rem);
     background: var(--ide-sunken);
     border-bottom: 1px solid var(--ide-rule);
-    /* Only actions live here; they stay right-aligned when the status is hidden. */
-    justify-content: flex-end;
+  }
+
+  .ide:not(.ide--single) .ide-bar {
+    --ide-editor-start: min(calc(var(--files-width, 13rem) + 1px), calc(100% - 19rem));
+  }
+
+  /* The file-tree divider continues through the bar, so the tools read as the editor's. */
+  .ide:not(.ide--single) .ide-bar::before {
+    position: absolute;
+    top: 0;
+    bottom: -1px;
+    left: calc(var(--ide-editor-start) - 1px);
+    width: 1px;
+    content: '';
+    background: var(--ide-rule);
+  }
+
+  /* `margin-right: auto` keeps Run and the window buttons right-aligned when the status is hidden. */
+  .ide-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex: none;
+    margin-right: auto;
+  }
+
+  .ide-tool:disabled {
+    opacity: 0.4;
+    cursor: default !important;
+  }
+
+  .ide-tool:disabled:hover {
+    color: var(--ide-muted) !important;
+    background: transparent !important;
+  }
+
+  .ide-tool[aria-busy='true'] svg {
+    animation: ide-tool-busy 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes ide-tool-busy {
+    to {
+      opacity: 0.35;
+    }
+  }
+
+  /* The Vim mark is filled; the diamond's V is cut out with even-odd. */
+  .ide-tool--vim svg {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .ide-tool--vim[aria-pressed='true'] {
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-raised) !important;
+    box-shadow: inset 0 0 0 1px var(--blue);
+  }
+
+  .ide-tool--vim[aria-pressed='true'] svg {
+    color: color-mix(in oklch, var(--blue) 45%, white);
   }
 
   .ide-status {
@@ -300,31 +378,6 @@ const {
 
   .ide-text-button:hover {
     background: var(--ide-hover) !important;
-  }
-
-  .ide-format {
-    margin-left: 0.25rem;
-    color: var(--ide-muted) !important;
-  }
-
-  .ide-format:disabled {
-    opacity: 0.45;
-    cursor: default !important;
-  }
-
-  .ide-format:disabled:hover {
-    background: transparent !important;
-  }
-
-  .ide-vim {
-    margin-left: 0.25rem;
-    color: var(--ide-muted) !important;
-    font-family: var(--ide-mono);
-  }
-
-  .ide-vim[aria-pressed='true'] {
-    color: var(--ide-fg-strong) !important;
-    border-color: var(--blue) !important;
   }
 
   .ide-run {
@@ -859,9 +912,17 @@ const {
       box-shadow: none;
     }
 
-    .ide-bar {
+    /* The tree is its own pane here, so the tools start at the left edge. */
+    .ide-bar,
+    .ide:not(.ide--single) .ide-bar {
+      --ide-editor-start: 0px;
+
       height: calc(3.25rem + env(safe-area-inset-top));
-      padding: env(safe-area-inset-top) 0.35rem 0 0.85rem;
+      padding: env(safe-area-inset-top) 0.35rem 0 0.35rem;
+    }
+
+    .ide:not(.ide--single) .ide-bar::before {
+      display: none;
     }
 
     .ide-run {

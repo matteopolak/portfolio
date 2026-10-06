@@ -138,6 +138,9 @@ export function initializeWorkspaceLayout(
     '[data-code-shortcut]'
   ))
     hint.textContent = mac ? '⌘↵' : 'Ctrl↵';
+  panel
+    .querySelector('[data-code-format]')
+    ?.setAttribute('title', `Format file (${mac ? '⇧⌥F' : 'Shift+Alt+F'})`);
 
   signal.addEventListener(
     'abort',
