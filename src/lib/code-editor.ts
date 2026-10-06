@@ -11,6 +11,7 @@ import {
   crosshairCursor,
   highlightActiveLine,
   hoverTooltip,
+  type Tooltip,
 } from '@codemirror/view';
 import {
   defaultKeymap,
@@ -27,6 +28,7 @@ import {
   HighlightStyle,
   indentUnit,
   StreamLanguage,
+  syntaxTree,
 } from '@codemirror/language';
 import {
   closeBrackets,
@@ -47,7 +49,13 @@ import {
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
 import { tags, highlightTree } from '@lezer/highlight';
-import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
+import {
+  jaiTokenizer,
+  jaiLanguage,
+  formatSpecifierTag,
+  formatPercentTag,
+} from './jai/language.ts';
+import { formatStringAt } from './jai/format-string.ts';
 import { tomlLanguage } from './toml-language.ts';
 import {
   documentUri,
@@ -102,6 +110,12 @@ const colors = HighlightStyle.define([
   },
   { tag: tags.variableName, color: 'var(--ide-fg)' },
   { tag: [tags.string, tags.character], color: 'var(--ide-syntax-string)' },
+  {
+    tag: formatSpecifierTag,
+    color: 'var(--ide-syntax-format)',
+    fontWeight: '650',
+  },
+  { tag: formatPercentTag, color: 'var(--ide-syntax-format-percent)' },
   {
     tag: tags.comment,
     color: 'var(--ide-syntax-comment)',
@@ -247,6 +261,26 @@ const theme = EditorView.theme(
       fontSize: '12.5px',
     },
     '.jai-hover--overloads': { padding: '4px 0' },
+    '.jai-hover__format-head': { padding: '2px 10px 6px' },
+    '.jai-hover__format-row': { padding: '4px 10px', textIndent: '0' },
+    '.jai-hover__format-row[data-current]': {
+      backgroundColor: 'var(--ide-selection)',
+      boxShadow: 'inset 2px 0 var(--ide-syntax-format)',
+    },
+    '.jai-hover__format-spec': {
+      color: 'var(--ide-syntax-format)',
+      fontWeight: '650',
+    },
+    '.jai-hover__format-label': {
+      color: 'var(--ide-muted)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+    },
+    '.jai-hover__format-missing': {
+      color: 'var(--ide-error)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+    },
     '.jai-hover__count': {
       padding: '2px 10px 4px',
       color: 'var(--ide-muted)',
@@ -449,6 +483,115 @@ function hoverContent(
   return dom;
 }
 
+/** Syntax highlighting for `source` as a fragment, using the editor's colours. */
+function highlighted(
+  source: string,
+  { parser }: StreamLanguage<unknown>,
+  skip = 0,
+  length = source.length - skip
+): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const end = skip + length;
+  let at = skip;
+  const plain = (to: number) => {
+    if (to > at) fragment.append(source.slice(at, to));
+    at = Math.max(at, to);
+  };
+  highlightTree(parser.parse(source), colors, (from, to, cls) => {
+    from = Math.max(from, skip);
+    to = Math.min(to, end);
+    if (to <= from) return;
+    plain(from);
+    const span = document.createElement('span');
+    span.className = cls;
+    span.textContent = source.slice(from, to);
+    fragment.append(span);
+    at = to;
+  });
+  plain(end);
+  return fragment;
+}
+
+const formatNodes = new Set([
+  'formatString',
+  'formatSpecifier',
+  'formatPercent',
+]);
+
+/**
+ * Client-side hover for a print-family format string: the literal, then one
+ * row per specifier with the argument it formats. Only the tokenizer knows
+ * which strings are format strings, so this keys off its token names. The
+ * language server's hover wins when it has one (see `hover`).
+ */
+function formatStringHover(
+  view: EditorView,
+  position: number,
+  side: -1 | 1
+): Tooltip | null {
+  const node = syntaxTree(view.state).resolveInner(position, side);
+  if (!formatNodes.has(node.name)) return null;
+  const at = Math.min(
+    Math.max(side < 0 ? position - 1 : position, node.from),
+    node.to - 1
+  );
+  const info = formatStringAt(view.state.doc.toString(), at);
+  if (!info || info.entries.length === 0) return null;
+  return {
+    pos: info.from,
+    end: info.to,
+    above: true,
+    create() {
+      const dom = document.createElement('div');
+      dom.className = 'jai-hover jai-hover--overloads jai-hover--format';
+      // Highlight the literal as the first argument of a `print` call.
+      const head = document.createElement('div');
+      head.className = 'jai-hover__format-head';
+      head.append(
+        highlighted(
+          `print(${info.literal})`,
+          jaiLanguage,
+          6,
+          info.literal.length
+        )
+      );
+      dom.append(head);
+      for (const entry of info.entries) {
+        const { spec } = entry;
+        const row = document.createElement('div');
+        row.className = 'jai-hover__overload jai-hover__format-row';
+        const from = info.from + 1 + spec.from;
+        if (at >= from && at < info.from + 1 + spec.to)
+          row.dataset.current = 'true';
+        const mark = document.createElement('span');
+        mark.className = 'jai-hover__format-spec';
+        mark.textContent = entry.text;
+        const label = document.createElement('span');
+        label.className = 'jai-hover__format-label';
+        row.append(mark, ' → ', label);
+        if (spec.kind === 'percent') label.textContent = 'a literal %';
+        else if (spec.kind === 'empty') label.textContent = 'prints nothing';
+        else {
+          label.textContent = `Argument ${(spec.argument ?? 0) + 1}`;
+          if (entry.argumentText === undefined) {
+            const missing = document.createElement('span');
+            missing.className = 'jai-hover__format-missing';
+            missing.textContent = '(not passed)';
+            row.append(' ', missing);
+          } else {
+            const code = document.createElement('code');
+            code.className = 'jai-hover__format-argument';
+            code.append(highlighted(entry.argumentText, jaiLanguage));
+            row.append(' ', code);
+          }
+        }
+        dom.append(row);
+      }
+      return { dom };
+    },
+  };
+}
+
 export function createEditor(
   parent: HTMLElement,
   {
@@ -593,9 +736,13 @@ export function createEditor(
       return null;
     }
   };
-  const hover = hoverTooltip(async (view, position) => {
+  const hover = hoverTooltip(async (view, position, side) => {
+    // The client-side format-string hover is the fallback: a hover from the
+    // language server for the same position replaces it, so only one shows.
+    const local =
+      language === 'jai' ? formatStringHover(view, position, side) : null;
     const client = service();
-    if (!client) return null;
+    if (!client) return local;
     const current = currentDocument();
     const version = current.version;
     try {
@@ -604,13 +751,12 @@ export function createEditor(
         position: positionAt(view.state.doc.toString(), position),
       });
       if (
-        !result ||
         currentDocument().path !== current.path ||
         currentDocument().version !== version
       )
         return null;
-      const text = textContent(result.contents);
-      if (!text) return null;
+      const text = result ? textContent(result.contents) : '';
+      if (!result || !text) return local;
       return {
         pos: result.range
           ? offsetAt(current.text, result.range.start)
@@ -623,7 +769,7 @@ export function createEditor(
         },
       };
     } catch {
-      return null;
+      return local;
     }
   });
   /** `path` picks the highlighting; without it the editor's language is used. */

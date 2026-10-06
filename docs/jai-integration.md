@@ -91,6 +91,36 @@ Editor states apply the same edits to retain selection/history, then the languag
 client resynchronizes the changed document versions. File-tree rename remains a
 separate operation and does not rename symbols or rewrite imports.
 
+### Format-string highlighting
+
+The Jai tokenizer (`jai/language.ts`) colours `%` sequences inside the format string of print-family calls, and the editor explains them on hover. Only the real format argument is treated this way: `"50%"` in an ordinary string, or as a later argument, stays a plain string.
+
+**Which strings.** `formatCallees` in `jai/format-string.ts` maps each procedure to the index of its format argument: `print`, `tprint`, `sprint`, `log`, `log_error`, `log_warning` (0), `print_to_builder` and `assert` (1). The tokenizer is a `StreamLanguage`, so it tracks calls in its state:
+
+1. An identifier in `formatCallees` sets `state.callee` (comments and whitespace may follow it).
+2. The next `(` pushes `{ depth, argument }` onto `state.calls`; any other token clears `callee`, so `print :: (...)` and `p := print;` are not calls.
+3. A `,` at the call's own depth counts down `argument`; nested calls push their own entry.
+4. A `"` opening at the call's depth while `argument` is 0 starts a format string (`state.format`). Only that first string counts.
+5. Closing brackets pop calls at deeper depths, so an unbalanced call cannot leak into later code.
+
+Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens and `\%` is a `formatPercent` token. They map to `formatSpecifierTag` and `formatPercentTag` (both children of `tags.string`, so other highlight styles still colour them as strings). Here-strings (`#string`) and a `log(section, "…")` call with the section first are not detected.
+
+**Semantics.** These follow the compiler's `Basic` print (`__format_to_builder` in the compiler repo's `stdlib/Basic/Print.jai`), not older Jai:
+
+| Source | Meaning |
+| --- | --- |
+| `%` or `%0` | the next argument |
+| `%N` | argument N (1-based); a following `%` continues with N+1 |
+| `%%` | two specifiers, so two arguments (not a literal percent) |
+| `%00` | prints nothing |
+| `\%` | a literal `%` (the lexer turns it into byte 31) |
+
+**Hover.** Format-string text itself is emitted as a `formatString` token (same `tags.string` colour), so the whole literal, quotes included, is findable in the syntax tree. `formatStringHover` in `code-editor.ts` (Jai editor only) fires when the node under the pointer is `formatString`, `formatSpecifier` or `formatPercent`. `formatStringAt(text, offset)` in `format-string.ts` finds the literal on that line, numbers its specifiers with `formatSpecs`, and splits the remaining call arguments at top-level commas with `trailingArguments` (skipping nested brackets, strings and comments). The tooltip reuses the overload-list layout (`.jai-hover--overloads` rows): the highlighted literal on top, then one row per specifier, `%2 → Argument 2 hp`, with "(not passed)" in the error colour for a short call, and `\%` / `%00` rows explained as "a literal %" / "prints nothing". The row of the specifier under the pointer is emphasised (`data-current`). A literal with no specifiers gets no hover.
+
+**Language server first.** The client-side hover is a fallback inside the single LSP `hover` source: it is computed up front, then the editor asks the server; when the server returns a non-empty hover for that position (the compiler is getting a string-level hover with argument types) that hover is shown instead, so only one appears. With no server, an empty reply or an error, the client-side hover is used; a stale reply (the document changed meanwhile) shows nothing.
+
+**Changing it.** Add procedures to `formatCallees`. Keep `formatSpecs` and the tokenizer's specifier regex (`/^(?:00|0|[1-9]\d*)/`) in step with the compiler's print rules. Colours are `--ide-syntax-format` and `--ide-syntax-format-percent` in `CodeWorkspace.astro`; the workspace is dark-only, so there is no separate light value. Tests: `tests/jai/format-string.test.ts` (tokens, specifier numbering, argument splitting, `formatStringAt` and the row text from `describeFormatEntry`).
+
 ## Configuration
 
 `jai-web-release.json` records the repository, immutable tag, revision, manifest and

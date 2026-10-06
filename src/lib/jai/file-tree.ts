@@ -1,4 +1,5 @@
 import type { TreeNode, Workspace } from './workspace.ts';
+import { fileIcon, fileIconKind } from './file-icons.ts';
 
 type Kind = TreeNode['kind'];
 
@@ -11,8 +12,6 @@ interface FileTreeCallbacks {
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const iconPaths = {
-  file: 'M5.5 2.5h6l3.5 3.5v11.5h-9.5z M11.5 2.5V6H15',
-  directory: 'M2.5 5.5h5.25l1.75 1.75h8v9.25h-15z',
   chevron: 'm7.5 5 5 5-5 5',
   more: 'M5 10h.01M10 10h.01M15 10h.01',
 };
@@ -68,10 +67,10 @@ export function initializeFileTree(
       button.setAttribute('aria-expanded', String(open));
       button.append(
         icon('chevron', 'tree-chevron'),
-        icon('directory', 'tree-icon')
+        fileIcon(open ? 'folder-open' : 'folder', 'tree-icon')
       );
     } else {
-      button.append(icon('file', 'tree-icon'));
+      button.append(fileIcon(fileIconKind(node.name), 'tree-icon'));
       if (node.path === workspace.selected?.path.name)
         button.setAttribute('aria-current', 'true');
     }
