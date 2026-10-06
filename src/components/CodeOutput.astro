@@ -138,6 +138,59 @@
     color: var(--ide-error);
   }
 
+  /* Output with ANSI colour codes keeps the default colour where it sets none. */
+  pre :global([data-ansi]) {
+    color: var(--ide-fg);
+  }
+
+  pre :global(.ansi-bold) {
+    font-weight: 700;
+  }
+
+  pre :global(.ansi-dim) {
+    opacity: 0.7;
+  }
+
+  pre :global(.ansi-italic) {
+    font-style: italic;
+  }
+
+  pre :global(.ansi-underline) {
+    text-decoration: underline;
+  }
+
+  pre :global(:is(.ansi-fg-red, .ansi-fg-bright-red)) {
+    color: var(--ide-error);
+  }
+
+  pre :global(:is(.ansi-fg-yellow, .ansi-fg-bright-yellow)) {
+    color: var(--ide-syntax-keyword);
+  }
+
+  pre :global(:is(.ansi-fg-green, .ansi-fg-bright-green)) {
+    color: var(--ide-syntax-string);
+  }
+
+  pre :global(:is(.ansi-fg-blue, .ansi-fg-bright-blue)) {
+    color: var(--ide-syntax-type);
+  }
+
+  pre :global(:is(.ansi-fg-cyan, .ansi-fg-bright-cyan)) {
+    color: oklch(82% 0.1 210);
+  }
+
+  pre :global(:is(.ansi-fg-magenta, .ansi-fg-bright-magenta)) {
+    color: var(--ide-syntax-format);
+  }
+
+  pre :global(:is(.ansi-fg-black, .ansi-fg-bright-black)) {
+    color: var(--ide-faint);
+  }
+
+  pre :global(:is(.ansi-fg-white, .ansi-fg-bright-white)) {
+    color: var(--ide-fg);
+  }
+
   pre :global(.ide-output__exit) {
     color: var(--ide-muted);
   }

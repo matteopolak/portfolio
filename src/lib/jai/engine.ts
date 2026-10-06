@@ -71,6 +71,12 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
     typeof exports.jai_play_set_budget === 'function'
       ? (exports.jai_play_set_budget as Export)
       : undefined;
+  // Errors drawn as a terminal draws them (colour, box drawing); older bundles lack it.
+  const setStyled =
+    typeof exports.jai_play_set_styled === 'function'
+      ? (exports.jai_play_set_styled as Export)
+      : undefined;
+  if (setStyled) check(setStyled(1));
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   function read(kind: 'output' | 'error') {
