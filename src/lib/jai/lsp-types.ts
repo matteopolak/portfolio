@@ -46,6 +46,8 @@ export interface Diagnostic {
   range: Range;
   severity?: number;
   code?: string | number;
+  /** A link to the rule's documentation (jailint: its section of jailint.md). */
+  codeDescription?: { href: string };
   message: unknown;
   source?: string;
 }
@@ -83,8 +85,13 @@ export interface Command {
 export interface CodeAction {
   title: string;
   kind?: string;
+  /** The diagnostics this action resolves (jailint: the lint it fixes). */
+  diagnostics?: Diagnostic[];
+  isPreferred?: boolean;
   edit?: WorkspaceEdit;
   command?: Command;
+  /** Server data; jailint's fixes carry `{ rule }`. */
+  data?: unknown;
 }
 
 export interface CodeLens {

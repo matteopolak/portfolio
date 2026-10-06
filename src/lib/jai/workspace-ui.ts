@@ -54,12 +54,15 @@ import {
 } from './format.ts';
 import { BUILD_METADATA_ASSET, JAIFMT_WASM_ASSET } from './jaifmt-wasm.ts';
 import {
+  FIX_ALL,
   QUICKFIX,
   combineFixes,
   diagnosticsAt,
+  fixAllAction,
   fixLabel,
   fixesFor,
   lintRule,
+  offersFixAll,
 } from './lint-fixes.ts';
 import type { Action as LintAction } from '@codemirror/lint';
 import type {
@@ -403,9 +406,9 @@ export async function createSession(
     }
   }
   /**
-   * Applies every lint fix in the selected file as one edit (one undo).
-   * jailint has no `source.fixAll` action, so this asks for the code actions
-   * of the whole file and merges its quick fixes; fixes that overlap an
+   * Applies every lint fix in the selected file as one edit (one undo): the
+   * server's `source.fixAll.jailint` action, or, from a server without it,
+   * the file's quick fixes merged by `combineFixes`. Fixes that overlap an
    * earlier one wait for the next run.
    */
   async function fixAllLints() {
@@ -420,17 +423,34 @@ export async function createSession(
         start: { line: 0, character: 0 },
         end: positionAt(document.text, document.text.length),
       };
+      // jailint's own fix-all when the server has it; else merge the quick fixes here.
+      const serverFixAll = offersFixAll(
+        languageCapabilities?.codeActionProvider
+      );
       const actions = await language.request<CodeAction[] | null>(
         'textDocument/codeAction',
         {
           textDocument: { uri: documentUri(path) },
           range,
-          context: { diagnostics: diagnosticsFor(range), only: [QUICKFIX] },
+          context: {
+            diagnostics: diagnosticsFor(range),
+            only: [serverFixAll ? FIX_ALL : QUICKFIX],
+          },
         },
         signal
       );
       if (signal.aborted) return;
-      const { edit, applied: count, skipped } = combineFixes(actions);
+      const fixable = fixableCount(currentDiagnostics());
+      let edit: WorkspaceEdit, count: number, skipped: number;
+      if (serverFixAll) {
+        const action = fixAllAction(actions);
+        // "Fix 3 lint problems": the server leaves out overlapping fixes, as `jailint --fix` does.
+        count = action
+          ? Number(/\d+/u.exec(action.title)?.[0] ?? fixable) || 1
+          : 0;
+        skipped = Math.max(0, fixable - count);
+        edit = action?.edit ?? {};
+      } else ({ edit, applied: count, skipped } = combineFixes(actions));
       if (!count) {
         announce('No lints to fix in this file');
         return;
@@ -843,9 +863,11 @@ export async function createSession(
         detail:
           action.kind === QUICKFIX
             ? 'quick fix'
-            : action.kind === 'refactor.inline'
-              ? 'inline'
-              : undefined,
+            : action.kind === FIX_ALL
+              ? 'fix all'
+              : action.kind === 'refactor.inline'
+                ? 'inline'
+                : undefined,
         run: () => {
           try {
             if (action.edit) applyEdit(documents, action.edit);
@@ -855,7 +877,8 @@ export async function createSession(
           }
         },
       }));
-      if (fixable > 1)
+      // The server's own fix-all is already in the list.
+      if (fixable > 1 && !fixAllAction(actions))
         items.push({
           label: `Fix all lints in this file`,
           detail: `${fixable} fixable`,
