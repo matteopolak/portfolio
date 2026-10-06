@@ -6,8 +6,14 @@ import {
 } from '../../src/lib/hover-markdown.ts';
 
 test('only MarkupContent of kind markdown is read as Markdown', () => {
-  assert.equal(markdownHover({ kind: 'markdown', value: '`x`' } as never), '`x`');
-  assert.equal(markdownHover({ kind: 'plaintext', value: 'x' } as never), undefined);
+  assert.equal(
+    markdownHover({ kind: 'markdown', value: '`x`' } as never),
+    '`x`'
+  );
+  assert.equal(
+    markdownHover({ kind: 'plaintext', value: 'x' } as never),
+    undefined
+  );
   assert.equal(markdownHover('x'), undefined);
   assert.equal(markdownHover(['x']), undefined);
 });

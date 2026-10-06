@@ -64,11 +64,23 @@ test('one preview tab is replaced in place by the next preview', () => {
 
 test('renames follow files and deletes close tabs', () => {
   const tabs = new OpenTabs();
-  for (const path of ['main.jai', 'lib/a.jai', 'lib/b.jai', 'c.jai']) tabs.open(path);
+  for (const path of ['main.jai', 'lib/a.jai', 'lib/b.jai', 'c.jai'])
+    tabs.open(path);
   tabs.preview('lib/a.jai');
   tabs.activate(tabs.tabs[2]);
-  tabs.move(new Map([['lib/a.jai', 'src/a.jai'], ['lib/b.jai', 'src/b.jai']]));
-  assert.deepEqual(paths(tabs), ['main.jai', 'src/a.jai', 'src/b.jai', 'c.jai', '~lib/a.jai']);
+  tabs.move(
+    new Map([
+      ['lib/a.jai', 'src/a.jai'],
+      ['lib/b.jai', 'src/b.jai'],
+    ])
+  );
+  assert.deepEqual(paths(tabs), [
+    'main.jai',
+    'src/a.jai',
+    'src/b.jai',
+    'c.jai',
+    '~lib/a.jai',
+  ]);
   assert.equal(tabs.active?.path, 'src/b.jai');
   tabs.retain(new Set(['main.jai', 'c.jai']));
   assert.deepEqual(paths(tabs), ['main.jai', 'c.jai', '~lib/a.jai']);
@@ -78,7 +90,14 @@ test('renames follow files and deletes close tabs', () => {
 
 test('labels add the folder only when names collide', () => {
   const tabs = new OpenTabs();
-  for (const path of ['main.jai', 'lib/util.jai', 'src/util.jai']) tabs.open(path);
-  assert.deepEqual(tabLabel(tabs.tabs[0], tabs.tabs), { name: 'main.jai', folder: '' });
-  assert.deepEqual(tabLabel(tabs.tabs[1], tabs.tabs), { name: 'util.jai', folder: 'lib' });
+  for (const path of ['main.jai', 'lib/util.jai', 'src/util.jai'])
+    tabs.open(path);
+  assert.deepEqual(tabLabel(tabs.tabs[0], tabs.tabs), {
+    name: 'main.jai',
+    folder: '',
+  });
+  assert.deepEqual(tabLabel(tabs.tabs[1], tabs.tabs), {
+    name: 'util.jai',
+    folder: 'lib',
+  });
 });

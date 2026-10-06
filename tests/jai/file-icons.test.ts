@@ -36,5 +36,6 @@ test('every glyph has its own shapes', () => {
   // No glyph is built on another's outline (the old page-with-badge style).
   for (const [i, a] of drawn.entries())
     for (const [j, b] of drawn.entries())
-      if (i !== j) assert.ok(!b.startsWith(a), `${kinds[j]} extends ${kinds[i]}`);
+      if (i !== j)
+        assert.ok(!b.startsWith(a), `${kinds[j]} extends ${kinds[i]}`);
 });

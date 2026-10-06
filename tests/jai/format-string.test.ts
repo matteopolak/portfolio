@@ -26,7 +26,9 @@ function tokens(source: string) {
 }
 const specifiers = (source: string) =>
   tokens(source)
-    .filter(([, style]) => style === 'formatSpecifier' || style === 'formatPercent')
+    .filter(
+      ([, style]) => style === 'formatSpecifier' || style === 'formatPercent'
+    )
     .map(([text, style]) => `${text}:${style}`);
 
 test('print-family format strings split out their specifiers', () => {
@@ -46,9 +48,7 @@ test('print-family format strings split out their specifiers', () => {
     '%0:formatSpecifier',
     '%00:formatSpecifier',
   ]);
-  assert.deepEqual(specifiers('log_error("bad %", x);'), [
-    '%:formatSpecifier',
-  ]);
+  assert.deepEqual(specifiers('log_error("bad %", x);'), ['%:formatSpecifier']);
   assert.deepEqual(specifiers('print("\\%%");'), [
     '\\%:formatPercent',
     '%:formatSpecifier',
@@ -75,9 +75,7 @@ test('only the format argument is a format string', () => {
   assert.deepEqual(specifiers('assert(x > 0, "x is %", x);'), [
     '%:formatSpecifier',
   ]);
-  assert.deepEqual(specifiers('assert(f("50%"), "%");'), [
-    '%:formatSpecifier',
-  ]);
+  assert.deepEqual(specifiers('assert(f("50%"), "%");'), ['%:formatSpecifier']);
   assert.deepEqual(specifiers('print_to_builder(*b, "% items", n);'), [
     '%:formatSpecifier',
   ]);
@@ -128,15 +126,14 @@ test('formatSpecs follows the compiler print rules', () => {
 });
 
 test('trailingArguments splits at top-level commas', () => {
-  assert.deepEqual(
-    trailingArguments(', a, f(b, c), "x,)", arr[1]) + 2;'),
-    ['a', 'f(b, c)', '"x,)"', 'arr[1]']
-  );
-  assert.deepEqual(trailingArguments(');'), []);
-  assert.deepEqual(trailingArguments(',\n  a, // first\n  b\n);'), [
+  assert.deepEqual(trailingArguments(', a, f(b, c), "x,)", arr[1]) + 2;'), [
     'a',
-    'b',
+    'f(b, c)',
+    '"x,)"',
+    'arr[1]',
   ]);
+  assert.deepEqual(trailingArguments(');'), []);
+  assert.deepEqual(trailingArguments(',\n  a, // first\n  b\n);'), ['a', 'b']);
 });
 
 test('formatStringAt lists what each specifier formats', () => {
@@ -172,6 +169,9 @@ test('ranges and leading-dot floats lex like jaic', () => {
     ['12', 'number'],
   ]);
   assert.ok(tokens('x := .5;').some(([t, s]) => t === '.5' && s === 'number'));
-  assert.deepEqual(tokens('a.5').map(([t]) => t), ['a', '.', '5']);
+  assert.deepEqual(
+    tokens('a.5').map(([t]) => t),
+    ['a', '.', '5']
+  );
   assert.deepEqual(tokens('1.5..2')[0], ['1.5', 'number']);
 });
