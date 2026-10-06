@@ -135,38 +135,60 @@ other editor. The server's side is in the compiler's
 
 ### Lints and quick fixes
 
-Servers with jailint (compiler commits from `728a2d45` on; the pinned release
-predates it) publish its findings as ordinary diagnostics with
-`source: "jailint"` and the rule as `code`, and offer each machine-applicable
-fix as a `quickfix` code action titled `<fix> (<rule>)`, e.g.
-`remove it (unused_variable)`. The client advertises `quickfix`, `refactor`
-and `refactor.inline` in `codeActionLiteralSupport`.
+Servers with jailint publish its findings as ordinary diagnostics with
+`source: "jailint"`, the rule as `code` and `codeDescription.href` linking to
+that rule's section of the compiler's `docs/tools/jailint.md`. Each fix is a
+`quickfix` code action titled in sentence case (`Remove the unused variable`),
+with the rule as `data.rule`, the lint in `diagnostics` and `isPreferred` when
+it is machine-applicable; one `source.fixAll.jailint` action (`Fix 2 lint
+problems`) applies every safe fix in the file. The client advertises
+`quickfix`, `refactor`, `refactor.inline`, `source` and `source.fixAll` in
+`codeActionLiteralSupport`. See the compiler's
+`docs/compiler/language-server.md` (lints and quick fixes).
 
 - **Squiggles and tooltip.** `editor.diagnostics` in `code-editor.ts` renders a
   lint's message as the finding, a `help:` line (the server sends them joined
   by `\n`) with `` `code` `` spans highlighted as Jai, and a
-  `jailint(<rule>)` link to the rules table of the compiler's
-  `docs/tools/jailint.md` (`LINT_DOCS`; the rules have no headings of their
-  own, so all link to `#rules`). `unused_*` rules also get `cm-lint-unused`,
-  which fades the range.
+  `jailint(<rule>)` link to the rule's own section (`lintDocs`: the
+  diagnostic's `codeDescription.href` when it is `https://`, else the rules
+  section, `LINT_DOCS`). `unused_*` rules also get `cm-lint-unused`, which
+  fades the range.
 - **Kept per file.** `workspace-ui.ts` stores the last publish per URI
   (`published`), so a tab shows its squiggles again when reopened, and code
   action requests (lightbulb, `Cmd/Ctrl+.`, fixes) send the diagnostics they
   touch.
-- **Fix buttons.** After each publish, `loadFixes` asks for the code actions of
-  each lint's range (up to 50 per file) and keeps those `fixesFor` its rule.
-  Lints with a fix get a **Fix** button in the tooltip (one per fix when there
-  are several), and **Fix all (N)** when two or more lints in the file are
-  fixable. Clicking Fix asks again at the lint's current (mapped) range, so it
-  never applies an edit computed for older text.
-- **Fix all.** The server has no `source.fixAll` action, so `fixAllLints` asks
-  for the code actions of the whole file and `combineFixes` merges every
-  quick fix into one edit, leaving out fixes that overlap an earlier one
-  (the status line says to run it again). It is also the last entry of the
-  `Cmd/Ctrl+.` list ("Fix all lints in this file").
-- **Settings.** The server reads `jailint.toml` from the file system, which the
-  browser build does not have, and the client only syncs `.jai` files, so a
-  workspace `jailint.toml` has no effect yet; the defaults apply.
+- **Fix buttons.** After each publish, `loadFixes` asks for the `quickfix`
+  actions of each lint's range (up to 50 per file) and keeps those `fixesFor`
+  its rule. `fixRule` reads the rule from `data.rule`, else from the lint in
+  the action's `diagnostics`; titles are only labels (older servers' `<fix>
+  (<rule>)` titles still work as a last resort, and `fixLabel` drops that
+  suffix). Lints with a fix get a **Fix** button in the tooltip (one per fix
+  when there are several), and **Fix all (N)** when two or more lints in the
+  file are fixable. Clicking Fix asks again at the lint's current (mapped)
+  range, so it never applies an edit computed for older text.
+- **Fix all.** When the server advertises `source.fixAll.jailint` in
+  `codeActionKinds` (`offersFixAll`), `fixAllLints` asks for that kind over
+  the whole file and applies its one edit; the server leaves out fixes that
+  overlap an earlier one, as `jailint --fix` does, and the status line says to
+  run it again when fewer lints were fixed than were fixable. Older servers
+  fall back to `combineFixes`, which merges the file's quick fixes the same
+  way on the client. In the `Cmd/Ctrl+.` list the server's action shows as
+  "Fix N lint problems"; the client adds its own "Fix all lints in this
+  file" only when the server sent none.
+- **Settings.** The browser server has no disk, so `LanguageClient.sync`
+  sends every workspace file named `jailint.toml` (at the root or in a folder)
+  as an open `toml` document, with `didChange`/`didClose` as it is edited,
+  renamed or deleted. The server applies the nearest one above each `.jai`
+  file and publishes no diagnostics for the settings file itself; one that
+  does not parse yet means the defaults. For example:
+
+  ```toml
+  [rules]
+  unused_parameter = "allow"
+  float_equality = "deny"    # an error instead of a warning
+  ```
+
+  `jaifmt.toml` and other non-Jai files are never sent.
 
 ## How to change it
 
@@ -187,8 +209,8 @@ and `refactor.inline` in `codeActionLiteralSupport`.
 
 - **Lint UI:** tooltip markup is `lintContent` in `code-editor.ts`
   (`.jai-lint*` and `.cm-diagnosticAction` theme rules); buttons come from the
-  `actions` callback `showDiagnostics` passes. The server's title format
-  (`<fix> (<rule>)`) is what `fixesFor` and `fixLabel` rely on.
+  `actions` callback `showDiagnostics` passes. Match fixes by `data.rule` or
+  the lint's `code` (`fixRule`), never by title wording.
 - **A new hover layout:** key it off standard Markdown structure in
   `renderHoverMarkdown` (pure, testable) or `markdownHoverContent` (DOM), never
   off private text conventions, so editors without this client still render it.
@@ -198,9 +220,11 @@ planning, location normalization, legend mapping and token decoding, inlay
 labels, signature splitting, capability checks) and
 `tests/jai/hover-markdown.test.ts` (Markdown detection, section dividers,
 overload rows, format rows, escaping) and `tests/jai/lint-fixes.test.ts`
-(rule detection, message split, range matching, fix selection, Fix all
-merging; with `JAI_WASM_DIR` set, a real lint and its fix through the
-server, and that the starter and the tour have no lints).
+(rule detection, message split, range matching, fix selection by `data.rule`
+or lint, the fix-all action and per-rule links, `jailint.toml` syncing, Fix
+all merging; with `JAI_WASM_DIR` set, a real lint, its fix and the server's
+fix-all, a `jailint.toml` changing levels, and that the starter and the tour
+have no lints under the default rules).
 
 To try a compiler that has these features before the pin moves, build it with
 `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler

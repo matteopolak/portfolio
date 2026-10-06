@@ -1,9 +1,11 @@
 /*
  * jailint findings and their quick fixes, as the language server sends them:
- * a diagnostic with `source: 'jailint'` and the rule as `code`, and a
- * `quickfix` code action titled `<fix description> (<rule>)` whose edit is an
- * unversioned `changes` map. Pure helpers; the editor wiring is in
- * `workspace-ui.ts` and `code-editor.ts`.
+ * a diagnostic with `source: 'jailint'`, the rule as `code` and a link to it
+ * as `codeDescription.href`; a `quickfix` code action per fix, titled in
+ * sentence case (`Remove the unused variable`) with the rule as `data.rule`
+ * and the lint in `diagnostics`, whose edit is an unversioned `changes` map;
+ * and one `source.fixAll.jailint` action for the whole file. Pure helpers;
+ * the editor wiring is in `workspace-ui.ts` and `code-editor.ts`.
  */
 import type {
   CodeAction,
@@ -16,13 +18,20 @@ import type {
 
 export const LINT_SOURCE = 'jailint';
 export const QUICKFIX = 'quickfix';
+/** The server's "fix every lint in the file" action kind. */
+export const FIX_ALL = 'source.fixAll.jailint';
 
-/**
- * Where a rule is documented. The rules share one section of jailint's docs
- * (each is a bold paragraph, not a heading), so every rule links to `#rules`.
- */
+/** jailint's rules, for a server that sends no per-rule `codeDescription`. */
 export const LINT_DOCS =
   'https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#rules';
+
+/** Where a lint's rule is documented: the server's per-rule link, else the rules section. */
+export function lintDocs(diagnostic: Diagnostic): string {
+  const href = diagnostic.codeDescription?.href;
+  return typeof href === 'string' && /^https:\/\//u.test(href)
+    ? href
+    : LINT_DOCS;
+}
 
 /** Rules about something unused; their ranges are drawn faded, like VS Code's "unnecessary" tag. */
 const unusedRules = new Set([
@@ -71,19 +80,60 @@ export function diagnosticsAt(
 export const isQuickFix = (action: CodeAction) =>
   action.kind === QUICKFIX && !!action.edit && !action.command;
 
-/** The fixes among `actions` that belong to `rule` (titled `... (<rule>)`). */
+/**
+ * The rule a quick fix belongs to: its `data.rule`, else the rule of the lint
+ * it carries. Servers before sentence-case titles only had the title,
+ * `<fix> (<rule>)`, so that is the last resort.
+ */
+export function fixRule(action: CodeAction): string | undefined {
+  const data = action.data;
+  if (
+    typeof data === 'object' &&
+    data !== null &&
+    'rule' in data &&
+    typeof data.rule === 'string'
+  )
+    return data.rule;
+  for (const diagnostic of action.diagnostics ?? []) {
+    const rule = lintRule(diagnostic);
+    if (rule) return rule;
+  }
+  return /\(([a-z][a-z0-9_]*)\)$/u.exec(action.title)?.[1];
+}
+
+/** The fixes among `actions` that belong to `rule`. */
 export function fixesFor(
   actions: readonly CodeAction[] | null | undefined,
   rule: string
 ): CodeAction[] {
   return (actions ?? []).filter(
-    (action) => isQuickFix(action) && action.title.endsWith(` (${rule})`)
+    (action) => isQuickFix(action) && fixRule(action) === rule
   );
 }
 
-/** A fix's title without its rule: `remove it (unused_variable)` → `remove it`. */
+/** A fix's button label: its title, without an older server's ` (<rule>)` suffix. */
 export function fixLabel(action: CodeAction): string {
   return action.title.replace(/ \([a-z][a-z0-9_]*\)$/u, '');
+}
+
+/** The server's fix-all action among `actions`, if it sent one with an edit. */
+export function fixAllAction(
+  actions: readonly CodeAction[] | null | undefined
+): CodeAction | undefined {
+  return (actions ?? []).find(
+    (action) => action.kind === FIX_ALL && !!action.edit && !action.command
+  );
+}
+
+/** Whether the server offers `source.fixAll.jailint` (its advertised `codeActionKinds`). */
+export function offersFixAll(provider: unknown): boolean {
+  return (
+    typeof provider === 'object' &&
+    provider !== null &&
+    'codeActionKinds' in provider &&
+    Array.isArray(provider.codeActionKinds) &&
+    provider.codeActionKinds.includes(FIX_ALL)
+  );
 }
 
 const editsOf = (edit: WorkspaceEdit): [string, TextEdit[]][] | undefined => {
@@ -105,7 +155,8 @@ function editsConflict(a: Range, b: Range): boolean {
 }
 
 /**
- * Every quick fix in `actions` merged into one edit, for "Fix all". Fixes are
+ * Every quick fix in `actions` merged into one edit, for "Fix all" with a
+ * server that has no `source.fixAll.jailint` action. Fixes are
  * taken in order; one whose edits overlap an earlier fix's is left out
  * (`skipped`), so the result never has overlapping edits. Only `changes`
  * edits are merged; anything else counts as skipped.

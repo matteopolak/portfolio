@@ -1,6 +1,6 @@
 import type { RunOutput } from './engine.ts';
 
-/** Workspace name of the jaifmt browser driver (`tools/jaifmt/playground.jai`). */
+/** Workspace name of the jaifmt browser driver (`jaifmt/playground.jai`). */
 export const FORMAT_DRIVER_PATH = '__jaifmt__.jai';
 /** Release asset that holds the driver, next to `jai_wasm.wasm`. */
 export const FORMAT_DRIVER_ASSET = 'jaifmt-playground.jai';

@@ -61,7 +61,7 @@ import {
 } from './jai/language.ts';
 import { formatStringAt } from './jai/format-string.ts';
 import {
-  LINT_DOCS,
+  lintDocs,
   isUnusedRule,
   lintMessage,
   lintRule,
@@ -875,7 +875,7 @@ function withCode(text: string): DocumentFragment {
 }
 
 /** A jailint finding in the diagnostic tooltip: the finding, its help line and the rule's docs. */
-function lintContent(message: string, rule: string): HTMLElement {
+function lintContent(message: string, rule: string, docs: string): HTMLElement {
   const { text, help } = lintMessage(message);
   const root = document.createElement('span');
   root.className = 'jai-lint';
@@ -891,7 +891,7 @@ function lintContent(message: string, rule: string): HTMLElement {
   }
   const link = document.createElement('a');
   link.className = 'jai-lint__rule';
-  link.href = LINT_DOCS;
+  link.href = docs;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   link.title = `What jailint's ${rule} rule finds, and how to silence it`;
@@ -1336,7 +1336,7 @@ export function createEditor(
                 ? value.code
                 : value.source,
             ...(rule && {
-              renderMessage: () => lintContent(message, rule),
+              renderMessage: () => lintContent(message, rule, lintDocs(value)),
               markClass: isUnusedRule(rule) ? 'cm-lint-unused' : undefined,
             }),
             actions: actions?.(value),
