@@ -55,9 +55,14 @@ or any fetch or validation failure, falls back to the built-in two-file starter
 - Include `index.html`, all JS/CSS dependencies, `worker.mjs`, `jai_wasm.wasm`, and
   independently authored prelude/modules needed by the compiler. Runtime module
   paths are relative to the entrypoint, with no third-party CDN dependencies.
-- The producer's `tools/package_browser_release.py --output <directory>` builds a
-  release Wasm module and produces the two assets above. CI supplies fetched,
-  locked Cargo dependencies and a `wasm32-unknown-unknown` target.
+- The producer's `tools/package_browser_release.py --output <directory> --jaic <native jaic>`
+  builds a release Wasm module and `jaifmt.wasm` and produces the two assets above. CI
+  supplies fetched, locked Cargo dependencies, a `wasm32-unknown-unknown` target, LLVM 23
+  with lld (installed by the compiler repo's `tools/install_ci_llvm_linux.sh`, which also
+  provides `wasm-ld`) and a debug `jaic-cli` built from the same checkout.
+- Schema 2 bundles that ship `jaifmt.wasm` record its SHA-256 as `jaifmt_wasm_sha256` in
+  `build-metadata.json`; `verify-jai-bundle.py` refuses the bundle if either is missing
+  without the other or the digest or Wasm header does not match.
 - In embedded mode (`?embed=1`), the editor reports
   `{ type: "jai-playground", state: "ready" | "error", revision: "<full sha>", message?: "..." }`
   through `parent.postMessage(payload, location.origin)`. `ready` means the editor
@@ -131,7 +136,7 @@ unavailable-playground message until its first verified release exists.
 Run `pnpm sync:web-assets` to stage the pinned release. To try an unreleased compiler,
 build it with `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
 repo and run `JAI_WEB_LOCAL=<dir> node scripts/sync-jai-web.ts`: it copies that build's
-`jai_wasm.wasm`, `jaifmt-playground.jai` and, when present, `tour.json` with the `tour/`
+`jai_wasm.wasm`, `jaifmt-playground.jai`, `jaifmt.wasm` (built with `--jaic`) and, when present, `tour.json` with the `tour/`
 files it lists into `public/jai/<pinned revision>/` without verification (public/jai is
 ignored). `JAI_WASM_DIR=<dir> pnpm test:jai` also runs that build's tour and checks it is
 already formatted under the default `jaifmt.toml`. `pnpm dev`'s `predev` re-syncs the pinned release, so start
