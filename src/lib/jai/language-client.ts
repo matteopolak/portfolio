@@ -17,17 +17,69 @@ export function documentUri(path: string): string {
     )
     .join('/')}`;
 }
-export function pathFromUri(uri: string): string {
-  const url = new URL(uri);
+/**
+ * What a server URI names:
+ * - `workspace`: an editable file, `file:///jai-script/<path>`;
+ * - `library`: a read-only module or stdlib file the server can serve with
+ *   `jai/source`, `file:///stdlib/Basic/module.jai` (path `stdlib/Basic/module.jai`);
+ * - `expansion`: generated code, `jai-expansion:///jai-script/<path>?<line>:<character>`,
+ *   named after its source position (1-based) for the read-only tab.
+ */
+export type UriResource =
+  | { kind: 'workspace'; path: string; uri: string }
+  | { kind: 'library'; path: string; uri: string }
+  | { kind: 'expansion'; path: string; source: string; uri: string };
+
+export function resourceFromUri(uri: string): UriResource | undefined {
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    return undefined;
+  }
+  if (url.host) return undefined;
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    return undefined;
+  }
+  const inWorkspace = (value: string) => {
+    if (!value.startsWith('/jai-script/')) return undefined;
+    try {
+      return SourcePath.parse(value.slice('/jai-script/'.length)).name;
+    } catch {
+      return undefined;
+    }
+  };
+  if (url.protocol === 'jai-expansion:') {
+    const source = inWorkspace(pathname);
+    const at = /^\?(\d+):(\d+)$/u.exec(url.search);
+    if (!source || !at) return undefined;
+    return {
+      kind: 'expansion',
+      path: `${source}:${Number(at[1]) + 1}:${Number(at[2]) + 1}`,
+      source,
+      uri,
+    };
+  }
+  if (url.protocol !== 'file:' || url.search || url.hash) return undefined;
+  const path = inWorkspace(pathname);
+  if (path) return { kind: 'workspace', path, uri };
+  const library = pathname.replace(/^\/+/u, '');
   if (
-    url.protocol !== 'file:' ||
-    url.host ||
-    !url.pathname.startsWith('/jai-script/')
+    !library ||
+    library.startsWith('jai-script/') ||
+    library.split('/').some((part) => !part || part === '.' || part === '..')
   )
-    throw new TypeError('Language server returned a non-workspace URI.');
-  return SourcePath.parse(
-    decodeURIComponent(url.pathname.slice('/jai-script/'.length))
-  ).name;
+    return undefined;
+  return { kind: 'library', path: library, uri };
+}
+
+/** The workspace path of a `file:///jai-script/` URI; undefined for any other URI. */
+export function pathFromUri(uri: string): string | undefined {
+  const resource = resourceFromUri(uri);
+  return resource?.kind === 'workspace' ? resource.path : undefined;
 }
 export function positionAt(text: string, offset: number): Position {
   if (!Number.isInteger(offset) || offset < 0 || offset > text.length)
@@ -84,6 +136,9 @@ export class LanguageClient {
   #next = 0;
   #pending = new Map<number | string | null | undefined, PendingRequest>();
   #opened = new Map<string, number>();
+  // Read-only documents (stdlib previews) opened for highlighting and links;
+  // `sync` leaves them alone.
+  #readonly = new Set<string>();
   #stopped = false;
   diagnostics: (params: PublishDiagnosticsParams) => void;
   failure: (message: string) => void;
@@ -206,8 +261,29 @@ export class LanguageClient {
           textDocument: {
             publishDiagnostics: { versionSupport: true },
             definition: { linkSupport: true },
-            rename: { prepareSupport: false },
+            typeDefinition: { linkSupport: false },
+            rename: { prepareSupport: true },
             hover: { contentFormat: ['plaintext'] },
+            signatureHelp: {
+              signatureInformation: {
+                parameterInformation: { labelOffsetSupport: true },
+              },
+            },
+            inlayHint: {},
+            documentLink: { tooltipSupport: false },
+            foldingRange: { lineFoldingOnly: true },
+            codeAction: {
+              codeActionLiteralSupport: {
+                codeActionKind: { valueSet: ['refactor.inline'] },
+              },
+            },
+            codeLens: {},
+            semanticTokens: {
+              requests: { full: true },
+              formats: ['relative'],
+              tokenTypes: [],
+              tokenModifiers: [],
+            },
             completion: {
               completionItem: {
                 snippetSupport: false,
@@ -248,6 +324,19 @@ export class LanguageClient {
         this.notify('textDocument/didClose', { textDocument: { uri } });
       }
   }
+  /** Opens a read-only document (a stdlib file) once; diagnostics for it are dropped. */
+  openReadonly(uri: string, text: string) {
+    if (this.#stopped || this.#readonly.has(uri) || this.#opened.has(uri))
+      return;
+    this.#readonly.add(uri);
+    this.notify('textDocument/didOpen', {
+      textDocument: { uri, languageId: 'jai', version: 1, text },
+    });
+  }
+  closeReadonly(uri: string) {
+    if (this.#stopped || !this.#readonly.delete(uri)) return;
+    this.notify('textDocument/didClose', { textDocument: { uri } });
+  }
   dispose(error = new Error('Language service stopped.')) {
     this.#stopped = true;
     for (const entry of this.#pending.values()) {
@@ -256,5 +345,6 @@ export class LanguageClient {
     }
     this.#pending.clear();
     this.#opened.clear();
+    this.#readonly.clear();
   }
 }
