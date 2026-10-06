@@ -26,6 +26,7 @@ simply shows less with it. Never assume a provider exists.
 | `src/lib/jai/language-client.ts` | `resourceFromUri` / `pathFromUri`, and `openReadonly`/`closeReadonly` for library previews. |
 | `src/lib/jai/language-actions.ts` | Requests that touch the workspace: `positionRequest`, `definitionTarget`, `resolveLocation`, `prepareRename`, `renameSymbol`, `planWorkspaceEdit`, `applyWorkspaceEdit`. |
 | `src/lib/jai/lint-fixes.ts` | Pure logic for jailint findings: `lintRule`, `lintMessage`, `diagnosticsAt` (a code action's `context.diagnostics`), `fixesFor`, `combineFixes` (Fix all). Tested directly. |
+| `src/lib/jai/nav-history.ts` | Go Back / Go Forward model (`NavHistory`): entries, coalescing, rename/delete remapping. Tested directly; wiring in [Navigation history](code-workspace.md#navigation-history). |
 | `src/lib/jai/picker.ts` | The small list used for code actions, references, polymorph instances and symbol search. |
 | `src/lib/jai/workspace-ui.ts` | Wires it together: what the current language document is, key bindings, navigation into tabs, applying edits. |
 | `src/lib/code-editor.ts` | Theme classes (`cm-sem-*`, `cm-inlay-hint`, `cm-lsp-*`, `jai-picker*`), hover rendering, F2/F12/Cmd-click. |
@@ -119,6 +120,11 @@ other editor. The server's side is in the compiler's
 - **Navigation keys.** `F12` definition, `Mod-F12` type definition, `Shift-F12`
   references (a list; picking one opens it), `F2` rename, `Mod-p` workspace symbol
   search. Browsers reserve `Cmd-T`, so it is not used.
+- **Go Back / Go Forward.** Every jump above (definition, type definition, a
+  reference or symbol, a link, a stdlib or expansion preview, also within one
+  file) is recorded in the navigation history; the mouse side buttons,
+  `Ctrl+-` / `Ctrl+Shift+-` and (Windows/Linux) `Alt+Left` / `Alt+Right` walk
+  it. See [Navigation history](code-workspace.md#navigation-history).
 - **Rename.** With `renameProvider.prepareProvider`, `F2` first asks
   `prepareRename`; a `null` says "This name can't be renamed" in the status line.
   The result is an unversioned `changes` map over several files.
