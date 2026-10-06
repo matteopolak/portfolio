@@ -24,6 +24,9 @@ import {
 import './markdown-preview.css';
 
 const STORAGE_KEY = 'code-editor-markdown-view';
+const SPLIT_KEY = 'code-editor-markdown-split';
+/** Narrowest either side of the split may get, in pixels. */
+const SPLIT_MIN_PANE = 180;
 /** Re-render delay after an edit; typing stays smooth on long files. */
 const RENDER_DELAY = 150;
 
@@ -69,6 +72,24 @@ function loadChoice(): MarkdownViewChoice {
   }
 }
 
+/** The source side's share of the split (0.5 when unset or unreadable). */
+function loadSplit() {
+  try {
+    const value = Number(localStorage.getItem(SPLIT_KEY));
+    return value > 0 && value < 1 ? value : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+function saveSplit(value: number) {
+  try {
+    localStorage.setItem(SPLIT_KEY, String(value));
+  } catch {
+    /* Without storage the width lasts for this page. */
+  }
+}
+
 function saveChoice(choice: MarkdownViewChoice) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(choice));
@@ -110,7 +131,18 @@ export function createMarkdownPreview(
   preview.tabIndex = 0;
   preview.setAttribute('aria-label', 'Markdown preview');
   preview.hidden = true;
-  host.append(preview);
+  // Split view: dragging the rule between source and preview sizes both.
+  const divider = document.createElement('div');
+  divider.className = 'md-divider';
+  divider.setAttribute('role', 'separator');
+  divider.setAttribute('aria-label', 'Resize source and preview');
+  divider.setAttribute('aria-orientation', 'vertical');
+  divider.setAttribute('aria-valuemin', '0');
+  divider.setAttribute('aria-valuemax', '100');
+  divider.title = 'Drag to resize (double-click to reset)';
+  divider.tabIndex = 0;
+  divider.hidden = true;
+  host.append(divider, preview);
 
   const switcher = document.createElement('div');
   switcher.className = 'md-switch';
@@ -158,6 +190,7 @@ export function createMarkdownPreview(
       delete panel.dataset.markdownLayout;
     }
     preview.hidden = !mode || mode === 'source';
+    divider.hidden = mode !== 'split';
     switcher.hidden = !mode;
     for (const button of buttons) {
       const value = button.dataset.mdView as MarkdownView;
@@ -259,6 +292,69 @@ export function createMarkdownPreview(
         if (anchor) pendingAnchor = { path: file, anchor };
         open(file);
       } else if (anchor) scrollToAnchor(anchor);
+    },
+    { signal }
+  );
+
+  let split = loadSplit();
+  function setSplit(value: number, save = true) {
+    const width = host.clientWidth;
+    const least = width > 0 ? Math.min(0.5, SPLIT_MIN_PANE / width) : 0.2;
+    split = Math.max(least, Math.min(1 - least, value));
+    host.style.setProperty('--md-source', `${split}fr`);
+    host.style.setProperty('--md-preview', `${1 - split}fr`);
+    divider.setAttribute('aria-valuenow', String(Math.round(split * 100)));
+    if (save) saveSplit(split);
+  }
+  setSplit(split, false);
+  let dragFrom: number | undefined;
+  let dragSplit = split;
+  divider.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      dragFrom = event.clientX;
+      dragSplit = split;
+      divider.setPointerCapture(event.pointerId);
+      panel.classList.add('resizing');
+      divider.classList.add('dragging');
+    },
+    { signal }
+  );
+  divider.addEventListener(
+    'pointermove',
+    (event) => {
+      if (dragFrom === undefined || !host.clientWidth) return;
+      setSplit(dragSplit + (event.clientX - dragFrom) / host.clientWidth);
+    },
+    { signal }
+  );
+  const endDrag = () => {
+    if (dragFrom === undefined) return;
+    dragFrom = undefined;
+    panel.classList.remove('resizing');
+    divider.classList.remove('dragging');
+    syncFromEditor();
+  };
+  divider.addEventListener('pointerup', endDrag, { signal });
+  divider.addEventListener('pointercancel', endDrag, { signal });
+  divider.addEventListener('lostpointercapture', endDrag, { signal });
+  divider.addEventListener(
+    'dblclick',
+    () => {
+      setSplit(0.5);
+      syncFromEditor();
+    },
+    { signal }
+  );
+  divider.addEventListener(
+    'keydown',
+    (event) => {
+      const step = { ArrowLeft: -0.02, ArrowRight: 0.02 }[event.key];
+      if (step === undefined) return;
+      event.preventDefault();
+      setSplit(split + step);
     },
     { signal }
   );
@@ -389,6 +485,9 @@ export function createMarkdownPreview(
       resized.disconnect();
       apply(undefined);
       preview.remove();
+      divider.remove();
+      host.style.removeProperty('--md-source');
+      host.style.removeProperty('--md-preview');
       switcher.remove();
     },
     { once: true }
