@@ -214,6 +214,24 @@ export type WorkerRequest =
       files: Record<string, string>;
       main: string;
       budget: number;
+    }
+  | {
+      /**
+       * Fetches and compiles `jaifmt.wasm` (checked against the release
+       * metadata). `unsupported` simulates an engine without Memory64.
+       */
+      type: 'jaifmt-load';
+      id: number;
+      url: string;
+      metadataUrl: string;
+      unsupported?: boolean;
+    }
+  | {
+      /** Formats `target` from the workspace with the loaded `jaifmt.wasm`. */
+      type: 'jaifmt';
+      id: number;
+      documents: { path: string; text: string }[];
+      target: string;
     };
 
 export type WorkerResponse =
@@ -225,4 +243,13 @@ export type WorkerResponse =
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }
   | { type: 'run'; id: number; result: RunOutput; error?: undefined }
   | { type: 'play'; id: number; result: RunOutput; error?: undefined }
+  | { type: 'jaifmt-load'; id: number; available: boolean; error?: undefined }
+  | {
+      type: 'jaifmt';
+      id: number;
+      result: RunOutput;
+      /** Milliseconds spent in jaifmt.wasm. */
+      ms: number;
+      error?: undefined;
+    }
   | { type: WorkerRequest['type']; id?: number; error: string };

@@ -52,6 +52,7 @@ import {
   isFormattable,
   mapOffset,
 } from './format.ts';
+import { BUILD_METADATA_ASSET, JAIFMT_WASM_ASSET } from './jaifmt-wasm.ts';
 import {
   QUICKFIX,
   combineFixes,
@@ -170,6 +171,8 @@ export async function createSession(
   let job = 0;
   let syncTimer: ReturnType<typeof setTimeout> | undefined;
   // Format button state; see formatSelected().
+  // jaifmt.wasm compiled in its own worker, when this browser can run it.
+  let jaifmtWorker: Worker | undefined;
   let driver: string | undefined;
   // Settled without a usable driver: the button hides instead of staying disabled.
   let driverMissing = false;
@@ -1372,13 +1375,15 @@ export async function createSession(
     idle();
   }
   /*
-   * Format runs jaifmt's browser driver (`jaifmt-playground.jai` from the
-   * release) in its own worker, so it never waits on or cancels a program run.
+   * Format runs `jaifmt.wasm` from the release in its own worker, or, where
+   * that cannot run (no Memory64) or a release lacks it, jaifmt's engine driver
+   * (`jaifmt-playground.jai`) in a compiler worker of its own. Either way it
+   * never waits on or cancels a program run.
    */
   function updateFormat() {
     if (!formatButton) return;
     // Shown (disabled) while the driver loads, so the tools never shift.
-    formatButton.hidden = driverMissing;
+    formatButton.hidden = driverMissing && !jaifmtWorker;
     formatButton.disabled =
       !ready ||
       formatting ||
@@ -1393,7 +1398,41 @@ export async function createSession(
       if (status.textContent === message) status.textContent = '';
     }, 3000);
   }
+  async function loadFormatter() {
+    const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    workers.add(worker);
+    try {
+      const { available } = await request(worker, {
+        type: 'jaifmt-load',
+        id: ++formatJob,
+        url: `/jai/${revision}/${JAIFMT_WASM_ASSET}`,
+        metadataUrl: `/jai/${revision}/${BUILD_METADATA_ASSET}`,
+        // `?jaifmt=engine` simulates a browser without Memory64.
+        unsupported:
+          new URLSearchParams(location.search).get('jaifmt') === 'engine',
+      });
+      if (available) {
+        jaifmtWorker = worker;
+        worker.addEventListener('error', () => {
+          terminate(worker);
+          if (jaifmtWorker === worker) jaifmtWorker = undefined;
+          void loadDriver();
+        });
+        updateFormat();
+        return;
+      }
+    } catch (error) {
+      if (signal.aborted) return;
+      // A release without jaifmt.wasm (404) or a digest mismatch: use the driver.
+      console.warn('jaifmt.wasm is unavailable:', errorMessage(error));
+    }
+    terminate(worker);
+    await loadDriver();
+  }
   async function loadDriver() {
+    if (driver !== undefined) return;
     try {
       const response = await fetch(`/jai/${revision}/${FORMAT_DRIVER_ASSET}`, {
         signal,
@@ -1420,45 +1459,86 @@ export async function createSession(
     formatter.catch(() => (formatter = undefined));
     return formatter;
   }
-  function play(worker: Worker, files: Record<string, string>, main: string) {
-    const id = ++formatJob;
-    return new Promise<RunOutput>((resolve, reject) => {
+  /** Posts one formatter request and waits for the reply with its id. */
+  function request<
+    Message extends Extract<
+      WorkerRequest,
+      { type: 'play' | 'jaifmt-load' | 'jaifmt' }
+    >,
+  >(worker: Worker, message: Message) {
+    type Reply = Extract<
+      WorkerResponse,
+      { type: Message['type']; error?: undefined }
+    >;
+    return new Promise<Reply>((resolve, reject) => {
       const done = () => {
-        worker.removeEventListener('message', message);
+        worker.removeEventListener('message', received);
         worker.removeEventListener('error', failed);
         signal.removeEventListener('abort', failed);
       };
-      const message = ({ data }: MessageEvent<WorkerResponse>) => {
-        if (data.type !== 'play' || data.id !== id) return;
+      const received = ({ data }: MessageEvent<WorkerResponse>) => {
+        if (data.type !== message.type || data.id !== message.id) return;
         done();
         if (data.error !== undefined) reject(new Error(data.error));
-        else resolve(data.result);
+        else resolve(data as Reply);
       };
       const failed = () => {
         done();
         reject(signal.aborted ? abortError() : new Error('Formatter failed'));
       };
-      worker.addEventListener('message', message);
+      worker.addEventListener('message', received);
       worker.addEventListener('error', failed);
       signal.addEventListener('abort', failed, { once: true });
-      post(worker, { type: 'play', id, files, main, budget: BUDGET });
+      post(worker, message);
     });
+  }
+  /** One format run: `jaifmt.wasm` when loaded, else the engine driver. */
+  async function runFormatter(path: string): Promise<RunOutput> {
+    const started = performance.now();
+    if (jaifmtWorker) {
+      const { result, ms } = await request(jaifmtWorker, {
+        type: 'jaifmt',
+        id: ++formatJob,
+        documents: workspace.documents.map(({ path, text }) => ({
+          path,
+          text,
+        })),
+        target: path,
+      });
+      console.info(
+        `jaifmt.wasm: ${path} in ${ms.toFixed(1)} ms (${(performance.now() - started).toFixed(1)} ms with the worker round trip)`
+      );
+      return result;
+    }
+    if (!driver) throw new Error('The formatter is not available.');
+    const { result } = await request(await formatWorker(), {
+      type: 'play',
+      id: ++formatJob,
+      files: formatFiles(workspace.documents, path, driver),
+      main: FORMAT_DRIVER_PATH,
+      budget: BUDGET,
+    });
+    console.info(
+      `jaifmt (engine driver): ${path} in ${(performance.now() - started).toFixed(1)} ms`
+    );
+    return result;
   }
   async function formatSelected() {
     const selected = workspace.selected;
-    if (!formatButton || formatButton.disabled || !driver || !selected) return;
+    if (
+      !formatButton ||
+      formatButton.disabled ||
+      !(jaifmtWorker || driver) ||
+      !selected
+    )
+      return;
     const path = selected.path.name;
     formatting = true;
     updateFormat();
     formatButton.setAttribute('aria-busy', 'true');
     try {
       saveState();
-      const files = formatFiles(workspace.documents, path, driver);
-      const result = await play(
-        await formatWorker(),
-        files,
-        FORMAT_DRIVER_PATH
-      );
+      const result = await runFormatter(path);
       if (signal.aborted) return;
       const outcome = formatOutcome(result);
       if ('error' in outcome) {
@@ -1597,7 +1677,7 @@ export async function createSession(
   if (requested && names.has(requested)) tabs.open(requested);
   else if (opening[0]) tabs.open(opening[0]);
   show();
-  const driverLoaded = loadDriver();
+  const driverLoaded = loadFormatter();
   const runtime = await initializeWorker();
   connect(runtime.worker);
   if (runtime.capabilities.languageServer) {
