@@ -13,7 +13,7 @@ It is mounted in a modal on the Projects page and as a full page at `/playground
 
 ## How it works
 
-Highlighting is chosen per file: in the Jai workspace, `.jai` files use the Jai tokenizer, `.toml` files (`jaifmt.toml`) use `src/lib/toml-language.ts`, and anything else is plain text (`syntaxFor` in `src/lib/code-editor.ts`). Renaming a file to a different extension drops its saved editor state so it is re-highlighted.
+Highlighting is chosen per file: in the Jai workspace, `.jai` files use the Jai tokenizer, `.toml` files (`jaifmt.toml`) use `src/lib/toml-language.ts`, `.md` files use `src/lib/markdown-language.ts` and get a rendered preview ([Markdown preview](markdown-preview.md)), and anything else is plain text (`syntaxFor` in `src/lib/code-editor.ts`). Renaming a file to a different extension drops its saved editor state so it is re-highlighted.
 
 `CodeDemoModal.astro` wraps `CodeWorkspace.astro` in the shared `DemoModal.astro` dialog. Every project demo, including Minecraft, therefore opens and closes with the same animation. `CodeDemoModal` takes:
 
@@ -84,7 +84,8 @@ The Jai workspace keeps a strip of tabs for open files above the editor. The mod
 ### Editor extras
 
 - **Vim mode**: the `Vim` button in the toolbar toggles `@replit/codemirror-vim` for every editor on the page. The choice is stored in `localStorage` (`code-editor-vim`). `code-editor.ts` keeps it in a compartment that is placed first in each state, so Vim sees keys before the default keymaps. `setState` re-applies it, because states made for other files may predate a toggle.
-- **Overload hovers**: when the hover text is several `name :: (...)` lines, `hoverContent` shows an "N overloads" count and one row per overload, with a rule between rows and a hanging indent for wrapped headers.
+- **Hovers**: the Jai client asks for Markdown hovers and renders them with `marked` + DOMPurify, colouring `jai` code with the editor's highlighter (`markdownHoverContent` in `code-editor.ts`, `hover-markdown.ts`); see [Markdown hovers](jai-language-features.md). Plain-text hovers (older servers, other languages) render as highlighted code.
+- **Overload hovers**: when a hover's code is several `name :: (...)` lines (a Markdown `jai` fence, or plain text), it shows an "N overloads" count and one row per overload, with a rule between rows and a hanging indent for wrapped headers.
 - **Go to definition**: F12, or Cmd-click (macOS) / Ctrl-click on a name; the pointer becomes a hand while the modifier is held over a name (`definitionClick` in `code-editor.ts`). A target in another workspace file opens (or focuses) that file's tab. A target in a module or the stdlib (any URI outside `file:///jai-script/`) is fetched with the compiler's non-standard `jai/source` request and shown read-only in the preview tab; hover, completion and further definitions are off there (`viewing` in `workspace-ui.ts`). Choosing a file tab or a file in the tree returns to the workspace. Stdlib targets need a compiler build with semantic definitions (jaic after 2026-10-05).
 - **Format strings**: `%` specifiers in the format argument of `print`, `tprint`, `log` and the rest of that family get their own colour (`--ide-syntax-format`, violet; `\%` uses `--ide-syntax-format-percent`). Hovering anywhere on the literal lists each specifier with the argument it formats (`formatStringHover` in `code-editor.ts`), unless the language server has its own hover there. See [Format-string highlighting](jai-integration.md#format-string-highlighting).
 - **Here-strings**: `#string TAG` and the closing `TAG` are both styled as directives and the body as a string (`hereTag` in `jai/language.ts`).

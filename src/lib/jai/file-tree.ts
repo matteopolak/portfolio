@@ -5,6 +5,8 @@ type Kind = TreeNode['kind'];
 
 interface FileTreeCallbacks {
   select(path: string): void;
+  /** A file the pointer rests on, so it may be opened next. */
+  intent?(path: string): void;
   changed(moves?: Map<string, string>): void;
   error(message: string): void;
   beforeChange(): void;
@@ -39,7 +41,7 @@ const message = (reason: unknown) =>
 export function initializeFileTree(
   panel: HTMLElement,
   workspace: Workspace,
-  { select, changed, error, beforeChange }: FileTreeCallbacks,
+  { select, intent, changed, error, beforeChange }: FileTreeCallbacks,
   signal: AbortSignal
 ) {
   const tree = panel.querySelector<HTMLElement>('[data-code-files]')!;
@@ -73,6 +75,12 @@ export function initializeFileTree(
       button.append(fileIcon(fileIconKind(node.name), 'tree-icon'));
       if (node.path === workspace.selected?.path.name)
         button.setAttribute('aria-current', 'true');
+      // A short dwell, so sweeping the pointer across the tree asks nothing.
+      let dwell: ReturnType<typeof setTimeout> | undefined;
+      button.addEventListener('pointerenter', () => {
+        dwell = setTimeout(() => intent?.(node.path), 80);
+      });
+      button.addEventListener('pointerleave', () => clearTimeout(dwell));
     }
     const label = document.createElement('span');
     label.className = 'tree-label';

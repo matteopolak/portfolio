@@ -30,14 +30,16 @@ import {
 } from './language-actions.ts';
 import {
   languageFeatures,
+  prefetchDecorations,
   refreshLanguage,
   type LanguageDocument,
 } from './lsp-extensions.ts';
 import { locationLabel, provides, supportsCommand } from './lsp-features.ts';
 import { closePicker, showPicker, type PickerItem } from './picker.ts';
-import { closeHoverTooltips, type EditorView } from '@codemirror/view';
+import { closeHoverTooltips, EditorView } from '@codemirror/view';
 import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
+import { createMarkdownPreview } from '../markdown-preview.ts';
 import type { RunOutput } from './engine.ts';
 import {
   FORMAT_DRIVER_ASSET,
@@ -177,6 +179,41 @@ export async function createSession(
     language?.sync(workspace.documents);
     return language;
   }
+  /*
+   * A `.jai` file the pointer rests on in the tree gets its semantic tokens
+   * and inlay hints ahead of time, stored as its editor state, so they don't
+   * pop in after the click. Files with a state (opened before) keep theirs.
+   */
+  const prefetching = new Set<string>();
+  async function prefetch(path: string) {
+    const file = workspace.documents.find((d) => d.path === path);
+    if (
+      !file ||
+      !language ||
+      !isFormattable(path) ||
+      states.has(path) ||
+      prefetching.has(path)
+    )
+      return;
+    prefetching.add(path);
+    try {
+      language.sync(workspace.documents);
+      const state = await prefetchDecorations(
+        editor.createState(file.text, path),
+        language,
+        languageCapabilities,
+        documentUri(path),
+        signal
+      );
+      const now = workspace.documents.find((d) => d.path === path);
+      if (!signal.aborted && now?.version === file.version && !states.has(path))
+        states.set(path, state);
+    } catch {
+      /* Unsupported or cancelled: the file decorates itself once shown. */
+    } finally {
+      prefetching.delete(path);
+    }
+  }
   const can = (name: keyof ServerCapabilities) =>
     Boolean(language && provides(languageCapabilities, name));
   /** A key binding that only applies when the server has `name`. */
@@ -273,6 +310,7 @@ export async function createSession(
     ],
     onChange: (text) => {
       if (workspace.selected) workspace.edit(text);
+      markdown.changed();
       if (ready) runner.changed();
       else editedDuringBoot = true;
       editor.diagnostics([], text);
@@ -324,9 +362,10 @@ export async function createSession(
         title,
       });
     show();
+    // Centre the target, as editors do for go to definition, rather than scrolling it just into view.
     editor.view.dispatch({
       selection: { anchor: target.from, head: target.to },
-      scrollIntoView: true,
+      effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
     });
     showPane(panel, 'code');
     editor.focus();
@@ -633,6 +672,21 @@ export async function createSession(
     });
   }
 
+  // Rendered view of `.md` files beside (or instead of) the source.
+  const markdown = createMarkdownPreview(
+    panel,
+    editor.view,
+    {
+      files: () => workspace.names,
+      open: (path) => {
+        saveState();
+        tabs.open(path);
+        show();
+      },
+    },
+    signal
+  );
+
   let filesBefore = new Set<string>();
   function saveState() {
     if (viewing) {
@@ -682,6 +736,7 @@ export async function createSession(
     const scroll = tab && scrolls.get(tabKey(tab));
     if (scroll) editor.view.dispatch({ effects: scroll });
     else editor.view.scrollDOM.scrollTo(0, 0);
+    markdown.show(viewing ?? workspace.selected?.path.name);
     renderTabs();
     updateFormat();
     tree.render();
@@ -890,6 +945,7 @@ export async function createSession(
         filesBefore = new Set(workspace.names);
         saveState();
       },
+      intent: (path) => void prefetch(path),
       select: (path) => {
         saveState();
         tabs.open(path);
