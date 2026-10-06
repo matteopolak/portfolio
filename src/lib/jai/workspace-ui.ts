@@ -1,4 +1,8 @@
-import { EditorSelection, type EditorState } from '@codemirror/state';
+import {
+  EditorSelection,
+  type EditorState,
+  type StateEffect,
+} from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
@@ -60,6 +64,16 @@ export async function createSession(
   // Open-file tabs; `preview` holds the read-only file in the preview tab.
   const tabs = new OpenTabs();
   let preview: { path: string; text: string; state?: EditorState } | undefined;
+  // Scroll position of each open tab; a tab opened afresh starts at the top.
+  const scrolls = new Map<string, StateEffect<unknown>>();
+  const tabKey = (tab: OpenTab) => (tab.preview ? '~' : '') + tab.path;
+  // The tab the reader has scrolled since it was shown. Only scrolling they
+  // started is recorded, never the jumps from switching or restoring a file.
+  let scrollOwner: OpenTab | undefined;
+  function forgetClosedScrolls() {
+    const open = new Set(tabs.tabs.map(tabKey));
+    for (const key of scrolls.keys()) if (!open.has(key)) scrolls.delete(key);
+  }
   const workers = new Set<Worker>();
   let running = false;
   let pendingExecution: AbortController | undefined;
@@ -173,6 +187,22 @@ export async function createSession(
     },
   });
 
+  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+    editor.view.scrollDOM.addEventListener(
+      type,
+      () => (scrollOwner = tabs.active),
+      { passive: true, signal }
+    );
+  // Hidden panes (phone layouts) report no size and are left alone.
+  editor.view.scrollDOM.addEventListener(
+    'scroll',
+    () => {
+      const tab = tabs.active;
+      if (tab && tab === scrollOwner && editor.view.scrollDOM.clientHeight)
+        scrolls.set(tabKey(tab), editor.view.scrollSnapshot());
+    },
+    { passive: true, signal }
+  );
   let filesBefore = new Set<string>();
   /** Path of the module or stdlib file shown read-only (after go to definition), if any. */
   let viewing: string | undefined;
@@ -214,6 +244,11 @@ export async function createSession(
     const open = Boolean(workspace.selected || viewing);
     editorHost.hidden = !open;
     if (empty) empty.hidden = open;
+    forgetClosedScrolls();
+    scrollOwner = undefined;
+    const scroll = tab && scrolls.get(tabKey(tab));
+    if (scroll) editor.view.dispatch({ effects: scroll });
+    else editor.view.scrollDOM.scrollTo(0, 0);
     renderTabs();
     updateFormat();
     tree.render();
@@ -305,6 +340,7 @@ export async function createSession(
     if (tab !== tabs.active) {
       tabs.close(tab);
       if (tab.preview) preview = undefined;
+      forgetClosedScrolls();
       renderTabs();
     } else {
       saveState();
