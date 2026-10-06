@@ -21,7 +21,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       JAI_REF: ${{ inputs.jai_ref }}
       CARGO_INCREMENTAL: '0'
@@ -53,6 +53,13 @@ jobs:
           toolchain="$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')"
           rustup toolchain install "$toolchain" --profile minimal
           rustup target add wasm32-unknown-unknown --toolchain "$toolchain"
+      # jaifmt.wasm is compiled by a native jaic, which needs LLVM 23 and lld (wasm-ld).
+      - name: Install LLVM 23 and lld
+        working-directory: .build/jai
+        run: |
+          bash tools/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: .build/jai -> target
@@ -62,9 +69,14 @@ jobs:
           python3 tools/check_dependency_age.py
           python3 tools/check_ci_sources.py
           cargo fetch --locked
+      - name: Build the native compiler that builds jaifmt.wasm
+        working-directory: .build/jai
+        run: |
+          cargo build --locked -p jaic-cli
+          command -v wasm-ld
       - name: Build and package the actual browser compiler
         working-directory: .build/jai
-        run: python3 tools/package_browser_release.py --output "$GITHUB_WORKSPACE/.build/jai-release"
+        run: python3 tools/package_browser_release.py --output "$GITHUB_WORKSPACE/.build/jai-release" --jaic "$PWD/target/debug/jaic"
       - name: Validate inventory and pin release digests
         run: |
           python3 scripts/verify-jai-bundle.py .build/jai-release "$JAI_REF"

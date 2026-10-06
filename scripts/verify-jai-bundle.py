@@ -8,10 +8,31 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 
+def verify_jaifmt_wasm(contents):
+    """jaifmt.wasm (newer releases) must match the jaifmt_wasm_sha256 its build metadata records."""
+    metadata = {}
+    if "build-metadata.json" in contents:
+        try:
+            metadata = json.loads(contents["build-metadata.json"])
+        except ValueError:
+            raise ValueError("Invalid Jai build metadata")
+        if not isinstance(metadata, dict):
+            raise ValueError("Invalid Jai build metadata")
+    digest = metadata.get("jaifmt_wasm_sha256")
+    formatter = contents.get("jaifmt.wasm")
+    if digest is None and formatter is None:
+        return
+    if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest) or formatter is None:
+        raise ValueError("jaifmt.wasm and its metadata digest must ship together")
+    if hashlib.sha256(formatter).hexdigest() != digest or not formatter.startswith(b"\0asm\x01\0\0\0"):
+        raise ValueError("Invalid jaifmt.wasm")
+
+
 def verify(directory, revision):
     manifest = json.loads((directory / "jai-playground.manifest.json").read_text())
     # Schema 1 bundles carried the compiler repo's own playground page; schema 2 ships the wasm, its
-    # engine, the jaifmt driver and (newer releases) the tour: tour.json plus nested tour/ sources.
+    # engine, the jaifmt driver and (newer releases) the tour: tour.json plus nested tour/ sources,
+    # and jaifmt.wasm with its digest in build-metadata.json.
     schema = manifest.get("schema_version")
     if (schema not in (1, 2) or manifest.get("commit") != revision
             or manifest.get("dirty_checkout") is not False
@@ -58,6 +79,7 @@ def verify(directory, revision):
             contents[member.filename] = data
         if not contents["jai_wasm.wasm"].startswith(b"\0asm\x01\0\0\0"):
             raise ValueError("Invalid Jai Wasm module")
+        verify_jaifmt_wasm(contents)
     output = directory / "verified"
     output.mkdir()
     for name, data in contents.items():
