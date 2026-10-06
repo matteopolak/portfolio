@@ -169,10 +169,14 @@ function token(stream: StringStream, state: JaiState): string | null {
   }
   if (stream.match(/^#[_\p{L}][_\p{L}\p{N}]*/u)) return 'directive';
   if (stream.match(/^@[_\p{L}][_\p{L}\p{N}]*/u)) return 'note';
+  // `..` is one operator, so `1..12` is not `1.` then `.12`.
+  if (stream.match('..')) return 'operator';
   if (
     stream.match(
-      /^(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[hH][\da-fA-F_]+|(?:\d[\d_]*(?:\.(?!\.)[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?[\d_]+)?)/u
-    )
+      /^(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[hH][\da-fA-F_]+|\d[\d_]*(?:\.(?!\.)[\d_]*)?(?:[eE][+-]?[\d_]+)?)/u
+    ) ||
+    (!continuesOperand(stream) &&
+      stream.match(/^\.\d[\d_]*(?:[eE][+-]?[\d_]+)?/u))
   )
     return 'number';
   const name = stream.match(identifier) as RegExpMatchArray | null;
@@ -208,5 +212,10 @@ function token(stream: StringStream, state: JaiState): string | null {
   const call = state.calls.at(-1);
   if (ch === ',' && call?.depth === state.depth) call.argument--;
   return '{}()[],;'.includes(ch) ? 'punctuation' : 'operator';
+}
+/** Whether a `.` here continues an expression (`x.5`, `a[0].1`), as in jaic's lexer. */
+function continuesOperand(stream: StringStream): boolean {
+  const prev = stream.string[stream.pos - 1];
+  return prev !== undefined && /[_\p{L}\p{N})\]."]/u.test(prev);
 }
 export const jaiLanguage = StreamLanguage.define(jaiTokenizer);
