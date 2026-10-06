@@ -58,6 +58,7 @@ import {
 } from './jai/language.ts';
 import { formatStringAt } from './jai/format-string.ts';
 import { tomlLanguage } from './toml-language.ts';
+import { markdownSyntax } from './markdown-language.ts';
 import {
   positionAt,
   offsetAt,
@@ -602,7 +603,8 @@ const languageFor = (language: EditorLanguage) =>
 const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
   if (language !== 'jai' || !path || path.endsWith('.jai'))
     return languageFor(language);
-  return path.endsWith('.toml') ? tomlLanguage : [];
+  if (path.endsWith('.toml')) return tomlLanguage;
+  return /\.(md|markdown)$/iu.test(path) ? markdownSyntax : [];
 };
 
 export interface EditorOptions {
