@@ -3,14 +3,21 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  FIX_ALL,
+  LINT_DOCS,
   combineFixes,
   diagnosticsAt,
+  fixAllAction,
   fixLabel,
+  fixRule,
   fixesFor,
+  lintDocs,
   lintMessage,
   lintRule,
+  offersFixAll,
   rangesTouch,
 } from '../../src/lib/jai/lint-fixes.ts';
+import { LanguageClient } from '../../src/lib/jai/language-client.ts';
 import { planWorkspaceEdit } from '../../src/lib/jai/language-actions.ts';
 import { createEngine } from '../../src/lib/jai/engine.ts';
 import { starterFiles } from '../../src/lib/jai/starter.ts';
@@ -31,10 +38,16 @@ const range = (
   start: { line, character },
   end: { line: endLine, character: endCharacter },
 });
-const fix = (title: string, at: Range, newText: string): CodeAction => ({
+const fix = (
+  title: string,
+  at: Range,
+  newText: string,
+  rule?: string
+): CodeAction => ({
   title,
   kind: 'quickfix',
   edit: { changes: { [URI]: [{ range: at, newText }] } },
+  ...(rule && { data: { rule } }),
 });
 
 test('only jailint diagnostics name a rule', () => {
@@ -81,7 +94,13 @@ test('ranges touch like the server matches lints, empty ranges included', () => 
   );
 });
 
-test("a rule's fixes are picked out by their title", () => {
+test("a rule's fixes are picked out by data.rule, then their lint", () => {
+  const lint: Diagnostic = {
+    range: range(4, 7, 4, 17),
+    code: 'bool_comparison',
+    source: 'jailint',
+    message: 'comparing a bool with `true`',
+  };
   const actions: CodeAction[] = [
     {
       title: 'Show #run result',
@@ -92,16 +111,101 @@ test("a rule's fixes are picked out by their title", () => {
       kind: 'refactor.inline',
       edit: { changes: {} },
     },
-    fix('remove it (unused_variable)', range(2, 0, 3, 0), ''),
-    fix('write `ok` (bool_comparison)', range(4, 7, 4, 17), 'ok'),
+    fix('Remove it', range(2, 0, 3, 0), '', 'unused_variable'),
+    // No data: the lint it carries names the rule.
+    { ...fix('Write `ok`', range(4, 7, 4, 17), 'ok'), diagnostics: [lint] },
   ];
   assert.deepEqual(
     fixesFor(actions, 'unused_variable').map((a) => a.title),
-    ['remove it (unused_variable)']
+    ['Remove it']
+  );
+  assert.deepEqual(
+    fixesFor(actions, 'bool_comparison').map((a) => a.title),
+    ['Write `ok`']
   );
   assert.deepEqual(fixesFor(actions, 'shadowed_it'), []);
   assert.deepEqual(fixesFor(null, 'unused_variable'), []);
-  assert.equal(fixLabel(actions[3]), 'write `ok`');
+  // Titles are labels only; they no longer name the rule.
+  assert.equal(fixRule(fix('Remove it', range(0, 0, 0, 0), '')), undefined);
+  assert.equal(fixLabel(actions[3]), 'Write `ok`');
+  // Servers before sentence-case titles: `<fix> (<rule>)`.
+  const older = fix('remove it (unused_variable)', range(2, 0, 3, 0), '');
+  assert.equal(fixRule(older), 'unused_variable');
+  assert.equal(fixLabel(older), 'remove it');
+});
+
+test("the server's fix-all action and per-rule docs are used when present", () => {
+  const all: CodeAction = {
+    title: 'Fix 2 lint problems',
+    kind: FIX_ALL,
+    edit: { changes: {} },
+  };
+  assert.equal(
+    fixAllAction([fix('Remove it', range(0, 0, 0, 1), ''), all]),
+    all
+  );
+  assert.equal(
+    fixAllAction([fix('Remove it', range(0, 0, 0, 1), '')]),
+    undefined
+  );
+  assert.ok(
+    offersFixAll({ codeActionKinds: ['quickfix', 'refactor.inline', FIX_ALL] })
+  );
+  assert.ok(!offersFixAll({ codeActionKinds: ['quickfix'] }));
+  assert.ok(!offersFixAll(true));
+  const lint: Diagnostic = {
+    range: range(2, 4, 2, 5),
+    code: 'unused_variable',
+    source: 'jailint',
+    message: 'unused variable `x`',
+  };
+  const href =
+    'https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#unused_variable';
+  assert.equal(lintDocs({ ...lint, codeDescription: { href } }), href);
+  assert.equal(lintDocs(lint), LINT_DOCS);
+  assert.equal(
+    lintDocs({ ...lint, codeDescription: { href: 'javascript:alert(1)' } }),
+    LINT_DOCS
+  );
+});
+
+test('jailint.toml files are synced to the server; other settings are not', () => {
+  const posted: { method?: string; params?: unknown }[] = [];
+  const worker = Object.assign(new EventTarget(), {
+    postMessage: (data: { message: { method?: string; params?: unknown } }) =>
+      posted.push(data.message),
+  }) as unknown as Worker;
+  const client = new LanguageClient(worker);
+  const documents = [
+    { path: 'main.jai', version: 1, text: 'main :: () {}' },
+    { path: 'jaifmt.toml', version: 1, text: 'indent_width = 2\n' },
+    { path: 'jailint.toml', version: 1, text: '[rules]\n' },
+    { path: 'lib/jailint.toml', version: 1, text: '' },
+    { path: 'notjailint.toml', version: 1, text: '' },
+  ];
+  client.sync(documents);
+  const opened = posted.map(
+    (m) =>
+      (m.params as { textDocument: { uri: string; languageId: string } })
+        .textDocument
+  );
+  assert.deepEqual(
+    opened.map(({ uri, languageId }) => [uri, languageId]),
+    [
+      ['file:///jai-script/main.jai', 'jai'],
+      ['file:///jai-script/jailint.toml', 'toml'],
+      ['file:///jai-script/lib/jailint.toml', 'toml'],
+    ]
+  );
+  posted.length = 0;
+  client.sync([
+    documents[0],
+    { path: 'jailint.toml', version: 2, text: '[rules]\nx = "allow"\n' },
+  ]);
+  assert.deepEqual(
+    posted.map((m) => m.method),
+    ['textDocument/didChange', 'textDocument/didClose']
+  );
 });
 
 test('fix all merges quick fixes and leaves overlapping ones for the next run', () => {
@@ -201,22 +305,78 @@ test(
       'unused_variable'
     );
     assert.equal(fixes.length, 1);
+    assert.match(fixLabel(fixes[0]), /^[A-Z]/u, 'sentence case');
+    assert.equal(
+      lintDocs(unused),
+      `${LINT_DOCS.replace(/#rules$/u, '')}#unused_variable`
+    );
+    const fixed =
+      '#import "Basic";\nmain :: () {\n    ok := true;\n    if ok print("hi\\n");\n}\n';
+    // The server's fix-all, as the Fix all button asks for it.
+    assert.ok(offersFixAll(capabilities.codeActionProvider));
     const whole = send('textDocument/codeAction', {
       textDocument: { uri: URI },
       range: range(0, 0, 6, 0),
-      context: { diagnostics },
+      context: { diagnostics, only: [FIX_ALL] },
     });
-    const all = combineFixes(
-      whole.find((m) => m.id !== undefined)?.result as CodeAction[]
+    const actions = whole.find((m) => m.id !== undefined)
+      ?.result as CodeAction[];
+    assert.deepEqual(
+      actions.map((a) => a.kind),
+      [FIX_ALL]
     );
-    assert.equal(all.applied, 2);
+    const all = fixAllAction(actions)!;
+    assert.equal(all.title, 'Fix 2 lint problems');
     const [planned] = planWorkspaceEdit(
       [{ path: 'main.jai', version: 1, text }],
-      all.edit
+      all.edit!
     );
+    assert.equal(planned.text, fixed);
+    // The client-side merge (servers without fix-all) agrees.
+    const quick = send('textDocument/codeAction', {
+      textDocument: { uri: URI },
+      range: range(0, 0, 6, 0),
+      context: { diagnostics, only: ['quickfix'] },
+    });
+    const merged = combineFixes(
+      quick.find((m) => m.id !== undefined)?.result as CodeAction[]
+    );
+    assert.equal(merged.applied, 2);
     assert.equal(
-      planned.text,
-      '#import "Basic";\nmain :: () {\n    ok := true;\n    if ok print("hi\\n");\n}\n'
+      planWorkspaceEdit(
+        [{ path: 'main.jai', version: 1, text }],
+        merged.edit
+      )[0].text,
+      fixed
+    );
+
+    // A workspace jailint.toml, sent as an open document, sets the levels.
+    const settings = 'file:///jai-script/jailint.toml';
+    const allowed = send(
+      'textDocument/didOpen',
+      {
+        textDocument: {
+          uri: settings,
+          languageId: 'toml',
+          version: 1,
+          text: '[rules]\nunused_variable = "allow"\nbool_comparison = "deny"\n',
+        },
+      },
+      true
+    );
+    assert.ok(!published(allowed).some((p) => p.uri === settings));
+    const relinted = send(
+      'textDocument/didChange',
+      {
+        textDocument: { uri: URI, version: 2 },
+        contentChanges: [{ text }],
+      },
+      true
+    );
+    const now = published(relinted).find((p) => p.uri === URI)!.diagnostics;
+    assert.deepEqual(
+      now.map((d) => [lintRule(d), d.severity]),
+      [['bool_comparison', 1]]
     );
   }
 );

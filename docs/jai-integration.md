@@ -16,8 +16,9 @@ editor footer, or Website action.
 `src/lib/code-editor.ts` and `src/lib/jai/` contain the shared editor, Jai tokenizer, workspace, language
 client, worker and Wasm bridge. The release files used at runtime are
 `/jai/<full-commit>/jai_wasm.wasm` and, for the Format button,
+`/jai/<full-commit>/jaifmt.wasm` (with `build-metadata.json` for its digest), falling back to
 `/jai/<full-commit>/jaifmt-playground.jai` (see [Jai formatter](jai-formatter.md); releases
-without it simply hide the button).
+without either simply hide the button).
 
 Opening the modal initializes separate execution and language-service workers.
 The language client preserves completion, hover and inline diagnostics without Hover text is syntax-highlighted with the editor's own grammar (`highlightedHover` in `src/lib/code-editor.ts`), using the same colors as the source.

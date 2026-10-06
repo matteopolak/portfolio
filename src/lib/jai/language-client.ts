@@ -131,6 +131,11 @@ interface LanguageClientOptions {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+/** jailint's settings file, which the server reads from any folder of the workspace. */
+export const LINT_SETTINGS = 'jailint.toml';
+export const isLintSettings = (path: string) =>
+  path === LINT_SETTINGS || path.endsWith(`/${LINT_SETTINGS}`);
+
 export class LanguageClient {
   #worker: Worker;
   #next = 0;
@@ -273,10 +278,17 @@ export class LanguageClient {
             documentLink: { tooltipSupport: false },
             foldingRange: { lineFoldingOnly: true },
             codeAction: {
-              // jailint's fixes are `quickfix`; expansions are `refactor.inline`.
+              // jailint's fixes are `quickfix` and its fix-all is
+              // `source.fixAll.jailint`; expansions are `refactor.inline`.
               codeActionLiteralSupport: {
                 codeActionKind: {
-                  valueSet: ['quickfix', 'refactor', 'refactor.inline'],
+                  valueSet: [
+                    'quickfix',
+                    'refactor',
+                    'refactor.inline',
+                    'source',
+                    'source.fixAll',
+                  ],
                 },
               },
             },
@@ -304,8 +316,15 @@ export class LanguageClient {
     if (this.#stopped) return;
     const current = new Set<string>();
     for (const { path, text, version } of documents) {
-      // Only Jai sources are language documents (not jaifmt.toml).
-      if (!path.endsWith('.jai')) continue;
+      // Jai sources are language documents. So is each `jailint.toml`: the
+      // browser server has no disk, so its lint settings come as an open
+      // document (it publishes no diagnostics for it). jaifmt.toml is not.
+      const languageId = path.endsWith('.jai')
+        ? 'jai'
+        : isLintSettings(path)
+          ? 'toml'
+          : undefined;
+      if (!languageId) continue;
       const uri = documentUri(path);
       current.add(uri);
       const previous = this.#opened.get(uri);
@@ -313,7 +332,7 @@ export class LanguageClient {
       this.#opened.set(uri, version);
       if (previous === undefined)
         this.notify('textDocument/didOpen', {
-          textDocument: { uri, languageId: 'jai', version, text },
+          textDocument: { uri, languageId, version, text },
         });
       else
         this.notify('textDocument/didChange', {

@@ -15,7 +15,7 @@
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |
 | [markdown-preview.md](./markdown-preview.md)                                                       | Markdown preview (split/toggle view, links, scroll sync) and `.md` source highlighting |
 | [playground-pages.md](./playground-pages.md)                                                       | Full-page `/playground/<language>` routes sharing the modal workspaces                  |
-| [jai-formatter.md](./jai-formatter.md)                                                             | Jai Format button: jaifmt driver in the wasm engine, `jaifmt.toml`, cursor-preserving edits |
+| [jai-formatter.md](./jai-formatter.md)                                                             | Jai Format button: `jaifmt.wasm` (WASI shim) or the engine driver, `jaifmt.toml`, cursor-preserving edits |
 | [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
 | [Lodestone web embed](./lodestone-web-embed.md)                                                     | SDK validation, progress events, replacement textures, publishing, and embed                          |
 | [Quasi web playground](./quasi-web-playground.md)                                                   | How the sandboxed Quasi interpreter is built, published, and executed                |
