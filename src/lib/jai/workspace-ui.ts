@@ -1,13 +1,19 @@
-import { EditorSelection, type EditorState } from '@codemirror/state';
+import {
+  EditorSelection,
+  type EditorState,
+  type StateEffect,
+} from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
 import { showPane } from '../code-workspace-layout.ts';
 import { Workspace } from './workspace.ts';
-import { starterFiles } from './starter.ts';
+import { loadStarter } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
 import { LanguageClient, pathFromUri } from './language-client.ts';
 import { definitionTarget, renameSymbol } from './language-actions.ts';
+import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
+import { fileIcon, fileIconKind } from './file-icons.ts';
 import type { RunOutput } from './engine.ts';
 import {
   FORMAT_DRIVER_ASSET,
@@ -50,9 +56,27 @@ export async function createSession(
     cancel = find<HTMLButtonElement>('cancel'),
     formatButton = panel.querySelector<HTMLButtonElement>('[data-code-format]'),
     status = panel.querySelector<HTMLElement>('[data-code-status]'),
-    crumb = panel.querySelector<HTMLElement>('[data-code-crumb]');
-  const workspace = new Workspace(starterFiles);
+    tabStrip = panel.querySelector<HTMLElement>('[data-code-tabs]'),
+    empty = panel.querySelector<HTMLElement>('[data-code-empty]'),
+    editorHost = find('editor');
+  // The compiler release's tour (or the built-in starter for older releases).
+  const starter = await loadStarter(revision, signal);
+  if (signal.aborted) throw abortError();
+  const workspace = new Workspace(starter.files);
   const states = new Map<string, EditorState>();
+  // Open-file tabs; `preview` holds the read-only file in the preview tab.
+  const tabs = new OpenTabs();
+  let preview: { path: string; text: string; state?: EditorState } | undefined;
+  // Scroll position of each open tab; a tab opened afresh starts at the top.
+  const scrolls = new Map<string, StateEffect<unknown>>();
+  const tabKey = (tab: OpenTab) => (tab.preview ? '~' : '') + tab.path;
+  // The tab the reader has scrolled since it was shown. Only scrolling they
+  // started is recorded, never the jumps from switching or restoring a file.
+  let scrollOwner: OpenTab | undefined;
+  function forgetClosedScrolls() {
+    const open = new Set(tabs.tabs.map(tabKey));
+    for (const key of scrolls.keys()) if (!open.has(key)) scrolls.delete(key);
+  }
   const workers = new Set<Worker>();
   let running = false;
   let pendingExecution: AbortController | undefined;
@@ -100,12 +124,10 @@ export async function createSession(
           return;
         saveState();
         if (target.text !== undefined) {
-          showReadOnly(target.path, target.text);
-        } else {
-          workspace.select(target.path);
-          showSelected();
-          tree.render();
-        }
+          preview = { path: target.path, text: target.text };
+          tabs.preview(target.path);
+        } else tabs.open(target.path);
+        show();
         editor.view.dispatch({
           selection: { anchor: target.from, head: target.to },
           scrollIntoView: true,
@@ -136,7 +158,7 @@ export async function createSession(
             : editor.createState(update.text, update.path);
           states.set(update.path, state);
         }
-        showSelected();
+        show();
         language.sync(workspace.documents);
         runner.changed();
       } catch (error) {
@@ -168,34 +190,252 @@ export async function createSession(
     },
   });
 
+  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+    editor.view.scrollDOM.addEventListener(
+      type,
+      () => (scrollOwner = tabs.active),
+      { passive: true, signal }
+    );
+  // Hidden panes (phone layouts) report no size and are left alone.
+  editor.view.scrollDOM.addEventListener(
+    'scroll',
+    () => {
+      const tab = tabs.active;
+      if (tab && tab === scrollOwner && editor.view.scrollDOM.clientHeight)
+        scrolls.set(tabKey(tab), editor.view.scrollSnapshot());
+    },
+    { passive: true, signal }
+  );
   let filesBefore = new Set<string>();
   /** Path of the module or stdlib file shown read-only (after go to definition), if any. */
   let viewing: string | undefined;
   function saveState() {
-    if (workspace.selected && !viewing)
+    if (viewing) {
+      if (preview?.path === viewing) preview.state = editor.view.state;
+    } else if (workspace.selected)
       states.set(workspace.selected.path.name, editor.view.state);
   }
-  function showReadOnly(path: string, text: string) {
-    viewing = path;
-    editor.setState(editor.createState(text, path));
-    editor.setEditable(false);
-    editor.diagnostics([], text);
-    if (crumb) crumb.textContent = `${path} (read-only)`;
+  /*
+   * Shows the active tab. The workspace selection always names the active
+   * file tab, and is empty while the preview tab is active or no tab is open,
+   * so edits, formatting and diagnostics only ever target an open file.
+   */
+  function show() {
+    const tab = tabs.active;
+    if (tab?.preview && preview?.path === tab.path) {
+      workspace.deselect();
+      viewing = tab.path;
+      editor.setState(
+        preview.state ?? editor.createState(preview.text, tab.path)
+      );
+      editor.setEditable(false);
+      editor.diagnostics([], preview.text);
+    } else {
+      viewing = undefined;
+      if (tab && !tab.preview) workspace.select(tab.path);
+      else workspace.deselect();
+      const selected = workspace.selected;
+      editor.setState(
+        selected
+          ? (states.get(selected.path.name) ??
+              editor.createState(selected.text, selected.path.name))
+          : editor.createState('')
+      );
+      editor.setEditable(Boolean(selected));
+      editor.diagnostics([], selected?.text ?? '');
+    }
+    const open = Boolean(workspace.selected || viewing);
+    editorHost.hidden = !open;
+    if (empty) empty.hidden = open;
+    forgetClosedScrolls();
+    scrollOwner = undefined;
+    const scroll = tab && scrolls.get(tabKey(tab));
+    if (scroll) editor.view.dispatch({ effects: scroll });
+    else editor.view.scrollDOM.scrollTo(0, 0);
+    renderTabs();
     updateFormat();
+    tree.render();
   }
-  function showSelected() {
-    viewing = undefined;
-    const selected = workspace.selected;
-    editor.setState(
-      selected
-        ? (states.get(selected.path.name) ??
-            editor.createState(selected.text, selected.path.name))
-        : editor.createState('')
+  function renderTabs() {
+    if (!tabStrip) return;
+    const all = tabs.tabs;
+    tabStrip.replaceChildren(
+      ...all.map((tab, index) => {
+        const { name, folder } = tabLabel(tab, all);
+        const active = tab === tabs.active;
+        const item = document.createElement('div');
+        item.className = 'ide-filetab';
+        item.dataset.tabIndex = String(index);
+        if (active) item.dataset.active = 'true';
+        if (tab.preview) item.dataset.preview = 'true';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ide-filetab-open';
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+        button.title = tab.preview ? `${tab.path} (read-only)` : tab.path;
+        // The visible spans run together in the computed name; spell it out.
+        button.setAttribute(
+          'aria-label',
+          [name, folder && `in ${folder}`, tab.preview && 'read-only']
+            .filter(Boolean)
+            .join(', ')
+        );
+        const label = document.createElement('span');
+        label.className = 'ide-filetab-name';
+        label.textContent = name;
+        button.append(
+          fileIcon(fileIconKind(tab.path), 'ide-filetab-icon'),
+          label
+        );
+        if (folder) {
+          const hint = document.createElement('span');
+          hint.className = 'ide-filetab-folder';
+          hint.textContent = folder;
+          button.append(hint);
+        }
+        if (tab.preview) {
+          button.append(fileIcon('lock', 'ide-filetab-readonly'));
+        }
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'ide-filetab-close';
+        close.tabIndex = -1;
+        close.dataset.tabClose = '';
+        close.title = 'Close (Delete)';
+        close.setAttribute('aria-label', `Close ${name}`);
+        close.innerHTML =
+          '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg>';
+        item.append(button, close);
+        return item;
+      })
     );
-    editor.setEditable(Boolean(selected));
-    editor.diagnostics([], selected?.text ?? '');
-    if (crumb) crumb.textContent = selected?.path.name ?? 'No file open';
-    updateFormat();
+    revealActiveTab();
+  }
+  // Keeps the active tab in view without scrolling the page around it.
+  function revealActiveTab() {
+    const current = tabStrip?.querySelector<HTMLElement>('[data-active]');
+    if (!tabStrip || !current) return;
+    const left = current.offsetLeft,
+      right = left + current.offsetWidth;
+    if (left < tabStrip.scrollLeft) tabStrip.scrollLeft = left;
+    else if (right > tabStrip.scrollLeft + tabStrip.clientWidth)
+      tabStrip.scrollLeft = right - tabStrip.clientWidth;
+  }
+  function tabAt(target: EventTarget | null) {
+    const item = (target as Element | null)?.closest<HTMLElement>(
+      '.ide-filetab'
+    );
+    return item ? tabs.tabs[Number(item.dataset.tabIndex)] : undefined;
+  }
+  function focusActiveTab() {
+    tabStrip?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  }
+  function activateTab(tab: OpenTab) {
+    if (tab === tabs.active) return;
+    saveState();
+    tabs.activate(tab);
+    show();
+  }
+  function closeTab(tab: OpenTab) {
+    const hadFocus = tabStrip?.contains(document.activeElement) ?? false;
+    if (tab !== tabs.active) {
+      tabs.close(tab);
+      if (tab.preview) preview = undefined;
+      forgetClosedScrolls();
+      renderTabs();
+    } else {
+      saveState();
+      tabs.close(tab);
+      if (tab.preview) preview = undefined;
+      show();
+    }
+    if (hadFocus) focusActiveTab();
+  }
+  if (tabStrip) {
+    // Phones hide the strip with the Files pane; reveal again once it is shown.
+    const resized = new ResizeObserver(revealActiveTab);
+    resized.observe(tabStrip);
+    signal.addEventListener('abort', () => resized.disconnect(), {
+      once: true,
+    });
+    tabStrip.addEventListener(
+      'click',
+      (event) => {
+        const tab = tabAt(event.target);
+        if (!tab) return;
+        if ((event.target as Element).closest('[data-tab-close]')) {
+          closeTab(tab);
+          return;
+        }
+        activateTab(tab);
+        showPane(panel, 'code');
+        editor.focus();
+      },
+      { signal }
+    );
+    // Middle-click closes; preventing mousedown stops the autoscroll cursor.
+    tabStrip.addEventListener(
+      'mousedown',
+      (event) => {
+        if (event.button === 1 && tabAt(event.target)) event.preventDefault();
+      },
+      { signal }
+    );
+    tabStrip.addEventListener(
+      'auxclick',
+      (event) => {
+        const tab = event.button === 1 ? tabAt(event.target) : undefined;
+        if (!tab) return;
+        event.preventDefault();
+        closeTab(tab);
+      },
+      { signal }
+    );
+    tabStrip.addEventListener(
+      'keydown',
+      (event) => {
+        const tab = tabAt(event.target);
+        if (!tab || event.altKey || event.ctrlKey || event.metaKey) return;
+        const all = tabs.tabs,
+          index = all.indexOf(tab);
+        const next =
+          event.key === 'ArrowRight'
+            ? all[(index + 1) % all.length]
+            : event.key === 'ArrowLeft'
+              ? all[(index - 1 + all.length) % all.length]
+              : event.key === 'Home'
+                ? all[0]
+                : event.key === 'End'
+                  ? all.at(-1)
+                  : undefined;
+        if (next) {
+          event.preventDefault();
+          activateTab(next);
+          focusActiveTab();
+        } else if (event.key === 'Delete') {
+          event.preventDefault();
+          closeTab(tab);
+        }
+      },
+      { signal }
+    );
+    // A vertical wheel scrolls overflowing tabs sideways, as in VS Code.
+    tabStrip.addEventListener(
+      'wheel',
+      (event) => {
+        if (
+          event.deltaX ||
+          !event.deltaY ||
+          tabStrip.scrollWidth <= tabStrip.clientWidth
+        )
+          return;
+        event.preventDefault();
+        tabStrip.scrollLeft += event.deltaY;
+      },
+      { signal, passive: false }
+    );
   }
   const tree = initializeFileTree(
     panel,
@@ -207,8 +447,8 @@ export async function createSession(
       },
       select: (path) => {
         saveState();
-        workspace.select(path);
-        showSelected();
+        tabs.open(path);
+        show();
         showPane(panel, 'code');
         editor.focus();
       },
@@ -222,16 +462,20 @@ export async function createSession(
             if (state && extension(from) === extension(to))
               states.set(to, state);
           }
+          tabs.move(moves);
         }
         const names = new Set(workspace.names);
         for (const path of states.keys())
           if (!names.has(path)) states.delete(path);
-        showSelected();
+        // Deleted files lose their tabs; a newly created file opens in one.
+        tabs.retain(names);
+        const selected = workspace.selected?.path.name;
+        const created = !moves && selected && !filesBefore.has(selected);
+        if (created) tabs.open(selected);
+        show();
         language?.sync(workspace.documents);
         runner.changed();
-        // A newly created file opens straight into the editor.
-        const selected = workspace.selected?.path.name;
-        if (!moves && selected && !filesBefore.has(selected)) {
+        if (created) {
           showPane(panel, 'code');
           editor.focus();
         }
@@ -544,7 +788,6 @@ export async function createSession(
     { signal }
   );
 
-  const editorHost = find('editor');
   editorHost.addEventListener('compositionstart', runner.compositionStart, {
     signal,
   });
@@ -599,7 +842,11 @@ export async function createSession(
       editor.destroy();
       find('files').replaceChildren();
       output.clear();
-      if (crumb) crumb.textContent = '';
+      tabs.clear();
+      preview = undefined;
+      tabStrip?.replaceChildren();
+      editorHost.hidden = false;
+      if (empty) empty.hidden = true;
       run.disabled = true;
       run.hidden = false;
       cancel.hidden = true;
@@ -616,10 +863,13 @@ export async function createSession(
   }
   // A playground deep link (`/playground/jai#lib/math.jai`) opens that file.
   const requested = panel.dataset.codeOpen;
-  if (requested && workspace.names.includes(requested))
-    workspace.select(requested);
-  showSelected();
-  tree.render();
+  const names = new Set(workspace.names);
+  const opening = starter.open.filter((path) => names.has(path));
+  for (const path of opening) tabs.open(path);
+  // The first starter tab (main.jai) is active unless a link asks for another file.
+  if (requested && names.has(requested)) tabs.open(requested);
+  else if (opening[0]) tabs.open(opening[0]);
+  show();
   const driverLoaded = loadDriver();
   const runtime = await initializeWorker();
   connect(runtime.worker);

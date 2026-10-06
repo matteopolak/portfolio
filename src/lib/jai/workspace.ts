@@ -270,6 +270,11 @@ export class Workspace {
     this.#selected = path.name;
   }
 
+  /** No file is selected (every editor tab is closed, or a preview is shown). */
+  deselect() {
+    this.#selected = undefined;
+  }
+
   edit(text: unknown) {
     if (typeof text !== 'string')
       throw new TypeError('Source files must contain text.');

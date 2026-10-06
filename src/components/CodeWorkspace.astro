@@ -34,13 +34,9 @@ const {
   data-pane="code"
   data-code-fullscreen-target
   data-project-demo-scroll
+  aria-label={`${label} code editor`}
 >
   <header class="ide-bar">
-    <div class="ide-title">
-      <span class="ide-mark" aria-hidden="true"></span>
-      <span class="ide-name">{label}</span>
-      {files && <span class="ide-crumb" data-code-crumb></span>}
-    </div>
     <span class="ide-status" data-code-status role="status" aria-live="polite"></span>
     <button type="button" class="ide-text-button" data-code-retry hidden>Retry</button>
     <button type="button" class="ide-run" data-code-run disabled aria-label="Run program" title="Run">
@@ -131,7 +127,16 @@ const {
       )
     }
     <div class="ide-main" data-code-main>
+      {files && <div class="ide-filetabs" role="tablist" aria-label="Open files" data-code-tabs />}
       <div class="ide-editor" data-code-editor></div>
+      {
+        files && (
+          <div class="ide-empty" data-code-empty hidden>
+            <p class="ide-empty-title">No open files</p>
+            <p>Open a file from the file tree.</p>
+          </div>
+        )
+      }
       <div
         class="ide-divider ide-divider--output"
         data-code-resize="output"
@@ -190,6 +195,9 @@ const {
     --ide-syntax-type: color-mix(in oklch, var(--blue) 52%, white);
     --ide-syntax-function: oklch(94% 0.035 91);
     --ide-syntax-string: oklch(81% 0.11 150);
+    /* Format specifiers (`%`, `%1`) in print-family strings: violet, away from the green strings. */
+    --ide-syntax-format: oklch(78% 0.15 310);
+    --ide-syntax-format-percent: oklch(70% 0.07 310);
     --ide-syntax-number: color-mix(in oklch, var(--red) 55%, white);
     --ide-syntax-directive: color-mix(in oklch, var(--red) 72%, white);
     --ide-syntax-comment: oklch(60% 0.014 270);
@@ -268,46 +276,12 @@ const {
     padding: 0 0.5rem 0 1rem;
     background: var(--ide-sunken);
     border-bottom: 1px solid var(--ide-rule);
-  }
-
-  .ide-title {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .ide-mark {
-    width: 0.8rem;
-    height: 0.8rem;
-    flex: none;
-    background: var(--ide-accent);
-  }
-
-  .ide-name {
-    flex: none;
-    color: var(--ide-fg-strong);
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  .ide-crumb {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--ide-muted);
-    font: 0.78rem/1 var(--ide-mono);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ide-crumb:not(:empty)::before {
-    content: '/';
-    margin-right: 0.65rem;
-    color: var(--ide-faint);
+    /* Only actions live here; they stay right-aligned when the status is hidden. */
+    justify-content: flex-end;
   }
 
   .ide-status {
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     color: var(--ide-muted);
@@ -492,10 +466,10 @@ const {
     gap: 0.4rem;
     width: 100%;
     min-width: 0;
-    height: 1.75rem;
+    height: 1.875rem;
     padding: 0 2rem 0 calc(0.75rem + var(--depth, 0) * 0.9rem);
     color: var(--ide-fg) !important;
-    font: 0.8rem/1 var(--ide-mono) !important;
+    font: 0.875rem/1 var(--ide-mono) !important;
     text-align: left;
     white-space: nowrap;
   }
@@ -521,8 +495,22 @@ const {
     color: color-mix(in oklch, var(--yellow) 75%, var(--ide-muted));
   }
 
-  .ide-tree :global(.file[aria-current] .tree-icon) {
-    color: color-mix(in oklch, var(--blue) 55%, white);
+  /* File-type tints, shared by tree rows and tabs (icons from jai/file-icons.ts). */
+  .ide :global(svg[data-icon='jai']) {
+    color: color-mix(in oklch, var(--red) 62%, white);
+  }
+
+  .ide :global(svg[data-icon='config']) {
+    color: color-mix(in oklch, var(--blue) 50%, white);
+  }
+
+  .ide :global(svg[data-icon='markdown']) {
+    color: color-mix(in oklch, var(--blue) 35%, var(--ide-fg));
+  }
+
+  .ide :global(svg[data-icon='text']),
+  .ide :global(svg[data-icon='file']) {
+    color: var(--ide-muted);
   }
 
   .ide-tree :global(.tree-chevron) {
@@ -596,7 +584,7 @@ const {
   .ide-tree :global(.tree-name-input) {
     display: block;
     width: calc(100% - 0.75rem - var(--depth, 0) * 0.9rem - 0.5rem);
-    height: 1.65rem;
+    height: 1.75rem;
     margin: 0.05rem 0.5rem 0.05rem calc(0.75rem + var(--depth, 0) * 0.9rem);
     padding: 0 0.45rem;
     color: var(--ide-fg-strong);
@@ -604,7 +592,7 @@ const {
     border: 1px solid var(--blue);
     border-radius: 0;
     outline: none;
-    font: 0.8rem/1 var(--ide-mono);
+    font: 0.875rem/1 var(--ide-mono);
   }
 
   .ide-tree :global(.tree-name-input::placeholder) {
@@ -656,6 +644,143 @@ const {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .ide:not(.ide--single) .ide-main {
+    grid-template-rows: auto minmax(0, 1fr) 1px var(--output-height, 11rem);
+  }
+
+  .ide:not(.ide--single)[data-output-collapsed='true'] .ide-main {
+    grid-template-rows: auto minmax(0, 1fr) 1px auto;
+  }
+
+  /* Open-file tabs (jai). The strip matches the file tree's 2.25rem pane head. */
+  .ide-filetabs {
+    display: flex;
+    height: 2.25rem;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    background: var(--ide-sunken);
+    box-shadow: inset 0 -1px var(--ide-rule);
+  }
+
+  .ide-filetabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ide-filetabs :global(.ide-filetab) {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: none;
+    max-width: 16rem;
+    color: var(--ide-muted);
+    border-right: 1px solid var(--ide-rule);
+  }
+
+  .ide-filetabs :global(.ide-filetab:hover) {
+    color: var(--ide-fg);
+    background: var(--ide-hover);
+  }
+
+  .ide-filetabs :global(.ide-filetab[data-active]) {
+    color: var(--ide-fg-strong);
+    background: var(--ide-bg);
+    box-shadow: inset 0 2px var(--blue);
+  }
+
+  .ide-filetabs :global(.ide-filetab-open) {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    height: 100%;
+    padding: 0 0.15rem 0 0.8rem;
+    font: 0.78rem/2.25rem var(--ide-mono) !important;
+    white-space: nowrap;
+  }
+
+  .ide-filetabs :global(.ide-filetab-name) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ide-filetabs :global(.ide-filetab[data-preview] .ide-filetab-name) {
+    font-style: italic;
+  }
+
+  .ide-filetabs :global(.ide-filetab-folder) {
+    color: var(--ide-faint);
+    font-size: 0.7rem;
+  }
+
+  .ide-filetabs :global(.ide-filetab-icon) {
+    width: 1rem;
+    height: 1rem;
+    margin-left: -0.15rem;
+  }
+
+  /* Inactive tabs dim their icon with the label. */
+  .ide-filetabs :global(.ide-filetab:not([data-active]) .ide-filetab-icon) {
+    opacity: 0.75;
+  }
+
+  .ide-filetabs :global(.ide-filetab-readonly) {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: var(--ide-faint);
+  }
+
+  .ide-filetabs :global(.ide-filetab-close) {
+    display: grid;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0 0.4rem 0 0.2rem;
+    place-items: center;
+    color: var(--ide-muted) !important;
+    opacity: 0;
+  }
+
+  .ide-filetabs :global(.ide-filetab-close svg) {
+    width: 0.85rem;
+    height: 0.85rem;
+    stroke-width: 1.8;
+  }
+
+  .ide-filetabs :global(.ide-filetab[data-active] .ide-filetab-close),
+  .ide-filetabs :global(.ide-filetab:hover .ide-filetab-close),
+  .ide-filetabs :global(.ide-filetab:focus-within .ide-filetab-close) {
+    opacity: 1;
+  }
+
+  .ide-filetabs :global(.ide-filetab-close:hover) {
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-rule) !important;
+  }
+
+  .ide-empty {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0.35rem;
+    min-height: 0;
+    padding: 1.5rem;
+    color: var(--ide-muted);
+    background: var(--ide-bg);
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .ide-empty p {
+    margin: 0;
+  }
+
+  .ide-empty-title {
+    color: var(--ide-fg);
+    font-weight: 700;
   }
 
   .ide-divider {
@@ -785,13 +910,37 @@ const {
     }
 
     .ide-main,
-    .ide[data-output-collapsed='true'] .ide-main {
+    .ide[data-output-collapsed='true'] .ide-main,
+    .ide:not(.ide--single)[data-pane='output'] .ide-main {
       grid-template-rows: minmax(0, 1fr);
     }
 
+    .ide:not(.ide--single)[data-pane='code'] .ide-main {
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
     .ide[data-pane='code'] .ide-main > :global(.ide-output),
-    .ide[data-pane='output'] .ide-editor {
+    .ide[data-pane='output'] .ide-editor,
+    .ide[data-pane='output'] .ide-filetabs,
+    .ide[data-pane='output'] .ide-empty {
       display: none;
+    }
+
+    .ide-filetabs {
+      height: 2.75rem;
+    }
+
+    .ide-filetabs :global(.ide-filetab-open) {
+      font-size: 0.85rem !important;
+      line-height: 2.75rem !important;
+    }
+
+    /* Touch has no hover: every tab shows its close button. */
+    .ide-filetabs :global(.ide-filetab-close) {
+      width: 2rem;
+      height: 2rem;
+      margin-right: 0.15rem;
+      opacity: 1;
     }
 
     .ide :global(.ide-output__toggle) {

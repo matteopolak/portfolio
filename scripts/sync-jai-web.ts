@@ -8,7 +8,7 @@ import {
   copyFile,
 } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 
@@ -62,6 +62,30 @@ if (local) {
       if (name === 'jai_wasm.wasm') throw error;
       console.warn(`Local Jai build has no ${name}; Format stays hidden.`);
     }
+  }
+  // The language tour: tour.json lists the files under tour/ (src/lib/jai/starter.ts).
+  try {
+    const index = await readFile(join(source, 'tour.json'), 'utf8');
+    const files: unknown = JSON.parse(index).files;
+    if (!Array.isArray(files)) throw new Error('tour.json has no file list');
+    for (const name of files) {
+      if (
+        typeof name !== 'string' ||
+        name
+          .split('/')
+          .some((part) => part === '' || part === '.' || part === '..')
+      )
+        throw new Error(`Unsafe tour path ${JSON.stringify(name)}`);
+      const target = join(destination, 'tour', name);
+      await mkdir(dirname(target), { recursive: true });
+      await copyFile(join(source, 'tour', name), target);
+    }
+    await writeFile(join(destination, 'tour.json'), index);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    console.warn(
+      'Local Jai build has no tour; the playground uses the built-in starter.'
+    );
   }
   console.log(`Staged local Jai build from ${source} as ${pointer.revision}.`);
   process.exit(0);

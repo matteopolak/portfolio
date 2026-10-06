@@ -110,3 +110,21 @@ test('jaifmt formats through the engine', { skip: !local && 'set JAI_WASM_DIR' }
   const refused = format({ ...files, 'main.jai': 'f :: () { x := (1; }\n' });
   assert.ok('error' in refused && /unbalanced/.test(refused.error));
 });
+
+test('the tour runs and is already formatted under the default jaifmt.toml', { skip: !local && 'set JAI_WASM_DIR' }, async () => {
+  const index = JSON.parse(await readFile(join(local!, 'tour.json'), 'utf8')) as { files: string[] };
+  const files: Record<string, string> = { 'jaifmt.toml': formatConfigStarter };
+  for (const name of index.files) files[name] = await readFile(join(local!, 'tour', name), 'utf8');
+  const engine = await createEngine(await readFile(join(local!, 'jai_wasm.wasm')));
+  const run = engine.play(files, 'main.jai', { budget: 200_000_000 });
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.match(run.stdout, /That's the tour/);
+  const realDriver = await readFile(join(local!, 'jaifmt-playground.jai'), 'utf8');
+  for (const name of index.files.filter((file) => file.endsWith('.jai'))) {
+    const documents = Object.entries(files).map(([path, text]) => ({ path, text }));
+    const result = formatOutcome(
+      engine.play(formatFiles(documents, name, realDriver), FORMAT_DRIVER_PATH, { budget: 200_000_000 })
+    );
+    assert.deepEqual(result, { text: files[name] }, name);
+  }
+});
