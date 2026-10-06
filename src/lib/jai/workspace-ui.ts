@@ -171,6 +171,8 @@ export async function createSession(
   let syncTimer: ReturnType<typeof setTimeout> | undefined;
   // Format button state; see formatSelected().
   let driver: string | undefined;
+  // Settled without a usable driver: the button hides instead of staying disabled.
+  let driverMissing = false;
   let formatter: Promise<Worker> | undefined;
   let formatting = false;
   let formatJob = 0;
@@ -1375,7 +1377,8 @@ export async function createSession(
    */
   function updateFormat() {
     if (!formatButton) return;
-    formatButton.hidden = driver === undefined;
+    // Shown (disabled) while the driver loads, so the tools never shift.
+    formatButton.hidden = driverMissing;
     formatButton.disabled =
       !ready ||
       formatting ||
@@ -1396,13 +1399,14 @@ export async function createSession(
         signal,
       });
       // Releases built before jaifmt shipped have no driver: no Format button.
-      if (!response.ok) return;
-      const text = await response.text();
-      if (!/^TARGET :: ".*";$/m.test(text)) return;
-      driver = text;
+      if (response.ok) {
+        const text = await response.text();
+        if (/^TARGET :: ".*";$/m.test(text)) driver = text;
+      }
     } catch {
-      /* Without the driver the button stays hidden. */
+      /* Without the driver the button is hidden. */
     }
+    driverMissing = driver === undefined;
     updateFormat();
   }
   function formatWorker() {
@@ -1576,10 +1580,7 @@ export async function createSession(
       run.disabled = true;
       run.hidden = false;
       cancel.hidden = true;
-      if (formatButton) {
-        formatButton.hidden = true;
-        formatButton.disabled = true;
-      }
+      if (formatButton) formatButton.disabled = true;
     },
     { once: true }
   );

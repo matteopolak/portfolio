@@ -7,7 +7,7 @@ The Jai workspace has a **Format** button (and Shift+Alt+F) that rewrites the op
 ## How it works
 
 1. **The driver.** The compiler repo's `tools/jaifmt/playground.jai` is a small Jai program. It reads `/workspace/<TARGET>`, finds the nearest `jaifmt.toml` between that file's directory and `/workspace`, and calls `parse_config` and `format_source`. On success it prints the formatted file to stdout and exits 0. On failure it prints one `jaifmt: ...` line to stderr and exits 1. `tools/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it ships in every browser release bundle. The portfolio serves it at `/jai/<revision>/jaifmt-playground.jai`.
-2. **Loading.** `createSession` (`src/lib/jai/workspace-ui.ts`) fetches the driver while the compiler boots. If the fetch fails (a release from before jaifmt) or the file has no `TARGET :: "...";` line, the button stays hidden.
+2. **Loading.** `createSession` (`src/lib/jai/workspace-ui.ts`) fetches the driver while the compiler boots. The button is shown disabled meanwhile. If the fetch fails (a release from before jaifmt) or the file has no `TARGET :: "...";` line, `driverMissing` is set and the button is hidden.
 3. **Running.** `formatFiles` (`src/lib/jai/format.ts`) copies every workspace file and adds the driver as `__jaifmt__.jai`, with its `TARGET` line pointing at the open file. A dedicated worker, created on the first format, runs it with `engine.play(files, "__jaifmt__.jai")`: the `play` request in `worker.ts`/`engine.ts`. Running format on its own worker matters: editing restarts auto-run, which terminates the execution worker, so sharing that worker would kill the format run.
 4. **Applying.** `formatOutcome` turns the result into `{ text }` or `{ error }`:
    - Exit 0: `formatChange` computes one minimal change (the common prefix and suffix are kept). It is dispatched as a single CodeMirror transaction, so one undo restores the original. `mapOffset` keeps each cursor or selection end at the same place among the non-whitespace characters. Formatting only moves whitespace, so a cursor before `x` stays before `x` after a reindent. The status line then says `Formatted main.jai` (or that the file is already formatted).
@@ -19,7 +19,7 @@ The button is disabled for non-`.jai` files (such as `jaifmt.toml`), for read-on
 
 ## How to change it
 
-- **Button markup and style:** `CodeWorkspace.astro` (`data-code-format`). It is rendered only for the multi-file Jai workspace and starts `hidden disabled`.
+- **Button markup and style:** `CodeWorkspace.astro` (`data-code-format`). It is an icon button in the header's editor tools ([Editor tools](code-workspace.md#editor-tools)), rendered only for the multi-file Jai workspace. It starts `disabled` (and `hidden` when the release is disabled).
 - **Shortcut:** the panel `keydown` listener in `workspace-ui.ts`. It matches `event.code === 'KeyF'`, because on macOS Alt changes `event.key`.
 - **Default config:** `formatConfigStarter` in `src/lib/jai/format.ts`. Keep it to keys that `parse_config` accepts. Unknown keys are errors, and `case_indent`/`case_body_indent` cannot be written as `-1` (their "use `indent_width`" default), which is why they are commented out.
 - **Starter files:** `src/lib/jai/starter.ts`.
