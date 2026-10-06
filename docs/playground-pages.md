@@ -16,7 +16,7 @@
   Project cards also get a `Playground` link (`ProjectCard`'s `playground` prop).
 
 - **Escape.** There is no dialog on the page, so Escape does nothing special and stays with the editor (Vim, completion, search). The modals still prevent `cancel`.
-- **Deep link.** `/playground/jai#lib/math.jai` opens that workspace file: the page sets `data-code-open` on the workspace, and `createSession` selects that file if it exists. Quasi and BaerScript have a single file and ignore the hash.
+- **Deep link.** `/playground/jai#lib/math.jai` opens that workspace file: the page sets `data-code-open` on the workspace, and `createSession` selects that file if it exists. Quasi and BaerScript have a single file and ignore the hash. After that the hash follows the file on screen: the jai navigation history pushes a browser entry per navigation, so the browser's Back and Forward move between files and definition jumps (see [Navigation history](code-workspace.md#navigation-history)).
 - **Phones.** The workspace's narrow layout (below `42rem`) applies unchanged: the header, the Code/Output (and Files) tab bar, and no horizontal scroll at 375 px.
 
 ## How to change it

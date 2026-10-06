@@ -40,6 +40,8 @@ import { locationLabel, provides, supportsCommand } from './lsp-features.ts';
 import { closePicker, showPicker, type PickerItem } from './picker.ts';
 import { closeHoverTooltips, EditorView } from '@codemirror/view';
 import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
+import { NavHistory, type NavLocation, type NavOp } from './nav-history.ts';
+import { watchNavigationInput, type NavDirection } from './nav-input.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
 import { createMarkdownPreview } from '../markdown-preview.ts';
 import type { RunOutput } from './engine.ts';
@@ -103,6 +105,9 @@ const extension = (path: string) => path.slice(path.lastIndexOf('.') + 1);
 
 const mac = () => /Mac|iPhone|iPad/u.test(navigator.platform);
 
+/** A cursor move by pointer or search this many lines away is a navigation. */
+const JUMP_LINES = 10;
+
 /** LSP SymbolKind numbers the server uses, for the symbol search list. */
 const symbolKinds: Record<number, string> = {
   2: 'module',
@@ -129,6 +134,34 @@ interface Preview {
   title?: string;
   state?: EditorState;
 }
+
+/** A place in the navigation history (Go Back / Go Forward). */
+interface Place extends NavLocation {
+  anchor: number;
+  head: number;
+  /** The document position at the top of the editor's viewport. */
+  top: number;
+  /** The exact scroll position, valid while the document keeps `length`. */
+  scroll?: StateEffect<unknown>;
+  length?: number;
+  /** For a read-only entry: the preview to show again. */
+  view?: Preview;
+}
+
+/** The browser history state of the full-page playground's entries. */
+interface NavState {
+  session: string;
+  id: number;
+}
+const navState = (state: unknown): NavState | undefined => {
+  const value = (state as { jaiNav?: NavState } | null)?.jaiNav;
+  return typeof value?.session === 'string' && Number.isInteger(value.id)
+    ? value
+    : undefined;
+};
+/** `#lib/math.jai`: the deep link the playground page reads on load. */
+const fileHash = (path: string) =>
+  '#' + path.split('/').map(encodeURIComponent).join('/');
 
 export async function createSession(
   panel: HTMLElement,
@@ -159,6 +192,16 @@ export async function createSession(
   // The tab the reader has scrolled since it was shown. Only scrolling they
   // started is recorded, never the jumps from switching or restoring a file.
   let scrollOwner: OpenTab | undefined;
+  // Go Back / Go Forward; see nav-history.ts and docs/code-workspace.md.
+  const nav = new NavHistory<Place>();
+  // Set while an entry is being restored, so the restore records nothing.
+  let restoring = false;
+  /*
+   * The scroll position as of the last scroll, click or search key: a jump
+   * may scroll the view before the update listener sees it, so the place it
+   * left is read from here.
+   */
+  let settled: ReturnType<typeof viewport> | undefined;
   function forgetClosedScrolls() {
     const open = new Set(tabs.tabs.map(tabKey));
     for (const key of scrolls.keys()) if (!open.has(key)) scrolls.delete(key);
@@ -526,16 +569,39 @@ export async function createSession(
     currentDocument: languageDocument,
     service: syncedClient,
     serverFormatHover: () => can('inlayHintProvider'),
-    extensions: languageFeatures({
-      document: languageDocument,
-      client: syncedClient,
-      capabilities: () => (language ? languageCapabilities : undefined),
-      modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
-      openLink: (target) => void openUri(target),
-      runLens: (view, lens, pos) => void runCommand(view, lens.command, pos),
-      codeActions: (view) => void codeActions(view),
-      diagnosticsAt: diagnosticsFor,
-    }),
+    extensions: [
+      languageFeatures({
+        document: languageDocument,
+        client: syncedClient,
+        capabilities: () => (language ? languageCapabilities : undefined),
+        modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
+        openLink: (target) => void openUri(target),
+        runLens: (view, lens, pos) => void runCommand(view, lens.command, pos),
+        codeActions: (view) => void codeActions(view),
+        diagnosticsAt: diagnosticsFor,
+      }),
+      // A far click or search match is a step back to, as in VS Code.
+      EditorView.updateListener.of((update) => {
+        if (
+          restoring ||
+          !update.selectionSet ||
+          !update.transactions.some(
+            (tr) =>
+              tr.isUserEvent('select.pointer') ||
+              tr.isUserEvent('select.search')
+          )
+        )
+          return;
+        const to = here();
+        if (!to) return;
+        const { anchor, head } = update.startState.selection.main;
+        const line = update.startState.doc.lineAt(head).number;
+        if (Math.abs(to.line - line) < JUMP_LINES) return;
+        // The view may already have scrolled to the new selection.
+        const from = { ...to, ...settled, anchor, head, line };
+        mirror(nav.navigate(from, to));
+      }),
+    ],
     keys: [
       { key: 'Shift-F12', run: when('referencesProvider', references) },
       {
@@ -564,10 +630,28 @@ export async function createSession(
       () => (scrollOwner = tabs.active),
       { passive: true, signal }
     );
+  // The place a click or a search key jumps from, read before the editor moves.
+  editor.view.dom.addEventListener(
+    'pointerdown',
+    () => (settled = viewport()),
+    {
+      capture: true,
+      passive: true,
+      signal,
+    }
+  );
+  editor.view.dom.addEventListener(
+    'keydown',
+    (event) => {
+      if (['Enter', 'F3', 'g', 'G'].includes(event.key)) settled = viewport();
+    },
+    { capture: true, passive: true, signal }
+  );
   // Hidden panes (phone layouts) report no size and are left alone.
   editor.view.scrollDOM.addEventListener(
     'scroll',
     () => {
+      settled = viewport();
       const tab = tabs.active;
       if (tab && tab === scrollOwner && editor.view.scrollDOM.clientHeight)
         scrolls.set(tabKey(tab), editor.view.scrollSnapshot());
@@ -588,8 +672,148 @@ export async function createSession(
     runner.changed();
   }
 
+  /** The editor's scroll position, as a history entry keeps it. */
+  function viewport() {
+    const { view } = editor;
+    const height = Math.max(
+      0,
+      view.scrollDOM.getBoundingClientRect().top - view.documentTop
+    );
+    return {
+      top: view.lineBlockAtHeight(height).from,
+      scroll: view.scrollSnapshot(),
+      length: view.state.doc.length,
+    };
+  }
+  /** Where the editor is now, for the navigation history; undefined with no tab open. */
+  function here(): Place | undefined {
+    const tab = tabs.active;
+    if (!tab || (tab.preview && preview?.path !== tab.path)) return undefined;
+    const { view } = editor;
+    const { anchor, head } = view.state.selection.main;
+    const place = {
+      anchor,
+      head,
+      line: view.state.doc.lineAt(head).number,
+      ...viewport(),
+    };
+    return tab.preview
+      ? { ...place, file: preview!.uri, readonly: true, view: preview }
+      : { ...place, file: tab.path };
+  }
+  /*
+   * The full-page playground mirrors the history into the browser's, so the
+   * browser's Back and Forward (and the address bar's `#file`) agree with the
+   * editor. The modal leaves the browser history alone: the Projects page's
+   * router owns it, and entries left behind would reopen the demo.
+   */
+  const page = Boolean(panel.closest('[data-playground-page]'));
+  const session = Math.random().toString(36).slice(2);
+  function mirror(ops: NavOp[]) {
+    if (!page) return;
+    for (const { op, id } of ops) {
+      const place = nav.find(id);
+      const url = place && !place.readonly ? fileHash(place.file) : undefined;
+      const state = { jaiNav: { session, id } satisfies NavState };
+      if (op === 'push') history.pushState(state, '', url);
+      else history.replaceState(state, '', url);
+    }
+  }
+  /** Points the URL at the file on screen; a rename leaves older entries' URLs behind. */
+  function addressBar() {
+    const path = page && !viewing ? workspace.selected?.path.name : undefined;
+    if (path && location.hash !== fileHash(path))
+      history.replaceState(history.state, '', fileHash(path));
+  }
+  /** Runs `action` (which shows another place) and records the move. */
+  function navigation(action: () => void) {
+    const from = here();
+    action();
+    const to = here();
+    if (to && !restoring) mirror(nav.navigate(from, to));
+  }
+  /** Shows a history entry again: its tab, selection and scroll. */
+  function restore(place: Place) {
+    restoring = true;
+    try {
+      closePicker();
+      if (place.readonly) {
+        if (!place.view) return;
+        saveState();
+        const shown = tabs.tabs.find((tab) => tab.preview);
+        if (shown && preview?.uri === place.view.uri) tabs.activate(shown);
+        else openPreview(place.view);
+      } else {
+        if (!workspace.names.includes(place.file)) return;
+        saveState();
+        tabs.open(place.file);
+      }
+      show();
+      const length = editor.view.state.doc.length;
+      const clamp = (offset: number) => Math.min(offset, length);
+      editor.view.dispatch({
+        selection: { anchor: clamp(place.anchor), head: clamp(place.head) },
+        // An edit since may have moved or removed the snapshot's anchor line.
+        effects:
+          place.scroll && place.length === length
+            ? place.scroll
+            : EditorView.scrollIntoView(clamp(place.top), { y: 'start' }),
+      });
+      showPane(panel, 'code');
+      editor.focus();
+    } finally {
+      restoring = false;
+    }
+  }
+  // A page traversal waits for `popstate`; presses meanwhile are dropped.
+  let traversing: ReturnType<typeof setTimeout> | undefined;
+  function travel(direction: NavDirection) {
+    if (!page) {
+      const place =
+        direction === 'back' ? nav.back(here()) : nav.forward(here());
+      if (place) restore(place);
+      return;
+    }
+    // Never past the playground's own entries: that would leave the page.
+    if (traversing || !(direction === 'back' ? nav.canBack : nav.canForward))
+      return;
+    traversing = setTimeout(() => (traversing = undefined), 1000);
+    if (direction === 'back') history.back();
+    else history.forward();
+  }
+  if (page)
+    window.addEventListener(
+      'popstate',
+      (event) => {
+        clearTimeout(traversing);
+        traversing = undefined;
+        const state = navState(event.state);
+        if (state?.session !== session) {
+          // An entry from before this session (or a hand-edited hash): open its file.
+          const file = decodeURIComponent(location.hash.slice(1));
+          if (workspace.names.includes(file) && file !== tabs.active?.path)
+            restore({ file, line: 1, anchor: 0, head: 0, top: 0 });
+          return;
+        }
+        const current = nav.currentId;
+        const place = nav.go(state.id, here());
+        if (place) {
+          restore(place);
+          addressBar();
+        }
+        // A pruned entry (deleted file, or past the limit): keep going.
+        else if (current !== undefined && state.id < current) history.back();
+        else if (current !== undefined) history.forward();
+      },
+      { signal }
+    );
+  watchNavigationInput(panel, travel, mac(), signal);
+
   /** Shows a navigation target: a workspace file's tab or the read-only preview tab. */
   function reveal(target: NavigationTarget, title?: string) {
+    navigation(() => showTarget(target, title));
+  }
+  function showTarget(target: NavigationTarget, title?: string) {
     saveState();
     if (target.text === undefined) tabs.open(target.path);
     else
@@ -931,11 +1155,12 @@ export async function createSession(
     editor.view,
     {
       files: () => workspace.names,
-      open: (path) => {
-        saveState();
-        tabs.open(path);
-        show();
-      },
+      open: (path) =>
+        navigation(() => {
+          saveState();
+          tabs.open(path);
+          show();
+        }),
     },
     signal
   );
@@ -986,6 +1211,7 @@ export async function createSession(
     if (empty) empty.hidden = open;
     forgetClosedScrolls();
     scrollOwner = undefined;
+    settled = undefined;
     const scroll = tab && scrolls.get(tabKey(tab));
     if (scroll) editor.view.dispatch({ effects: scroll });
     else editor.view.scrollDOM.scrollTo(0, 0);
@@ -1086,9 +1312,11 @@ export async function createSession(
   function activateTab(tab: OpenTab) {
     if (tab === tabs.active) return;
     closePicker();
-    saveState();
-    tabs.activate(tab);
-    show();
+    navigation(() => {
+      saveState();
+      tabs.activate(tab);
+      show();
+    });
   }
   function closeTab(tab: OpenTab) {
     const hadFocus = tabStrip?.contains(document.activeElement) ?? false;
@@ -1200,13 +1428,18 @@ export async function createSession(
       },
       intent: (path) => void prefetch(path),
       select: (path) => {
-        saveState();
-        tabs.open(path);
-        show();
+        navigation(() => {
+          saveState();
+          tabs.open(path);
+          show();
+        });
         showPane(panel, 'code');
         editor.focus();
       },
       changed: (moves) => {
+        // Where the editor was, in case a new file opens (a navigation).
+        const from = here();
+        let renamed = false;
         if (moves) {
           const saved = [...states];
           for (const [from, to] of moves) {
@@ -1217,16 +1450,22 @@ export async function createSession(
               states.set(to, state);
           }
           tabs.move(moves);
+          nav.move(moves);
+          renamed = true;
         }
         const names = new Set(workspace.names);
         for (const path of states.keys())
           if (!names.has(path)) states.delete(path);
         // Deleted files lose their tabs; a newly created file opens in one.
         tabs.retain(names);
+        nav.retain(names);
         const selected = workspace.selected?.path.name;
         const created = !moves && selected && !filesBefore.has(selected);
         if (created) tabs.open(selected);
         show();
+        const to = created ? here() : undefined;
+        if (to) mirror(nav.navigate(from, to));
+        if (renamed) addressBar();
         language?.sync(workspace.documents);
         runner.changed();
         if (created) {
@@ -1676,6 +1915,8 @@ export async function createSession(
       find('files').replaceChildren();
       output.clear();
       tabs.clear();
+      nav.clear();
+      clearTimeout(traversing);
       preview = undefined;
       tabStrip?.replaceChildren();
       editorHost.hidden = false;
@@ -1700,6 +1941,12 @@ export async function createSession(
   if (requested && names.has(requested)) tabs.open(requested);
   else if (opening[0]) tabs.open(opening[0]);
   show();
+  const start = here();
+  if (start) {
+    const id = nav.reset(start);
+    // Tag the page's own entry so Back can return to it; the URL stays as it is.
+    if (page) history.replaceState({ jaiNav: { session, id } }, '');
+  }
   const driverLoaded = loadFormatter();
   const runtime = await initializeWorker();
   connect(runtime.worker);
