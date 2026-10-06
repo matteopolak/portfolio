@@ -1,3 +1,4 @@
+import { ansiNodes, hasAnsi } from '../ansi.ts';
 import {
   Annotation,
   EditorSelection,
@@ -2301,7 +2302,11 @@ export async function createSession(
       .filter((chunk) => chunk.text)
       .map((chunk) => {
         const span = document.createElement('span');
-        span.textContent = chunk.text;
+        // Colour codes the program printed are drawn; uncoloured stderr stays marked.
+        if (hasAnsi(chunk.text)) {
+          span.append(...ansiNodes(chunk.text));
+          span.dataset.ansi = '';
+        } else span.textContent = chunk.text;
         if (chunk.stream === 'stderr') span.dataset.stream = 'stderr';
         return span;
       });
@@ -2317,7 +2322,16 @@ export async function createSession(
             : `${d.severity}: ${d.message}`
         );
     if (written && !written.endsWith('\n')) nodes.push('\n');
-    if (errors.length) nodes.push(errors.join('\n') + '\n');
+    if (errors.length) {
+      const text = errors.join('\n') + '\n';
+      // The compiler colours its own errors (styled bundles); plain ones show in the error colour.
+      if (hasAnsi(text)) {
+        const span = document.createElement('span');
+        span.dataset.ansi = '';
+        span.append(...ansiNodes(text));
+        nodes.push(span);
+      } else nodes.push(text);
+    }
     // Compile and runtime failures carry no exit code; the summary says Failed.
     if (!failed) {
       const exit = document.createElement('span');
