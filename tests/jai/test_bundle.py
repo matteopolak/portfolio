@@ -39,6 +39,25 @@ class BundleTests(unittest.TestCase):
         bundle.verify(directory, REVISION)
         self.assertEqual((directory / "verified/modules/helper.jai").read_bytes(), b"answer :: 42;")
 
+    def test_schema_two_tour_tree_is_staged(self):
+        # Compiler releases with the language tour ship tour.json and nested tour/ sources.
+        tour = {"tour.json": b'{"schema_version": 1, "main": "main.jai", "files": ["main.jai", "meta/macros.jai", "tour.md"]}',
+                "tour/main.jai": b"main :: () {}", "tour/meta/macros.jai": b"m :: () #expand {}", "tour/tour.md": b"# Tour"}
+
+        def schema_two(manifest, data):
+            for name in ("index.html", "worker.mjs", "modules/helper.jai"):
+                data.pop(name)
+            data["jaifmt-playground.jai"] = b'TARGET :: "main.jai";'
+            data.update(tour)
+            manifest.update(schema_version=2, files=[
+                {"path": name, "size": len(value), "sha256": hashlib.sha256(value).hexdigest()}
+                for name, value in data.items()])
+            manifest.pop("entrypoint")
+        directory = self.fixture(schema_two)
+        bundle.verify(directory, REVISION)
+        for name, value in tour.items():
+            self.assertEqual((directory / "verified" / name).read_bytes(), value)
+
     def test_revision_and_dirty_checkout_fail_before_staging(self):
         for key, value in [("commit", "b" * 40), ("dirty_checkout", True), ("schema_version", 2)]:
             directory = self.fixture(lambda manifest, _: manifest.update({key: value}))
