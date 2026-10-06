@@ -315,6 +315,100 @@ function signatureTooltip(help: SignatureHelp, pos: number): Tooltip | null {
 const wordChar = /[_\p{L}\p{N}]/u;
 
 /** All the decorating features, for one editor. */
+/** Semantic tokens as decorations. */
+function tokenEffect(
+  result: { data?: number[] } | null,
+  legend: TokenLegend,
+  text: string
+) {
+  const builder = new RangeSetBuilder<Decoration>();
+  const data = Array.isArray(result?.data) ? result.data : [];
+  for (const span of decodeSemanticTokens(data, legend, text))
+    builder.add(span.from, span.to, Decoration.mark({ class: span.className }));
+  return setTokens.of(builder.finish());
+}
+
+/** Inlay hints as widget decorations. */
+function inlayEffect(hints: InlayHint[] | null, text: string) {
+  const widgets: { pos: number; side: number; widget: InlayWidget }[] = [];
+  for (const hint of hints ?? []) {
+    const label = inlayLabel(hint);
+    if (!label) continue;
+    let pos: number;
+    try {
+      pos = offsetAt(text, hint.position);
+    } catch {
+      continue;
+    }
+    widgets.push({
+      pos,
+      // Parameter names sit before the argument, types after the name.
+      side: label.kind === 'parameter' ? -1 : 1,
+      widget: new InlayWidget(
+        label.text,
+        label.kind,
+        label.paddingLeft,
+        label.paddingRight,
+        label.tooltip
+      ),
+    });
+  }
+  widgets.sort((a, b) => a.pos - b.pos || a.side - b.side);
+  return setInlays.of(
+    Decoration.set(
+      widgets.map(({ pos, side, widget }) =>
+        Decoration.widget({ widget, side }).range(pos)
+      ),
+      true
+    )
+  );
+}
+
+/**
+ * Semantic tokens and inlay hints for a document that is not shown yet (a
+ * file hovered in the tree), applied to `state` so opening it shows them at
+ * once. The view plugin refreshes them as usual when the file is shown.
+ */
+export async function prefetchDecorations(
+  state: EditorState,
+  client: LanguageClient,
+  capabilities: ServerCapabilities | undefined,
+  uri: string,
+  signal?: AbortSignal
+): Promise<EditorState> {
+  const text = state.doc.toString();
+  const effects: StateEffect<DecorationSet>[] = [];
+  const legend = capabilities?.semanticTokensProvider?.full
+    ? tokenLegend(capabilities.semanticTokensProvider.legend)
+    : undefined;
+  const [tokens, inlays] = await Promise.all([
+    legend
+      ? client.request<{ data?: number[] } | null>(
+          'textDocument/semanticTokens/full',
+          { textDocument: { uri } },
+          signal
+        )
+      : undefined,
+    provides(capabilities, 'inlayHintProvider')
+      ? client.request<InlayHint[] | null>(
+          'textDocument/inlayHint',
+          {
+            textDocument: { uri },
+            range: {
+              start: positionAt(text, 0),
+              end: positionAt(text, text.length),
+            },
+          },
+          signal
+        )
+      : undefined,
+  ]);
+  if (legend && tokens !== undefined)
+    effects.push(tokenEffect(tokens, legend, text));
+  if (inlays !== undefined) effects.push(inlayEffect(inlays, text));
+  return state.update({ effects }).state;
+}
+
 export function languageFeatures(host: LanguageHost): Extension {
   const plugin = ViewPlugin.fromClass(
     class {
@@ -426,15 +520,7 @@ export function languageFeatures(host: LanguageHost): Extension {
           { readonly: true }
         );
         if (!reply) return;
-        const builder = new RangeSetBuilder<Decoration>();
-        const data = Array.isArray(reply.result?.data) ? reply.result.data : [];
-        for (const span of decodeSemanticTokens(data, legend, reply.text))
-          builder.add(
-            span.from,
-            span.to,
-            Decoration.mark({ class: span.className })
-          );
-        this.dispatch(setTokens.of(builder.finish()));
+        this.dispatch(tokenEffect(reply.result, legend, reply.text));
       }
       async inlays() {
         if (!provides(host.capabilities(), 'inlayHintProvider')) return;
@@ -448,41 +534,7 @@ export function languageFeatures(host: LanguageHost): Extension {
           })
         );
         if (!reply) return;
-        const widgets: { pos: number; side: number; widget: InlayWidget }[] =
-          [];
-        for (const hint of reply.result ?? []) {
-          const label = inlayLabel(hint);
-          if (!label) continue;
-          let pos: number;
-          try {
-            pos = offsetAt(reply.text, hint.position);
-          } catch {
-            continue;
-          }
-          widgets.push({
-            pos,
-            // Parameter names sit before the argument, types after the name.
-            side: label.kind === 'parameter' ? -1 : 1,
-            widget: new InlayWidget(
-              label.text,
-              label.kind,
-              label.paddingLeft,
-              label.paddingRight,
-              label.tooltip
-            ),
-          });
-        }
-        widgets.sort((a, b) => a.pos - b.pos || a.side - b.side);
-        this.dispatch(
-          setInlays.of(
-            Decoration.set(
-              widgets.map(({ pos, side, widget }) =>
-                Decoration.widget({ widget, side }).range(pos)
-              ),
-              true
-            )
-          )
-        );
+        this.dispatch(inlayEffect(reply.result, reply.text));
       }
       async highlights() {
         if (!provides(host.capabilities(), 'documentHighlightProvider')) return;

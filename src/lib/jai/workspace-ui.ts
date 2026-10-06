@@ -30,6 +30,7 @@ import {
 } from './language-actions.ts';
 import {
   languageFeatures,
+  prefetchDecorations,
   refreshLanguage,
   type LanguageDocument,
 } from './lsp-extensions.ts';
@@ -177,6 +178,41 @@ export async function createSession(
     clearTimeout(syncTimer);
     language?.sync(workspace.documents);
     return language;
+  }
+  /*
+   * A `.jai` file the pointer rests on in the tree gets its semantic tokens
+   * and inlay hints ahead of time, stored as its editor state, so they don't
+   * pop in after the click. Files with a state (opened before) keep theirs.
+   */
+  const prefetching = new Set<string>();
+  async function prefetch(path: string) {
+    const file = workspace.documents.find((d) => d.path === path);
+    if (
+      !file ||
+      !language ||
+      !isFormattable(path) ||
+      states.has(path) ||
+      prefetching.has(path)
+    )
+      return;
+    prefetching.add(path);
+    try {
+      language.sync(workspace.documents);
+      const state = await prefetchDecorations(
+        editor.createState(file.text, path),
+        language,
+        languageCapabilities,
+        documentUri(path),
+        signal
+      );
+      const now = workspace.documents.find((d) => d.path === path);
+      if (!signal.aborted && now?.version === file.version && !states.has(path))
+        states.set(path, state);
+    } catch {
+      /* Unsupported or cancelled: the file decorates itself once shown. */
+    } finally {
+      prefetching.delete(path);
+    }
   }
   const can = (name: keyof ServerCapabilities) =>
     Boolean(language && provides(languageCapabilities, name));
@@ -909,6 +945,7 @@ export async function createSession(
         filesBefore = new Set(workspace.names);
         saveState();
       },
+      intent: (path) => void prefetch(path),
       select: (path) => {
         saveState();
         tabs.open(path);

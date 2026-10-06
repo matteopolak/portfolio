@@ -48,6 +48,19 @@ previous decorations are mapped through edits. Delays:
 Everything is fetched immediately when a state is created (a tab switch) and when
 the server finishes initializing (`refreshLanguage` effect).
 
+**Prefetch on hover.** When the pointer rests 80 ms on a `.jai` file in the tree
+(`intent` in `file-tree.ts`) and the file has no saved editor state yet,
+`prefetch` in `workspace-ui.ts` creates its state and fills in semantic tokens and
+inlay hints for the whole document (`prefetchDecorations` in `lsp-extensions.ts`).
+That state is stored like a visited tab's state, so the click shows the decorations
+on its first frame instead of a moment later. The reply is dropped if the file
+changed meanwhile, and the plugin still refetches as usual once the file is shown.
+
+**Hover dividers.** A hover line `─── label ───` from the server (a macro's
+expansion, `#run` output) is drawn as a rule with the label set into it
+(`dividedHover` in `code-editor.ts`); the sections around it render as ordinary
+hovers.
+
 ### Feature notes
 
 - **Semantic tokens.** The legend comes from `semanticTokensProvider.legend` and
