@@ -55,12 +55,16 @@ if (local) {
   const source = resolve(local);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
-  for (const name of ['jai_wasm.wasm', 'jaifmt-playground.jai']) {
+  const optional: Record<string, string> = {
+    'jaifmt-playground.jai': 'Format stays hidden',
+    'jaifmt.wasm': 'Format runs the slower engine driver (build with --jaic)',
+  };
+  for (const name of ['jai_wasm.wasm', ...Object.keys(optional)]) {
     try {
       await copyFile(join(source, name), join(destination, name));
     } catch (error) {
-      if (name === 'jai_wasm.wasm') throw error;
-      console.warn(`Local Jai build has no ${name}; Format stays hidden.`);
+      if (!(name in optional)) throw error;
+      console.warn(`Local Jai build has no ${name}; ${optional[name]}.`);
     }
   }
   // The language tour: tour.json lists the files under tour/ (src/lib/jai/starter.ts).

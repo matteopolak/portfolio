@@ -58,6 +58,30 @@ class BundleTests(unittest.TestCase):
         for name, value in tour.items():
             self.assertEqual((directory / "verified" / name).read_bytes(), value)
 
+    def jaifmt_fixture(self, formatter=b"\0asm\x01\0\0\0jaifmt", digest=None, metadata=True):
+        def change(manifest, data):
+            if formatter is not None:
+                data["jaifmt.wasm"] = formatter
+            if metadata:
+                recorded = digest if digest is not None else hashlib.sha256(formatter or b"").hexdigest()
+                data["build-metadata.json"] = json.dumps({"jaifmt_wasm_sha256": recorded}).encode()
+            manifest["files"] = [{"path": name, "size": len(value), "sha256": hashlib.sha256(value).hexdigest()}
+                                 for name, value in data.items()]
+        return self.fixture(change)
+
+    def test_jaifmt_wasm_matching_its_metadata_is_staged(self):
+        directory = self.jaifmt_fixture()
+        bundle.verify(directory, REVISION)
+        self.assertEqual((directory / "verified/jaifmt.wasm").read_bytes(), b"\0asm\x01\0\0\0jaifmt")
+
+    def test_jaifmt_wasm_must_match_its_metadata(self):
+        for options in [dict(digest="b" * 64), dict(metadata=False), dict(formatter=None),
+                        dict(formatter=b"not wasm")]:
+            directory = self.jaifmt_fixture(**options)
+            with self.assertRaises(ValueError, msg=options):
+                bundle.verify(directory, REVISION)
+            self.assertFalse((directory / "verified").exists())
+
     def test_revision_and_dirty_checkout_fail_before_staging(self):
         for key, value in [("commit", "b" * 40), ("dirty_checkout", True), ("schema_version", 2)]:
             directory = self.fixture(lambda manifest, _: manifest.update({key: value}))
