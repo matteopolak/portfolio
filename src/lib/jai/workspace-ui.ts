@@ -35,7 +35,7 @@ import {
 } from './lsp-extensions.ts';
 import { locationLabel, provides, supportsCommand } from './lsp-features.ts';
 import { closePicker, showPicker, type PickerItem } from './picker.ts';
-import { closeHoverTooltips, type EditorView } from '@codemirror/view';
+import { closeHoverTooltips, EditorView } from '@codemirror/view';
 import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
 import { createMarkdownPreview } from '../markdown-preview.ts';
@@ -326,9 +326,10 @@ export async function createSession(
         title,
       });
     show();
+    // Centre the target, as editors do for go to definition, rather than scrolling it just into view.
     editor.view.dispatch({
       selection: { anchor: target.from, head: target.to },
-      scrollIntoView: true,
+      effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
     });
     showPane(panel, 'code');
     editor.focus();
