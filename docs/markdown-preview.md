@@ -22,6 +22,8 @@ The choice is remembered per layout in `localStorage` (`code-editor-markdown-vie
 
 **Layout.** The preview is an `<article class="md-preview">` appended inside the editor host (`[data-code-editor]`) next to CodeMirror's `.cm-editor`. The host becomes a one- or two-column grid through `data-markdown-view` (`split`, `source`, `preview`). The switch is absolutely positioned at the top right of `[data-code-main]`. `panel[data-markdown]` gives the tab strip a right margin of `--md-switch-width`, which a `ResizeObserver` keeps equal to the switch's width. Another `ResizeObserver` on the editor column re-picks the view when the width crosses the breakpoint.
 
+**Resizing the split.** In split view a 1px `.md-divider` sits between source and preview as the grid's middle column (`minmax(0, var(--md-source)) 1px minmax(0, var(--md-preview))`). Dragging it, or pressing ←/→ while it is focused (2% a step), sets the source's share as two `fr` values on the host, so the split keeps its proportion when the window resizes. Each side keeps at least `SPLIT_MIN_PANE` (180px). Double-click resets to 50/50. The share is saved in `localStorage` (`code-editor-markdown-split`). Scroll sync re-runs when a drag ends, since the panes reflow.
+
 **Rendering.** `marked` (GFM: tables, task lists, strikethrough, autolinks) with a custom renderer:
 
 - Raw HTML is escaped and shown as text (block HTML as `p.md-raw`), never interpreted.
