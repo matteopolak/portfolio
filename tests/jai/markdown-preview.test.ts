@@ -42,10 +42,10 @@ test('view: narrow editors show one pane, preview by default', () => {
 test('stored view choices are validated', () => {
   assert.deepEqual(parseViewChoice(null), {});
   assert.deepEqual(parseViewChoice('not json'), {});
-  assert.deepEqual(
-    parseViewChoice('{"wide":"preview","narrow":"source"}'),
-    { wide: 'preview', narrow: 'source' }
-  );
+  assert.deepEqual(parseViewChoice('{"wide":"preview","narrow":"source"}'), {
+    wide: 'preview',
+    narrow: 'source',
+  });
   assert.deepEqual(parseViewChoice('{"wide":"sideways","narrow":"split"}'), {});
 });
 
@@ -62,11 +62,14 @@ test('links: workspace files, anchors, external and blocked', () => {
     path: 'main.jai',
     anchor: undefined,
   });
-  assert.deepEqual(resolveLink('../lib/math.jai#square', 'docs/README.md', files), {
-    kind: 'file',
-    path: 'lib/math.jai',
-    anchor: 'square',
-  });
+  assert.deepEqual(
+    resolveLink('../lib/math.jai#square', 'docs/README.md', files),
+    {
+      kind: 'file',
+      path: 'lib/math.jai',
+      anchor: 'square',
+    }
+  );
   assert.deepEqual(resolveLink('lib%2Fmath.jai?x=1', 'notes.md', files), {
     kind: 'file',
     path: 'lib/math.jai',
@@ -110,8 +113,14 @@ test('rendered links carry their kind', () => {
   const html = render(
     '[m](main.jai) [x](https://example.com) [s](#intro) [n](nope.md) [j](javascript:alert(1))'
   );
-  assert.match(html, /<a href="#main.jai" title="Open main.jai" data-md-file="main.jai">m<\/a>/u);
-  assert.match(html, /<a href="https:\/\/example.com" data-md-external="">x<\/a>/u);
+  assert.match(
+    html,
+    /<a href="#main.jai" title="Open main.jai" data-md-file="main.jai">m<\/a>/u
+  );
+  assert.match(
+    html,
+    /<a href="https:\/\/example.com" data-md-external="">x<\/a>/u
+  );
   assert.match(html, /data-md-anchor="intro">s<\/a>/u);
   assert.match(html, /<span class="md-missing"[^>]*>n<\/span>/u);
   assert.match(html, /<span>j<\/span>/u);
@@ -125,7 +134,10 @@ test('raw HTML is shown as text, never interpreted', () => {
   assert.doesNotMatch(html, /<script|<img|<b>|<div/u);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/u);
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/u);
-  assert.match(html, /<p data-line="5" class="md-raw">&lt;div onclick=&quot;x&quot;&gt;block&lt;\/div&gt;<\/p>/u);
+  assert.match(
+    html,
+    /<p data-line="5" class="md-raw">&lt;div onclick=&quot;x&quot;&gt;block&lt;\/div&gt;<\/p>/u
+  );
 });
 
 test('only https images load; titles and alt text are escaped', () => {
@@ -133,7 +145,10 @@ test('only https images load; titles and alt text are escaped', () => {
     '![local](pic.png) ![web](https://e.com/a.png "t\\"x") ![bad](javascript:alert(1))'
   );
   assert.match(html, /<span class="md-image-alt">local<\/span>/u);
-  assert.match(html, /<img src="https:\/\/e.com\/a.png" alt="web" title="t&quot;x"/u);
+  assert.match(
+    html,
+    /<img src="https:\/\/e.com\/a.png" alt="web" title="t&quot;x"/u
+  );
   assert.match(html, /<span class="md-image-alt">bad<\/span>/u);
 });
 
@@ -145,7 +160,10 @@ test('GFM: tables, task lists, strikethrough and fenced code', () => {
   assert.match(html, /<td align="right">2<\/td>/u);
   assert.match(html, /<input checked="" disabled="" type="checkbox"> done/u);
   assert.match(html, /<del>old<\/del>/u);
-  assert.match(html, /<pre data-line="10" class="md-code" data-lang="jai"><code>x := 1;<\/code><\/pre>/u);
+  assert.match(
+    html,
+    /<pre data-line="10" class="md-code" data-lang="jai"><code>x := 1;<\/code><\/pre>/u
+  );
 });
 
 test('fenced code uses the highlighter and escapes otherwise', () => {
@@ -177,13 +195,11 @@ test('reference links resolve per block', () => {
 test('source highlighting: markup is not coloured as a Jai directive', async () => {
   const { EditorState } = await import('@codemirror/state');
   const { ensureSyntaxTree } = await import('@codemirror/language');
-  const { highlightTree, tagHighlighter, tags } = await import(
-    '@lezer/highlight'
-  );
-  const { markdownSyntax } = await import(
-    '../../src/lib/markdown-language.ts'
-  );
-  const doc = '# Title\n\n**b** *i* `c` > q\n\n- item\n\n```jai\nx :: 1;\n```\n';
+  const { highlightTree, tagHighlighter, tags } =
+    await import('@lezer/highlight');
+  const { markdownSyntax } = await import('../../src/lib/markdown-language.ts');
+  const doc =
+    '# Title\n\n**b** *i* `c` > q\n\n- item\n\n```jai\nx :: 1;\n```\n';
   const state = EditorState.create({ doc, extensions: markdownSyntax });
   const tree = ensureSyntaxTree(state, doc.length, 5000)!;
   const ranges: [number, number, string][] = [];
@@ -199,7 +215,9 @@ test('source highlighting: markup is not coloured as a Jai directive', async () 
     (from, to, cls) => ranges.push([from, to, cls])
   );
   const classAt = (text: string) =>
-    ranges.find(([from, to]) => from <= doc.indexOf(text) && doc.indexOf(text) < to)?.[2];
+    ranges.find(
+      ([from, to]) => from <= doc.indexOf(text) && doc.indexOf(text) < to
+    )?.[2];
   assert.equal(classAt('#'), 'heading');
   assert.equal(classAt('**'), 'strong');
   assert.ok(!ranges.some(([, , cls]) => cls.includes('directive')));
