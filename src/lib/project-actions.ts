@@ -5,6 +5,7 @@ import {
   watchDemoLoading,
   wireFullscreen,
 } from './code-demos';
+import { closeAnimated, onDialogClosed, openDialog } from './dialog-lifecycle';
 
 type ProjectActionCallback = (
   trigger: HTMLButtonElement
@@ -63,30 +64,17 @@ export function initializeProjectActions() {
 
   for (const dialog of projectDialogs) watchDemoLoading(dialog, signal);
 
+  const getOpenProjectDialog = () =>
+    projectDialogs.find((dialog) => dialog.open);
+  // Page-wide state belongs to whichever demo is open, so a late `close` from
+  // another dialog must not clear it.
+  const releasePage = () => {
+    if (!getOpenProjectDialog())
+      document.documentElement.classList.remove('has-project-demo');
+  };
   const destroyGame = () => {
     gameHost?.replaceChildren();
-    document.documentElement.classList.remove('has-project-demo');
-  };
-
-  // Every demo shares DemoModal's exit animation; close once it finishes.
-  const closeAnimated = (dialog: HTMLDialogElement | null) => {
-    if (!dialog?.open || dialog.dataset.closing === 'true') return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      dialog.close();
-      return;
-    }
-    dialog.dataset.closing = 'true';
-    const finish = () => {
-      window.clearTimeout(fallback);
-      dialog.removeEventListener('animationend', ended);
-      if (dialog.open) dialog.close();
-      delete dialog.dataset.closing;
-    };
-    const ended = (event: AnimationEvent) => {
-      if (event.target === dialog) finish();
-    };
-    const fallback = window.setTimeout(finish, 300);
-    dialog.addEventListener('animationend', ended);
+    releasePage();
   };
 
   const closeMinecraft = () => {
@@ -104,7 +92,7 @@ export function initializeProjectActions() {
     setDemoLoading(minecraftDialog, 0, 'Loading demo…');
     gameHost.replaceChildren(game);
     document.documentElement.classList.add('has-project-demo');
-    minecraftDialog.showModal();
+    openDialog(minecraftDialog);
     game.focusGame();
     void game.start();
   });
@@ -120,7 +108,7 @@ export function initializeProjectActions() {
         ready ? 'ready' : 'loading'
       );
       document.documentElement.classList.add('has-project-demo');
-      demo.dialog.showModal();
+      openDialog(demo.dialog);
       demo.panel?.scrollTo(0, 0);
       try {
         await demo.playground.prepare();
@@ -150,20 +138,18 @@ export function initializeProjectActions() {
       },
       { signal }
     );
-    demo.dialog.addEventListener(
-      'close',
+    onDialogClosed(
+      demo.dialog,
       () => {
         demo.playground.destroy();
-        document.documentElement.classList.remove('has-project-demo');
+        releasePage();
         activeTrigger?.focus();
         activeTrigger = undefined;
       },
-      { signal }
+      signal
     );
   }
 
-  const getOpenProjectDialog = () =>
-    projectDialogs.find((dialog) => dialog.open);
   // `#<project>/try` deep-links the demo modal: opening a demo writes it to
   // the URL, closing restores the plain `#<project>` anchor.
   const openAction = (button: HTMLButtonElement) => {
@@ -190,17 +176,17 @@ export function initializeProjectActions() {
       button.addEventListener('click', () => openAction(button), { signal });
     });
   for (const dialog of projectDialogs) {
-    dialog.addEventListener(
-      'close',
+    onDialogClosed(
+      dialog,
       () => {
-        if (location.hash.endsWith('/try'))
+        if (location.hash.endsWith('/try') && !getOpenProjectDialog())
           history.replaceState(
             history.state,
             '',
             location.hash.slice(0, -'/try'.length)
           );
       },
-      { signal }
+      signal
     );
   }
   window.addEventListener('hashchange', openFromHash, { signal });
@@ -333,15 +319,16 @@ export function initializeProjectActions() {
     },
     { capture: true, signal }
   );
-  minecraftDialog?.addEventListener(
-    'close',
-    () => {
-      destroyGame();
-      activeTrigger?.focus();
-      activeTrigger = undefined;
-    },
-    { signal }
-  );
+  if (minecraftDialog)
+    onDialogClosed(
+      minecraftDialog,
+      () => {
+        destroyGame();
+        activeTrigger?.focus();
+        activeTrigger = undefined;
+      },
+      signal
+    );
 
   queueMicrotask(openFromHash);
 

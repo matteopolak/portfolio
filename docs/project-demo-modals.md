@@ -14,9 +14,32 @@ the backdrop, the 210 ms entrance and 160 ms exit animations, and reduced-motion
 handling. Its `media` variant is the 16:9 Minecraft stage with an external action
 column. Its `workspace` variant is the code editor, which becomes a full-screen sheet
 that slides up on phones (see [Shared code workspace](code-workspace.md)).
-`closeAnimated` in `src/lib/project-actions.ts` sets `data-closing`, waits for
+`closeAnimated` in `src/lib/dialog-lifecycle.ts` sets `data-closing`, waits for
 the exit animation's `animationend` (with a 300 ms fallback), then closes the
-dialog. Teardown runs from the dialog's `close` event.
+dialog. Teardown runs from the dialog's `close` event, registered through
+`onDialogClosed`.
+
+Reopening a demo while it closes is safe. There are two windows, and the
+second is easy to miss: the browser fires `close` as a separate task after
+`dialog.close()`, and a hidden tab throttles the fallback timer to about a
+second. So:
+
+- `openDialog` (used instead of `showModal()`) cancels a pending animated
+  close. The dialog stays open with its session, and dropping `data-closing`
+  replays the enter animation.
+- `onDialogClosed` ignores a `close` event if the dialog is open again by the
+  time it runs. Before this, a reopen in that gap saw the old session as
+  ready, then the late event tore it down under the open modal (Run disabled,
+  empty status, `#<project>/try` reset to `#<project>`).
+
+Page-wide state (the `has-project-demo` class and the `#<project>/try` hash)
+is only cleared when no demo dialog is open (`releasePage` in
+`project-actions.ts`). Hidden tabs can hold a `close` event until the next
+rendering, so a late event from one dialog must not clear state that another
+open demo owns.
+
+`tests/jai/dialog-lifecycle.test.ts` covers both windows with a fake dialog
+that, like the browser, fires `close` asynchronously.
 
 Only the close button and a backdrop click close a demo. Escape never does: the
 editors (Vim mode, completion, search) and the game need the key. The dialog
@@ -53,7 +76,9 @@ session and is terminated when the modal closes.
 
 ## How to change it
 
-Edit `DemoModal.astro` for the dialog frame and animation, and
+Open and close demo dialogs only through `openDialog`, `closeAnimated` and
+`onDialogClosed`; a bare `showModal()` or `close` listener reintroduces the
+reopen race. Edit `DemoModal.astro` for the dialog frame and animation, and
 `ProjectDemoLoading.astro` for shared loading visuals. New demos should wrap their
 content in `DemoModal`, compose the loader into it, and emit the same three events from their
 runtime boundary; avoid adding demo-specific loading markup. Keep progress
