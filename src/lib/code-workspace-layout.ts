@@ -1,8 +1,31 @@
 import { clearOutput } from './code-output.ts';
+import {
+  defaultLayout,
+  dockZone,
+  DOCKS,
+  isSideDock,
+  movePanel,
+  panelDock,
+  parseLayout,
+  resizeDock,
+  resizeSplit,
+  serializeLayout,
+  splitAt,
+  type Dock,
+  type EditorNode,
+  type PanelId,
+  type WorkspaceLayout,
+} from './workspace-layout-model.ts';
 
 export type WorkspacePane = 'files' | 'code' | 'output';
 
 const panes: readonly WorkspacePane[] = ['files', 'code', 'output'];
+
+/** Below this width the workspace is one pane at a time, picked by the bottom tabs. */
+export const NARROW_QUERY = '(max-width: 42rem)';
+/** Pointer travel (px) before a press on a tab or panel header becomes a drag. */
+const DRAG_THRESHOLD = 5;
+const SAVE_DELAY = 250;
 
 /** Selects the visible pane in the narrow tabbed layout. Desktop ignores it. */
 export function showPane(panel: HTMLElement, pane: WorkspacePane) {
@@ -18,30 +41,165 @@ function isPane(value: string | undefined): value is WorkspacePane {
   return panes.includes(value as WorkspacePane);
 }
 
-function initializeResizer(
+/** True in the phone layout, where nothing is docked or split. */
+export const isNarrow = () =>
+  typeof matchMedia === 'function' && matchMedia(NARROW_QUERY).matches;
+
+/* Pointer drag with a drop overlay */
+
+export interface DropTarget<T> {
+  /** The highlighted region, in client coordinates. */
+  rect: { left: number; top: number; width: number; height: number };
+  /** A thin insertion bar (between tabs) instead of a filled region. */
+  insert?: boolean;
+  value: T;
+}
+
+export interface DragOptions<T> {
+  /** The workspace; the overlay and the label are drawn inside it. */
+  panel: HTMLElement;
+  /** Shown next to the pointer while dragging. */
+  label: string;
+  /** The drop target under the pointer, if any. */
+  resolve(x: number, y: number): DropTarget<T> | undefined;
+  drop(value: T): void;
+}
+
+/**
+ * Follows a press that may become a drag. Nothing happens until the pointer
+ * travels `DRAG_THRESHOLD` pixels, so plain clicks stay clicks; after a drag
+ * the click the release would cause is swallowed. Escape cancels.
+ */
+export function trackDrag<T>(down: PointerEvent, options: DragOptions<T>) {
+  if (down.button !== 0 || !down.isPrimary) return;
+  const { panel } = options;
+  const startX = down.clientX,
+    startY = down.clientY;
+  let dragging = false;
+  let target: DropTarget<T> | undefined;
+  let overlay: HTMLElement | undefined;
+  let label: HTMLElement | undefined;
+  const controller = new AbortController();
+  const listen = { signal: controller.signal, capture: true };
+
+  function place(x: number, y: number) {
+    const box = panel.getBoundingClientRect();
+    label!.style.transform = `translate(${x - box.left + 14}px, ${y - box.top + 12}px)`;
+    target = options.resolve(x, y);
+    overlay!.hidden = !target;
+    if (!target) return;
+    const { rect } = target;
+    overlay!.toggleAttribute('data-insert', Boolean(target.insert));
+    overlay!.style.left = `${rect.left - box.left}px`;
+    overlay!.style.top = `${rect.top - box.top}px`;
+    overlay!.style.width = `${rect.width}px`;
+    overlay!.style.height = `${rect.height}px`;
+  }
+  function begin() {
+    dragging = true;
+    panel.classList.add('dragging');
+    getSelection()?.removeAllRanges();
+    overlay = document.createElement('div');
+    overlay.className = 'ide-drop';
+    overlay.hidden = true;
+    label = document.createElement('div');
+    label.className = 'ide-drag-label';
+    label.textContent = options.label;
+    panel.append(overlay, label);
+  }
+  function finish(dropped: boolean) {
+    controller.abort();
+    if (!dragging) return;
+    panel.classList.remove('dragging');
+    overlay?.remove();
+    label?.remove();
+    // The release over the pressed element would still click it.
+    const swallow = (event: Event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(
+      () => window.removeEventListener('click', swallow, { capture: true }),
+      0
+    );
+    if (dropped && target) options.drop(target.value);
+  }
+  window.addEventListener(
+    'pointermove',
+    (event) => {
+      if (event.pointerId !== down.pointerId) return;
+      if (!dragging) {
+        if (
+          Math.hypot(event.clientX - startX, event.clientY - startY) <
+          DRAG_THRESHOLD
+        )
+          return;
+        begin();
+      }
+      event.preventDefault();
+      place(event.clientX, event.clientY);
+    },
+    listen
+  );
+  window.addEventListener(
+    'pointerup',
+    (event) => {
+      if (event.pointerId === down.pointerId) finish(true);
+    },
+    listen
+  );
+  window.addEventListener('pointercancel', () => finish(false), listen);
+  window.addEventListener('blur', () => finish(false), listen);
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape' || !dragging) return;
+      // Ahead of the dialog, Vim and the editor: Escape only cancels the drag.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finish(false);
+    },
+    listen
+  );
+}
+
+/* Resize handles */
+
+interface ResizeOptions {
+  /** `col`: a vertical rule moved sideways; `row`: a horizontal rule moved up and down. */
+  axis: 'col' | 'row';
+  label: string;
+  /** The size the handle controls, in px. */
+  current(): number;
+  /** Moving the pointer right or down by `delta` px changes the size by `sign * delta`. */
+  sign: 1 | -1;
+  minimum: number;
+  maximum(): number;
+  set(size: number): void;
+  /** After a drag or a key press: save. */
+  done(): void;
+}
+
+function divider(
   panel: HTMLElement,
-  handle: HTMLElement,
+  options: ResizeOptions,
   signal: AbortSignal
-) {
-  const vertical = handle.dataset.codeResize === 'files';
-  const host = vertical
-    ? panel
-    : panel.querySelector<HTMLElement>('[data-code-main]')!;
-  const property = vertical ? '--files-width' : '--output-height';
-  const minimum = vertical ? 140 : 72;
-  const reserve = vertical ? 240 : 120;
-  const available = () => (vertical ? panel.clientWidth : host.clientHeight);
-  const maximum = () => Math.max(minimum, available() - reserve);
-  const current = () =>
-    (vertical
-      ? panel.querySelector<HTMLElement>('[data-code-files-pane]')
-      : panel.querySelector<HTMLElement>('[data-code-output-pane]')
-    )?.getBoundingClientRect()[vertical ? 'width' : 'height'] ?? minimum;
+): HTMLElement {
+  const handle = document.createElement('div');
+  const vertical = options.axis === 'col';
+  handle.className = `ide-divider ide-divider--${options.axis}`;
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-label', options.label);
+  handle.setAttribute('aria-orientation', vertical ? 'vertical' : 'horizontal');
+  handle.setAttribute('aria-valuemin', String(options.minimum));
+  handle.tabIndex = 0;
   const set = (value: number) => {
-    const bounded = Math.max(minimum, Math.min(value, maximum()));
-    host.style.setProperty(property, `${bounded}px`);
+    const maximum = Math.max(options.minimum, options.maximum());
+    const bounded = Math.max(options.minimum, Math.min(value, maximum));
+    options.set(bounded);
     handle.setAttribute('aria-valuenow', String(Math.round(bounded)));
-    handle.setAttribute('aria-valuemax', String(Math.round(maximum())));
+    handle.setAttribute('aria-valuemax', String(Math.round(maximum)));
   };
   let start: number | undefined;
   let size = 0;
@@ -51,9 +209,10 @@ function initializeResizer(
       if (event.button !== 0) return;
       event.preventDefault();
       start = vertical ? event.clientX : event.clientY;
-      size = current();
+      size = options.current();
       handle.setPointerCapture(event.pointerId);
       panel.classList.add('resizing');
+      handle.classList.add('active');
     },
     { signal }
   );
@@ -62,44 +221,497 @@ function initializeResizer(
     (event) => {
       if (start === undefined) return;
       const delta = (vertical ? event.clientX : event.clientY) - start;
-      set(size + (vertical ? delta : -delta));
+      set(size + options.sign * delta);
     },
     { signal }
   );
   const finish = () => {
+    if (start === undefined) return;
     start = undefined;
     panel.classList.remove('resizing');
+    handle.classList.remove('active');
+    options.done();
   };
   handle.addEventListener('pointerup', finish, { signal });
   handle.addEventListener('pointercancel', finish, { signal });
   handle.addEventListener('lostpointercapture', finish, { signal });
   handle.addEventListener(
-    'keydown',
-    (event) => {
-      const change: Record<string, number> = vertical
-        ? { ArrowLeft: -16, ArrowRight: 16 }
-        : { ArrowUp: 16, ArrowDown: -16 };
-      const step = change[event.key];
-      if (step === undefined) return;
-      event.preventDefault();
-      set(current() + step);
+    'focus',
+    () => {
+      handle.setAttribute(
+        'aria-valuenow',
+        String(Math.round(options.current()))
+      );
+      handle.setAttribute(
+        'aria-valuemax',
+        String(Math.round(Math.max(options.minimum, options.maximum())))
+      );
     },
     { signal }
   );
+  handle.addEventListener(
+    'keydown',
+    (event) => {
+      const keys: Record<string, number> = vertical
+        ? { ArrowLeft: -16, ArrowRight: 16 }
+        : { ArrowUp: -16, ArrowDown: 16 };
+      const step = keys[event.key];
+      if (step === undefined) return;
+      event.preventDefault();
+      set(options.current() + options.sign * step);
+      options.done();
+    },
+    { signal }
+  );
+  return handle;
+}
+
+/* Layout controller */
+
+export interface WorkspaceLayoutController {
+  readonly layout: WorkspaceLayout;
+  /** The element holding the editor area (one editor, or a tree of groups). */
+  readonly editors: HTMLElement;
+  /**
+   * Replaces the editor tree. With `elements`, the editor area is rebuilt
+   * from the groups' elements; without, only the saved copy changes (tabs).
+   */
+  setEditors(
+    editors: EditorNode,
+    elements?: (id: string) => HTMLElement | undefined
+  ): void;
+  /** Calls `listener` on Reset layout (after the panels are back) until `until` aborts. */
+  onReset(listener: () => void, until: AbortSignal): void;
+}
+
+const controllers = new WeakMap<HTMLElement, WorkspaceLayoutController>();
+
+/** The layout of a workspace that `initializeWorkspaceLayout` has set up. */
+export function workspaceLayout(panel: HTMLElement) {
+  return controllers.get(panel);
+}
+
+const storageKey = (panel: HTMLElement) =>
+  `code-workspace-layout:${panel.dataset.codeLanguage ?? 'code'}`;
+
+function loadLayout(panel: HTMLElement, panels: readonly PanelId[]) {
+  try {
+    return parseLayout(localStorage.getItem(storageKey(panel)), panels);
+  } catch {
+    return undefined;
+  }
+}
+
+function storeLayout(panel: HTMLElement, layout: WorkspaceLayout | undefined) {
+  try {
+    if (layout)
+      localStorage.setItem(storageKey(panel), serializeLayout(layout));
+    else localStorage.removeItem(storageKey(panel));
+  } catch {
+    /* Without storage the layout lasts for this page. */
+  }
+}
+
+const panelNames: Record<PanelId, string> = {
+  files: 'file tree',
+  output: 'output',
+};
+
+type Box = { left: number; top: number; width: number; height: number };
+
+function initializeLayout(
+  panel: HTMLElement,
+  signal: AbortSignal
+): WorkspaceLayoutController | undefined {
+  const layoutElement = panel.querySelector<HTMLElement>('[data-code-layout]');
+  const editorsElement = panel.querySelector<HTMLElement>(
+    '[data-code-editors]'
+  );
+  if (!layoutElement || !editorsElement) return undefined;
+  const root: HTMLElement = layoutElement;
+  const editors: HTMLElement = editorsElement;
+  const body = root.parentElement!;
+  const elements: Partial<Record<PanelId, HTMLElement>> = {};
+  const files = panel.querySelector<HTMLElement>('[data-code-files-pane]');
+  const output = panel.querySelector<HTMLElement>('[data-code-output-pane]');
+  if (files) elements.files = files;
+  if (output) elements.output = output;
+  const available = (Object.keys(elements) as PanelId[]).sort();
+  let layout = loadLayout(panel, available) ?? defaultLayout(available);
+  let groupElements: ((id: string) => HTMLElement | undefined) | undefined;
+  const resetListeners = new Set<() => void>();
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  const save = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => storeLayout(panel, layout), SAVE_DELAY);
+  };
+  const toggle = panel.querySelector<HTMLButtonElement>(
+    '[data-code-output-toggle]'
+  );
+  const extent = (element: Element, side: boolean) =>
+    element.getBoundingClientRect()[side ? 'width' : 'height'];
+
+  /** Keeps scroll positions across the DOM moves of a re-render. */
+  function keepScroll(action: () => void) {
+    const scrolled = [
+      ...panel.querySelectorAll<HTMLElement>(
+        '.cm-scroller, .ide-tree, .md-preview, [data-code-output]'
+      ),
+    ].map(
+      (element) => [element, element.scrollTop, element.scrollLeft] as const
+    );
+    action();
+    for (const [element, top, left] of scrolled) {
+      element.scrollTop = top;
+      element.scrollLeft = left;
+    }
+  }
+
+  const outputCollapsed = (dock: Dock) =>
+    !isSideDock(dock) &&
+    layout.docks[dock].panels.length === 1 &&
+    layout.docks[dock].panels[0] === 'output' &&
+    panel.dataset.outputCollapsed === 'true';
+
+  function dockElement(dock: Dock) {
+    const state = layout.docks[dock];
+    const element = document.createElement('div');
+    element.className = 'ide-dock';
+    element.dataset.dock = dock;
+    element.style.flexBasis = outputCollapsed(dock)
+      ? 'auto'
+      : `${state.size}px`;
+    // Two panels in one dock: stacked in a side dock, side by side otherwise.
+    const stacked = isSideDock(dock);
+    state.panels.forEach((id, index) => {
+      const pane = elements[id]!;
+      pane.dataset.dock = dock;
+      pane.style.flex =
+        state.panels.length === 2
+          ? `${index === 0 ? state.ratio : 1 - state.ratio} 1 0`
+          : '';
+      if (index === 1) {
+        const first = elements[state.panels[0]]!;
+        element.append(
+          divider(
+            panel,
+            {
+              axis: stacked ? 'row' : 'col',
+              label: `Resize ${panelNames[state.panels[0]]} and ${panelNames[id]}`,
+              sign: 1,
+              minimum: 72,
+              current: () => extent(first, !stacked),
+              maximum: () => extent(element, !stacked) - 73,
+              set: (size) => {
+                const ratio = Math.min(
+                  0.95,
+                  Math.max(0.05, size / (extent(element, !stacked) - 1))
+                );
+                layout = resizeDock(layout, dock, { ratio });
+                first.style.flex = `${ratio} 1 0`;
+                pane.style.flex = `${1 - ratio} 1 0`;
+              },
+              done: save,
+            },
+            signal
+          )
+        );
+      }
+      element.append(pane);
+    });
+    return element;
+  }
+
+  function dockDivider(dock: Dock, element: HTMLElement) {
+    const side = isSideDock(dock);
+    const names = layout.docks[dock].panels.map((id) => panelNames[id]);
+    const handle = divider(
+      panel,
+      {
+        axis: side ? 'col' : 'row',
+        label: `Resize ${names.join(' and ')}`,
+        sign: dock === 'left' || dock === 'top' ? 1 : -1,
+        minimum: side ? 140 : 72,
+        current: () => extent(element, side),
+        maximum: () => extent(body, side) - (side ? 240 : 120),
+        set: (size) => {
+          layout = resizeDock(layout, dock, { size });
+          element.style.flexBasis = `${size}px`;
+          measureEditorStart();
+        },
+        done: save,
+      },
+      signal
+    );
+    handle.dataset.codeResize = dock;
+    return handle;
+  }
+
+  function renderEditors() {
+    if (!groupElements) return;
+    const lookup = groupElements;
+    const build = (node: EditorNode, path: number[]): HTMLElement => {
+      if (node.type === 'group') return lookup(node.id)!;
+      const split = document.createElement('div');
+      split.className = 'ide-split';
+      split.dataset.direction = node.direction;
+      const row = node.direction === 'row';
+      const minimum = row ? 120 : 72;
+      const children = node.children.map((child, index) => {
+        const element = build(child, [...path, index]);
+        element.style.flex = `${node.sizes[index]} 1 0`;
+        return element;
+      });
+      children.forEach((element, index) => {
+        if (index > 0) {
+          const before = children[index - 1];
+          const pair = () => extent(before, row) + extent(element, row);
+          split.append(
+            divider(
+              panel,
+              {
+                axis: row ? 'col' : 'row',
+                label: 'Resize editor groups',
+                sign: 1,
+                minimum,
+                current: () => extent(before, row),
+                maximum: () => pair() - minimum,
+                set: (size) => {
+                  const current = splitAt(layout.editors, path);
+                  if (!current) return;
+                  const shares =
+                    current.sizes[index - 1] + current.sizes[index];
+                  const sizes = [...current.sizes];
+                  sizes[index - 1] = (shares * size) / pair();
+                  sizes[index] = shares - sizes[index - 1];
+                  layout = {
+                    ...layout,
+                    editors: resizeSplit(layout.editors, path, sizes),
+                  };
+                  before.style.flex = `${sizes[index - 1]} 1 0`;
+                  element.style.flex = `${sizes[index]} 1 0`;
+                },
+                done: save,
+              },
+              signal
+            )
+          );
+        }
+        split.append(element);
+      });
+      return split;
+    };
+    const top = build(layout.editors, []);
+    if (layout.editors.type === 'group') top.style.flex = '';
+    editors.replaceChildren(top);
+  }
+
+  function render() {
+    keepScroll(() => {
+      const before: HTMLElement[] = [],
+        after: HTMLElement[] = [],
+        above: HTMLElement[] = [],
+        below: HTMLElement[] = [];
+      for (const dock of DOCKS) {
+        if (!layout.docks[dock].panels.length) continue;
+        const element = dockElement(dock);
+        const rule = dockDivider(dock, element);
+        if (dock === 'left') before.push(element, rule);
+        else if (dock === 'right') after.push(rule, element);
+        else if (dock === 'top') above.push(element, rule);
+        else below.push(rule, element);
+      }
+      const center = document.createElement('div');
+      center.className = 'ide-center';
+      center.append(...above, editors, ...below);
+      root.replaceChildren(...before, center, ...after);
+      renderEditors();
+    });
+    const outputDock = panelDock(layout, 'output');
+    const collapsible =
+      outputDock !== undefined &&
+      !isSideDock(outputDock) &&
+      layout.docks[outputDock].panels.length === 1;
+    if (toggle) {
+      toggle.hidden = !collapsible;
+      if (!collapsible && panel.dataset.outputCollapsed === 'true')
+        setCollapsed(false);
+    }
+    panel.toggleAttribute(
+      'data-left-dock',
+      layout.docks.left.panels.length > 0
+    );
+    measureEditorStart();
+  }
+
+  /* The header's editor tools start where the editor area starts. */
+  function measureEditorStart() {
+    const offset =
+      editors.getBoundingClientRect().left - panel.getBoundingClientRect().left;
+    panel.style.setProperty(
+      '--ide-editor-offset',
+      `${Math.max(0, Math.round(offset))}px`
+    );
+  }
+  const observer = new ResizeObserver(measureEditorStart);
+  observer.observe(editors);
+  signal.addEventListener('abort', () => observer.disconnect(), {
+    once: true,
+  });
+
+  function setCollapsed(collapsed: boolean) {
+    if (!toggle) return;
+    panel.dataset.outputCollapsed = String(collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute(
+      'aria-label',
+      collapsed ? 'Expand output' : 'Collapse output'
+    );
+    const dock = panelDock(layout, 'output');
+    const element =
+      dock && root.querySelector<HTMLElement>(`.ide-dock[data-dock="${dock}"]`);
+    if (dock && element)
+      element.style.flexBasis = outputCollapsed(dock)
+        ? 'auto'
+        : `${layout.docks[dock].size}px`;
+  }
+  toggle?.addEventListener(
+    'click',
+    () => setCollapsed(panel.dataset.outputCollapsed !== 'true'),
+    { signal }
+  );
+
+  /** The region a panel dropped on `dock` would take, for the drop overlay. */
+  function dockPreview(id: PanelId, dock: Dock): Box {
+    const box = body.getBoundingClientRect();
+    const center = root!
+      .querySelector<HTMLElement>('.ide-center')!
+      .getBoundingClientRect();
+    const from = panelDock(layout, id);
+    // A side dock this panel would leave empty gives its room back.
+    const leaving = (side: Dock) =>
+      from === side && layout.docks[side].panels.length === 1;
+    const left = leaving('left') ? box.left : center.left;
+    const right = leaving('right') ? box.right : center.right;
+    const size = Math.min(
+      layout.docks[dock].size,
+      (isSideDock(dock) ? box.width : box.height) * 0.45
+    );
+    if (dock === 'left')
+      return { left: box.left, top: box.top, width: size, height: box.height };
+    if (dock === 'right')
+      return {
+        left: box.right - size,
+        top: box.top,
+        width: size,
+        height: box.height,
+      };
+    return {
+      left,
+      top: dock === 'top' ? box.top : box.bottom - size,
+      width: right - left,
+      height: size,
+    };
+  }
+
+  /* Dragging a panel by its header docks it on another side. */
+  for (const id of available) {
+    const handle = elements[id]!.querySelector<HTMLElement>(
+      '[data-panel-handle]'
+    );
+    if (!handle) continue;
+    handle.title = `Drag to move the ${panelNames[id]}`;
+    handle.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (isNarrow() || (event.target as Element).closest('button')) return;
+        // No text selection from the header label.
+        event.preventDefault();
+        trackDrag<Dock>(event, {
+          panel,
+          label: id === 'files' ? 'Files' : 'Output',
+          resolve: (x, y) => {
+            const box = body.getBoundingClientRect();
+            const dock = dockZone(
+              { x: box.left, y: box.top, width: box.width, height: box.height },
+              x,
+              y
+            );
+            return { rect: dockPreview(id, dock), value: dock };
+          },
+          drop: (dock) => {
+            if (panelDock(layout, id) === dock) return;
+            layout = movePanel(layout, id, dock);
+            render();
+            save();
+          },
+        });
+      },
+      { signal }
+    );
+  }
+
+  const controller: WorkspaceLayoutController = {
+    get layout() {
+      return layout;
+    },
+    editors,
+    setEditors(next, lookup) {
+      layout = { ...layout, editors: next };
+      if (lookup) {
+        groupElements = lookup;
+        keepScroll(renderEditors);
+        measureEditorStart();
+      }
+      save();
+    },
+    onReset(listener, until) {
+      resetListeners.add(listener);
+      until.addEventListener('abort', () => resetListeners.delete(listener), {
+        once: true,
+      });
+    },
+  };
+
+  panel
+    .querySelector<HTMLButtonElement>('[data-code-reset-layout]')
+    ?.addEventListener(
+      'click',
+      () => {
+        layout = { ...defaultLayout(available), editors: layout.editors };
+        setCollapsed(false);
+        render();
+        // Listeners merge the editor groups back into one.
+        for (const listener of resetListeners) listener();
+        save();
+      },
+      { signal }
+    );
+
+  render();
+  controllers.set(panel, controller);
+  signal.addEventListener(
+    'abort',
+    () => {
+      clearTimeout(saveTimer);
+      storeLayout(panel, layout);
+      controllers.delete(panel);
+    },
+    { once: true }
+  );
+  return controller;
 }
 
 /**
- * Wires the shared workspace chrome: desktop resize handles, the narrow-screen
- * pane tabs, the output collapse toggle, and the platform shortcut hint.
+ * Wires the shared workspace chrome: the dockable panels and their resize
+ * handles, the narrow-screen pane tabs, the output collapse toggle, and the
+ * platform shortcut hint.
  */
 export function initializeWorkspaceLayout(
   panel: HTMLElement,
   signal: AbortSignal
 ) {
-  for (const handle of panel.querySelectorAll<HTMLElement>(
-    '[data-code-resize]'
-  ))
-    initializeResizer(panel, handle, signal);
+  const controller = initializeLayout(panel, signal);
 
   for (const tab of panel.querySelectorAll<HTMLButtonElement>(
     '[data-pane-tab]'
@@ -111,23 +723,6 @@ export function initializeWorkspaceLayout(
       },
       { signal }
     );
-
-  const toggle = panel.querySelector<HTMLButtonElement>(
-    '[data-code-output-toggle]'
-  );
-  toggle?.addEventListener(
-    'click',
-    () => {
-      const collapsed = panel.dataset.outputCollapsed !== 'true';
-      panel.dataset.outputCollapsed = String(collapsed);
-      toggle.setAttribute('aria-expanded', String(!collapsed));
-      toggle.setAttribute(
-        'aria-label',
-        collapsed ? 'Expand output' : 'Collapse output'
-      );
-    },
-    { signal }
-  );
 
   panel
     .querySelector<HTMLButtonElement>('[data-code-clear]')
@@ -145,9 +740,10 @@ export function initializeWorkspaceLayout(
   signal.addEventListener(
     'abort',
     () => {
-      panel.classList.remove('resizing');
+      panel.classList.remove('resizing', 'dragging');
       showPane(panel, 'code');
     },
     { once: true }
   );
+  return controller;
 }

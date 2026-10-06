@@ -4,25 +4,25 @@
 
 `.md` files in the Jai code workspace (the `/playground/jai` page and the jai modal on `/projects`) get a rendered preview and Markdown syntax highlighting in the editor. Quasi and BaerScript have no file workspace, so they never see a Markdown file.
 
-- **Wide editor column** (at least `SPLIT_MIN_WIDTH`, 760px): source on the left and preview on the right by default. A three-button switch (Source / Split / Preview, icons only) sits at the right end of the open-file tab strip.
-- **Narrow editor column** (phones, small laptops, a wide file tree): one pane at a time, with a labelled Source / Preview toggle in the same place. Preview is the default: a visitor opening a README on a phone wants to read it, and editing prose on a phone is rare. An empty file opens in Source, because there is nothing to preview and it needs typing.
+The preview works like VS Code's: it is a tab of its own ("Preview tour.md", `markdown: true` in `OpenTab`), separate from the file's source tab, so it can be dragged, split and closed like any other tab ([Workspace layout](workspace-layout.md)). A `.md` source tab has an **Open preview to the side** button at the right of its group's tab strip; a preview tab has **Open source to the side**. Both open the other view in the neighbouring group to the right (or left), splitting the group if there is none. The language tour's `tour.md` opens as a preview tab.
 
-The choice is remembered per layout in `localStorage` (`code-editor-markdown-view`, `{"wide": "split", "narrow": "preview"}`), so toggling on a phone does not undo split view on a laptop.
+- **Wide screens:** source and preview are separate tabs, in one group or side by side.
+- **Phones** (below `42rem`, one group visible at a time): a `.md` source tab shows a labelled Source / Preview toggle in place of the side button. Preview is the default: a visitor opening a README on a phone wants to read it, and editing prose on a phone is rare. An empty file opens in Source, because there is nothing to preview and it needs typing. The choice is stored in `localStorage` (`code-editor-markdown-view`: `"source"` or `"preview"`).
 
 ## How it works
 
 | File | Role |
 | --- | --- |
-| `src/lib/markdown-render.ts` | Pure (no DOM, unit-tested): `renderMarkdown`, link resolution, view choice, slugs |
-| `src/lib/markdown-preview.ts` | DOM: preview pane, view switch, DOMPurify, scroll sync, link clicks |
-| `src/lib/markdown-preview.css` | Preview layout and prose styles, all from the `--ide-*` tokens |
+| `src/lib/markdown-render.ts` | Pure (no DOM, unit-tested): `renderMarkdown`, link resolution, the phone view choice, slugs |
+| `src/lib/markdown-preview.ts` | DOM: the preview element, DOMPurify, scroll sync, link clicks |
+| `src/lib/markdown-preview.css` | Preview layout and prose styles, the group action buttons, all from the `--ide-*` tokens |
 | `src/lib/markdown-language.ts` | Editor highlighting for `.md` sources (`markdownSyntax`) |
 
-`workspace-ui.ts` creates the preview with `createMarkdownPreview(panel, editor.view, { files, open }, signal)` and makes two calls: `markdown.show(path)` at the end of `show()` (every tab switch, open or close), and `markdown.changed()` in the editor's `onChange`.
+Every editor group in `workspace-ui.ts` owns one preview, created with `createMarkdownPreview(host, { files, text, open }, signal)`. `show(g)` calls `markdown.show(path)` with the file to render (a preview tab, or a source tab toggled to Preview on a phone) or `undefined`; edits to a `.md` file call `changed()` on every group's preview, so a preview follows its source live, whichever group is being typed in.
 
-**Layout.** The preview is an `<article class="md-preview">` appended inside the editor host (`[data-code-editor]`) next to CodeMirror's `.cm-editor`. The host becomes a one- or two-column grid through `data-markdown-view` (`split`, `source`, `preview`). The switch is absolutely positioned at the top right of `[data-code-main]`. `panel[data-markdown]` gives the tab strip a right margin of `--md-switch-width`, which a `ResizeObserver` keeps equal to the switch's width. Another `ResizeObserver` on the editor column re-picks the view when the width crosses the breakpoint.
+**Layout.** The preview is an `<article class="md-preview" data-code-markdown>` appended inside the group's editor host (`[data-code-editor]`) next to CodeMirror's `.cm-editor`. The host's `data-markdown-view` (`source` or `preview`) shows one of them. The group actions (`[data-code-group-actions]`) sit at the right of the tab strip; `.md-side` buttons are hidden on phones and the `.md-toggle` group is shown only there.
 
-**Resizing the split.** In split view a 1px `.md-divider` sits between source and preview as the grid's middle column (`minmax(0, var(--md-source)) 1px minmax(0, var(--md-preview))`). Dragging it, or pressing ←/→ while it is focused (2% a step), sets the source's share as two `fr` values on the host, so the split keeps its proportion when the window resizes. Each side keeps at least `SPLIT_MIN_PANE` (180px). Double-click resets to 50/50. The share is saved in `localStorage` (`code-editor-markdown-split`). Scroll sync re-runs when a drag ends, since the panes reflow.
+**Links.** A click on a link to another workspace file in a preview tab: another `.md` file replaces the preview in place (as VS Code's does), any other file opens beside the preview; `#heading` scrolls the preview. In a phone's toggled preview the file opens in the same group. Following a link is recorded in [Navigation history](code-workspace.md#navigation-history).
 
 **Rendering.** `marked` (GFM: tables, task lists, strikethrough, autolinks) with a custom renderer:
 
@@ -33,26 +33,26 @@ The choice is remembered per layout in `localStorage` (`code-editor-markdown-vie
 - Fenced `jai` and `toml` blocks are highlighted with the editor's own stream grammars via `highlightTree` and a `tagHighlighter` (`md-tok-*` classes coloured with `--ide-syntax-*`). Other languages are plain monospace.
 - Tables are wrapped in a horizontal scroller (`.md-table`), so nothing widens the pane at 375px.
 
-The HTML then goes through `DOMPurify.sanitize` as a second layer. Re-rendering is debounced by 150ms and skipped while only the source is visible.
+The HTML then goes through `DOMPurify.sanitize` as a second layer. Re-rendering is debounced by 150ms and skipped while the preview is hidden.
 
-**Scroll sync** (split view only). Each top-level block carries `data-line`, its first source line, computed from the lexer tokens' `raw` lengths. Scrolling either side finds the surrounding pair of blocks and interpolates between their line numbers and offsets. A programmatic scroll mutes the other side's handler for 120ms so the two never chase each other. The top and bottom of either pane map to the top and bottom of the other.
+**Scroll sync.** When a preview tab and its file's source are both on screen in different groups, `linkPreviews` pairs the preview with that editor (the most recently focused one if several show the file) through `markdown.link(view)`. Each top-level block carries `data-line`, its first source line, computed from the lexer tokens' `raw` lengths. Scrolling either side finds the surrounding pair of blocks and interpolates between their line numbers and offsets. A programmatic scroll mutes the other side's handler for 120ms so the two never chase each other. The top and bottom of either pane map to the top and bottom of the other.
 
 **Source highlighting.** `syntaxFor` in `code-editor.ts` returns `markdownSyntax` for `.md`/`.markdown` paths. That extension combines `@codemirror/lang-markdown` (GFM base, fenced `jai`/`toml` blocks parsed with the editor's grammars), its own `HighlightStyle` and `EditorView.lineWrapping`. @lezer/markdown tags every markup character (`#`, `*`, `` ` ``, `>`, `-`) as `processingInstruction`, which the editor's shared style colours as a Jai directive (red). So `markdown-language.ts` re-tags them with private tags: heading marks match the heading (accent blue), list marks use the keyword yellow, and other marks are faint. Inline code gets a raised background.
 
 ## How to change it
 
-- **Breakpoint:** `SPLIT_MIN_WIDTH` in `markdown-render.ts`. It is the editor column's width, not the viewport's, so the modal, the page and a resized file tree all behave the same.
-- **Defaults:** `markdownView()`; update `tests/jai/markdown-preview.test.ts` with it.
+- **Phone default:** `markdownView()` and `parseViewChoice()` in `markdown-render.ts` (the latter also accepts the old `{"narrow": …}` value); update `tests/jai/markdown-preview.test.ts` with them.
+- **Side buttons and preview tabs:** `renderActions`, `openBeside` and `followLink` in `workspace-ui.ts`; tab identity (`sameTab`, `openMarkdown`) in `jai/open-tabs.ts`.
 - **Allowed links or images:** `resolveLink` and the `image` renderer. Keep the scheme allowlist: DOMPurify would also strip `javascript:`, but the tests cover the pure layer.
 - **Highlighted fence languages:** add a grammar to `languages` in `markdown-preview.ts` (preview) and to `codeLanguages` in `markdown-language.ts` (editor).
 - **Rendering raw HTML:** to render a safe subset (e.g. `<kbd>`, `<details>`) instead of escaping it, change the `html` renderer and rely on DOMPurify with an explicit `ALLOWED_TAGS`. Then the "raw HTML is shown as text" test must change.
 - **Styles:** `markdown-preview.css` (global, every selector scoped under `.ide`). The workspace is a dark surface on every site theme (the site itself has no dark mode), so use `--ide-*` tokens, never site colours.
-- The preview and switch are created in script, so the `data-code-*` markup in `CodeWorkspace.astro` is unchanged. The hooks are `[data-code-markdown]` (the preview) and `[data-code-markdown-switch]` (its buttons carry `data-md-view`).
+- The preview and actions are created in script. The hooks are `[data-code-markdown]` (the preview), `[data-code-open-preview]` (Open preview to the side) and the phone toggle's buttons (`data-md-view`).
 
 ## Configuration
 
-- `localStorage["code-editor-markdown-view"]`: the saved view per layout (invalid values are ignored; storage errors are caught).
-- `SPLIT_MIN_WIDTH = 760` and `RENDER_DELAY = 150` (ms) are constants.
+- `localStorage["code-editor-markdown-view"]`: the phone Source / Preview choice (invalid values are ignored; storage errors are caught). Which preview tabs are open, and where, is part of the saved [workspace layout](workspace-layout.md).
+- `RENDER_DELAY = 150` (ms) is a constant.
 
 ## Dependencies
 

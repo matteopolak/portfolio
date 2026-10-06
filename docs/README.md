@@ -13,7 +13,8 @@
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |
-| [markdown-preview.md](./markdown-preview.md)                                                       | Markdown preview (split/toggle view, links, scroll sync) and `.md` source highlighting |
+| [workspace-layout.md](./workspace-layout.md)                                                       | Dockable tree/output panels, editor split groups, drag and drop, saved layout          |
+| [markdown-preview.md](./markdown-preview.md)                                                       | Markdown preview tabs (open to the side, phone toggle, links, scroll sync) and `.md` highlighting |
 | [playground-pages.md](./playground-pages.md)                                                       | Full-page `/playground/<language>` routes sharing the modal workspaces                  |
 | [jai-formatter.md](./jai-formatter.md)                                                             | Jai Format button: `jaifmt.wasm` (WASI shim) or the engine driver, `jaifmt.toml`, cursor-preserving edits |
 | [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
