@@ -20,7 +20,9 @@ scripts/*
 !scripts/sync-baerscript-web.ts
 !scripts/sync-lodestone-web.ts
 !scripts/sync-jai-web.ts
-tests/
+# local resume tooling tests and fixtures
+tests/resume/
+tests/fixtures/
 
 # build output
 dist/

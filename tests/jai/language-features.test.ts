@@ -71,7 +71,11 @@ test('foreign, empty and malformed URIs are rejected', () => {
 
 const documents = [
   { path: 'main.jai', text: 'square(2);\nsquare(3);\n', version: 4 },
-  { path: 'lib/math.jai', text: 'square :: (x: int) -> int { return x * x; }\n', version: 1 },
+  {
+    path: 'lib/math.jai',
+    text: 'square :: (x: int) -> int { return x * x; }\n',
+    version: 1,
+  },
 ];
 
 test('unversioned changes edit several workspace files', () => {
@@ -128,8 +132,14 @@ test('edits outside the workspace, overlapping or malformed are rejected', () =>
       ],
     },
   });
-  reject({ changes: { [documentUri('main.jai')]: [{ range: range(9, 0, 1), newText: '' }] } });
-  reject({ changes: { [documentUri('main.jai')]: [{ range: range(0, 0, 1) }] } });
+  reject({
+    changes: {
+      [documentUri('main.jai')]: [{ range: range(9, 0, 1), newText: '' }],
+    },
+  });
+  reject({
+    changes: { [documentUri('main.jai')]: [{ range: range(0, 0, 1) }] },
+  });
   reject({ changes: [] });
   reject({ documentChanges: [{ kind: 'create', uri: documentUri('x.jai') }] });
 });
@@ -155,9 +165,21 @@ test('locations and location links normalize to plain locations', () => {
 
 const legend = tokenLegend({
   tokenTypes: [
-    'keyword', 'string', 'number', 'variable', 'function', 'type', 'property',
-    'parameter', 'macro', 'operator', 'namespace', 'typeParameter',
-    'enumMember', 'decorator', 'formatSpecifier',
+    'keyword',
+    'string',
+    'number',
+    'variable',
+    'function',
+    'type',
+    'property',
+    'parameter',
+    'macro',
+    'operator',
+    'namespace',
+    'typeParameter',
+    'enumMember',
+    'decorator',
+    'formatSpecifier',
   ],
   tokenModifiers: ['declaration', 'readonly', 'macro'],
 })!;
@@ -221,7 +243,10 @@ test('inlay hint labels keep kind, padding and tooltip', () => {
     })?.text,
     ': s64'
   );
-  assert.equal(inlayLabel({ position: { line: 0, character: 0 }, label: ' ' }), undefined);
+  assert.equal(
+    inlayLabel({ position: { line: 0, character: 0 }, label: ' ' }),
+    undefined
+  );
 });
 
 test('signature help splits around the active parameter', () => {

@@ -47,7 +47,10 @@ test('only jailint diagnostics name a rule', () => {
   };
   assert.equal(lintRule(lint), 'unused_variable');
   assert.equal(lintRule({ ...lint, source: undefined }), undefined);
-  assert.equal(lintRule({ ...lint, code: 'jai-format', source: 'jai' }), undefined);
+  assert.equal(
+    lintRule({ ...lint, code: 'jai-format', source: 'jai' }),
+    undefined
+  );
   assert.equal(lintRule({ ...lint, code: 'Not A Rule' }), undefined);
 });
 
@@ -57,7 +60,10 @@ test('a lint message splits into the finding and its help line', () => {
     help: 'remove it',
   });
   assert.deepEqual(lintMessage('no help'), { text: 'no help' });
-  assert.deepEqual(lintMessage('trailing\n'), { text: 'trailing', help: undefined });
+  assert.deepEqual(lintMessage('trailing\n'), {
+    text: 'trailing',
+    help: undefined,
+  });
 });
 
 test('ranges touch like the server matches lints, empty ranges included', () => {
@@ -77,8 +83,15 @@ test('ranges touch like the server matches lints, empty ranges included', () => 
 
 test("a rule's fixes are picked out by their title", () => {
   const actions: CodeAction[] = [
-    { title: 'Show #run result', command: { title: 'x', command: 'jai.showExpansion' } },
-    { title: 'Replace #run with its value', kind: 'refactor.inline', edit: { changes: {} } },
+    {
+      title: 'Show #run result',
+      command: { title: 'x', command: 'jai.showExpansion' },
+    },
+    {
+      title: 'Replace #run with its value',
+      kind: 'refactor.inline',
+      edit: { changes: {} },
+    },
     fix('remove it (unused_variable)', range(2, 0, 3, 0), ''),
     fix('write `ok` (bool_comparison)', range(4, 7, 4, 17), 'ok'),
   ];
@@ -92,9 +105,13 @@ test("a rule's fixes are picked out by their title", () => {
 });
 
 test('fix all merges quick fixes and leaves overlapping ones for the next run', () => {
-  const text = '#import "Basic";\nmain :: () {\n    x := 3;\n    ok := true;\n    if ok == true print("hi\\n");\n}\n';
+  const text =
+    '#import "Basic";\nmain :: () {\n    x := 3;\n    ok := true;\n    if ok == true print("hi\\n");\n}\n';
   const { edit, applied, skipped } = combineFixes([
-    { title: 'Show expansion', command: { title: 'x', command: 'jai.showExpansion' } },
+    {
+      title: 'Show expansion',
+      command: { title: 'x', command: 'jai.showExpansion' },
+    },
     fix('write `ok` (bool_comparison)', range(4, 7, 4, 17), 'ok'),
     fix('remove it (unused_variable)', range(2, 0, 3, 0), ''),
     // Overlaps the bool_comparison fix.
@@ -112,7 +129,11 @@ test('fix all merges quick fixes and leaves overlapping ones for the next run', 
     planned.text,
     '#import "Basic";\nmain :: () {\n    ok := true;\n    if ok print("hi\\n");\n}\n'
   );
-  assert.deepEqual(combineFixes([]), { edit: { changes: {} }, applied: 0, skipped: 0 });
+  assert.deepEqual(combineFixes([]), {
+    edit: { changes: {} },
+    applied: 0,
+    skipped: 0,
+  });
 });
 
 /*
@@ -122,15 +143,24 @@ test('fix all merges quick fixes and leaves overlapping ones for the next run', 
 const local = process.env.JAI_WASM_DIR;
 
 async function server() {
-  const engine = await createEngine(await readFile(join(local!, 'jai_wasm.wasm')));
+  const engine = await createEngine(
+    await readFile(join(local!, 'jai_wasm.wasm'))
+  );
   let id = 0;
   const send = (method: string, params: unknown, notify = false) =>
-    engine.lsp!({ jsonrpc: '2.0', ...(notify ? {} : { id: ++id }), method, params } as JsonRpcMessage);
+    engine.lsp!({
+      jsonrpc: '2.0',
+      ...(notify ? {} : { id: ++id }),
+      method,
+      params,
+    } as JsonRpcMessage);
   const initialized = send('initialize', { capabilities: {} });
   send('initialized', {}, true);
-  const capabilities = (initialized.find((m) => m.id === 1)?.result as {
-    capabilities: { codeActionProvider?: { codeActionKinds?: string[] } };
-  }).capabilities;
+  const capabilities = (
+    initialized.find((m) => m.id === 1)!.result as {
+      capabilities: { codeActionProvider?: { codeActionKinds?: string[] } };
+    }
+  ).capabilities;
   return { send, capabilities };
 }
 
@@ -139,49 +169,89 @@ const published = (messages: JsonRpcMessage[]) =>
     .filter((m) => m.method === 'textDocument/publishDiagnostics')
     .map((m) => m.params as { uri: string; diagnostics: Diagnostic[] });
 
-test('a lint is published with a quick fix the client can apply', { skip: !local && 'set JAI_WASM_DIR' }, async () => {
-  const { send, capabilities } = await server();
-  assert.ok(capabilities.codeActionProvider?.codeActionKinds?.includes('quickfix'));
-  const text = '#import "Basic";\nmain :: () {\n    x := 3;\n    ok := true;\n    if ok == true print("hi\\n");\n}\n';
-  const opened = send('textDocument/didOpen', { textDocument: { uri: URI, languageId: 'jai', version: 1, text } }, true);
-  const diagnostics = published(opened).find((p) => p.uri === URI)?.diagnostics ?? [];
-  assert.deepEqual(diagnostics.map(lintRule).sort(), ['bool_comparison', 'unused_variable']);
-  const unused = diagnostics.find((d) => lintRule(d) === 'unused_variable')!;
-  const reply = send('textDocument/codeAction', {
-    textDocument: { uri: URI },
-    range: unused.range,
-    context: { diagnostics: [unused], only: ['quickfix'] },
-  });
-  const fixes = fixesFor(reply.find((m) => m.id !== undefined)?.result as CodeAction[], 'unused_variable');
-  assert.equal(fixes.length, 1);
-  const whole = send('textDocument/codeAction', {
-    textDocument: { uri: URI },
-    range: range(0, 0, 6, 0),
-    context: { diagnostics },
-  });
-  const all = combineFixes(whole.find((m) => m.id !== undefined)?.result as CodeAction[]);
-  assert.equal(all.applied, 2);
-  const [planned] = planWorkspaceEdit([{ path: 'main.jai', version: 1, text }], all.edit);
-  assert.equal(planned.text, '#import "Basic";\nmain :: () {\n    ok := true;\n    if ok print("hi\\n");\n}\n');
-});
-
-test('the starter and the tour have no lints', { skip: !local && 'set JAI_WASM_DIR' }, async () => {
-  const index = JSON.parse(await readFile(join(local!, 'tour.json'), 'utf8')) as { files: string[] };
-  const tour: Record<string, string> = {};
-  for (const name of index.files) tour[name] = await readFile(join(local!, 'tour', name), 'utf8');
-  for (const [label, files] of [['starter', starterFiles], ['tour', tour]] as const) {
-    const { send } = await server();
-    // The last diagnostics each file got, once every file is open.
-    const last = new Map<string, Diagnostic[]>();
-    for (const [path, text] of Object.entries(files)) {
-      if (!path.endsWith('.jai')) continue;
-      const uri = `file:///jai-script/${path}`;
-      const messages = send('textDocument/didOpen', { textDocument: { uri, languageId: 'jai', version: 1, text } }, true);
-      for (const p of published(messages)) last.set(p.uri, p.diagnostics);
-    }
-    const found = [...last].flatMap(([uri, diagnostics]) =>
-      diagnostics.map((d) => `${uri}: ${d.code} ${String(d.message)}`)
+test(
+  'a lint is published with a quick fix the client can apply',
+  { skip: !local && 'set JAI_WASM_DIR' },
+  async () => {
+    const { send, capabilities } = await server();
+    assert.ok(
+      capabilities.codeActionProvider?.codeActionKinds?.includes('quickfix')
     );
-    assert.deepEqual(found, [], label);
+    const text =
+      '#import "Basic";\nmain :: () {\n    x := 3;\n    ok := true;\n    if ok == true print("hi\\n");\n}\n';
+    const opened = send(
+      'textDocument/didOpen',
+      { textDocument: { uri: URI, languageId: 'jai', version: 1, text } },
+      true
+    );
+    const diagnostics =
+      published(opened).find((p) => p.uri === URI)?.diagnostics ?? [];
+    assert.deepEqual(diagnostics.map(lintRule).sort(), [
+      'bool_comparison',
+      'unused_variable',
+    ]);
+    const unused = diagnostics.find((d) => lintRule(d) === 'unused_variable')!;
+    const reply = send('textDocument/codeAction', {
+      textDocument: { uri: URI },
+      range: unused.range,
+      context: { diagnostics: [unused], only: ['quickfix'] },
+    });
+    const fixes = fixesFor(
+      reply.find((m) => m.id !== undefined)?.result as CodeAction[],
+      'unused_variable'
+    );
+    assert.equal(fixes.length, 1);
+    const whole = send('textDocument/codeAction', {
+      textDocument: { uri: URI },
+      range: range(0, 0, 6, 0),
+      context: { diagnostics },
+    });
+    const all = combineFixes(
+      whole.find((m) => m.id !== undefined)?.result as CodeAction[]
+    );
+    assert.equal(all.applied, 2);
+    const [planned] = planWorkspaceEdit(
+      [{ path: 'main.jai', version: 1, text }],
+      all.edit
+    );
+    assert.equal(
+      planned.text,
+      '#import "Basic";\nmain :: () {\n    ok := true;\n    if ok print("hi\\n");\n}\n'
+    );
   }
-});
+);
+
+test(
+  'the starter and the tour have no lints',
+  { skip: !local && 'set JAI_WASM_DIR' },
+  async () => {
+    const index = JSON.parse(
+      await readFile(join(local!, 'tour.json'), 'utf8')
+    ) as { files: string[] };
+    const tour: Record<string, string> = {};
+    for (const name of index.files)
+      tour[name] = await readFile(join(local!, 'tour', name), 'utf8');
+    for (const [label, files] of [
+      ['starter', starterFiles],
+      ['tour', tour],
+    ] as const) {
+      const { send } = await server();
+      // The last diagnostics each file got, once every file is open.
+      const last = new Map<string, Diagnostic[]>();
+      for (const [path, text] of Object.entries(files)) {
+        if (!path.endsWith('.jai')) continue;
+        const uri = `file:///jai-script/${path}`;
+        const messages = send(
+          'textDocument/didOpen',
+          { textDocument: { uri, languageId: 'jai', version: 1, text } },
+          true
+        );
+        for (const p of published(messages)) last.set(p.uri, p.diagnostics);
+      }
+      const found = [...last].flatMap(([uri, diagnostics]) =>
+        diagnostics.map((d) => `${uri}: ${d.code} ${String(d.message)}`)
+      );
+      assert.deepEqual(found, [], label);
+    }
+  }
+);

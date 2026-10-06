@@ -23,15 +23,29 @@ function harness(enabled = true) {
     querySelectorAll: () => [],
     classList: { remove() {} },
     querySelector: (selector: string) =>
-      ({ '[data-code-status]': status, '[data-code-retry]': retry } as Record<string, unknown>)[selector],
+      (
+        ({
+          '[data-code-status]': status,
+          '[data-code-retry]': retry,
+        }) as Record<string, unknown>
+      )[selector],
   });
-  const loader = (root: HTMLElement, sha: string, signal: AbortSignal) => new Promise<void>((resolve, reject) => {
-    const session = { root, sha, signal, resolve, reject };
-    signal.addEventListener('abort', () => reject(new DOMException('Closed', 'AbortError')), { once: true });
-    sessions.push(session);
-  });
+  const loader = (root: HTMLElement, sha: string, signal: AbortSignal) =>
+    new Promise<void>((resolve, reject) => {
+      const session = { root, sha, signal, resolve, reject };
+      signal.addEventListener(
+        'abort',
+        () => reject(new DOMException('Closed', 'AbortError')),
+        { once: true }
+      );
+      sessions.push(session);
+    });
   // A minimal stand-in for the workspace element; only the touched members exist.
-  const host = initializeJaiPlayground(panel as unknown as HTMLElement, controller.signal, loader);
+  const host = initializeJaiPlayground(
+    panel as unknown as HTMLElement,
+    controller.signal,
+    loader
+  );
   return { host, controller, sessions, status, retry, panel };
 }
 

@@ -38,7 +38,11 @@ test('the tour loads as a multi-folder workspace with jaifmt.toml and its guide 
     },
     requests
   );
-  const starter = await loadStarter(revision, new AbortController().signal, fetcher);
+  const starter = await loadStarter(
+    revision,
+    new AbortController().signal,
+    fetcher
+  );
   assert.deepEqual(starter.files, {
     'main.jai': 'main :: () {}\n',
     'meta/macros.jai': 'm :: () #expand {}\n',
@@ -54,7 +58,10 @@ test('a release without a tour, or with a broken one, opens the built-in starter
   const cases: Record<string, string>[] = [
     {},
     { 'tour.json': 'not json' },
-    { 'tour.json': index(['main.jai', 'lib/missing.jai']), 'tour/main.jai': 'x' },
+    {
+      'tour.json': index(['main.jai', 'lib/missing.jai']),
+      'tour/main.jai': 'x',
+    },
   ];
   for (const assets of cases) {
     const starter = await loadStarter(revision, signal, server(assets));
@@ -68,7 +75,10 @@ test('an aborted load throws instead of falling back', async () => {
     controller.abort();
     throw new DOMException('Closed', 'AbortError');
   }) as typeof fetch;
-  await assert.rejects(loadStarter(revision, controller.signal, fetcher), /Closed/);
+  await assert.rejects(
+    loadStarter(revision, controller.signal, fetcher),
+    /Closed/
+  );
 });
 
 test('tour indexes must name main.jai and only plain relative paths', () => {
@@ -86,8 +96,18 @@ test('tour indexes must name main.jai and only plain relative paths', () => {
     ['main.jai', 7],
     [],
   ])
-    assert.equal(tourPaths(JSON.parse(index(files))), undefined, JSON.stringify(files));
-  assert.equal(tourPaths(JSON.parse(index(['main.jai'], { schema_version: 2 }))), undefined);
-  assert.equal(tourPaths(JSON.parse(index(['main.jai'], { main: 'x.jai' }))), undefined);
+    assert.equal(
+      tourPaths(JSON.parse(index(files))),
+      undefined,
+      JSON.stringify(files)
+    );
+  assert.equal(
+    tourPaths(JSON.parse(index(['main.jai'], { schema_version: 2 }))),
+    undefined
+  );
+  assert.equal(
+    tourPaths(JSON.parse(index(['main.jai'], { main: 'x.jai' }))),
+    undefined
+  );
   assert.equal(tourPaths(null), undefined);
 });
