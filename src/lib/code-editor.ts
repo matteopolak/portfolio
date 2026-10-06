@@ -304,12 +304,12 @@ const theme = EditorView.theme(
       fontSize: '12.5px',
     },
     '.jai-hover--overloads': { padding: '4px 0' },
-    // A rule with the label set into it: `──── expands to ────`.
+    // A rule with the label set into it: `──── expands to ────`. It runs to the
+    // tooltip's edges like the rules between overloads.
     '.jai-hover__divider': {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
-      padding: '0 10px',
       color: 'var(--ide-muted)',
       fontFamily: 'var(--font-sans)',
       fontSize: '10.5px',
