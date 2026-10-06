@@ -4,7 +4,7 @@
 
 The jai, Quasi, and BaerScript project cards open the same in-browser editor. It is a dark IDE surface with these parts:
 
-- a header bar with status, Run/Stop, Format (jai), Vim, full screen, and close plus "Open in playground" (modal) or a back arrow (page);
+- a header bar with the editor tools (Format for jai, Vim) on the left, aligned with the editor column, then status, Run/Stop, full screen, and close plus "Open in playground" (modal) or a back arrow (page) on the right;
 - an optional file tree and open-file tabs (jai only);
 - a CodeMirror editor;
 - an output pane.
@@ -23,7 +23,7 @@ Highlighting is chosen per file: in the Jai workspace, `.jai` files use the Jai 
 
 `CodeWorkspace.astro` owns the markup and styling:
 
-- **Header bar.** It holds only actions, right-aligned (`justify-content: flex-end`), so it stays balanced when the status is hidden on phones. There is no language name or mark in it: the section's `aria-label` (`"<label> code editor"`), the modal's label and the page `<h1>` name the language instead. Quasi and BaerScript have no file names, so their editors show no file label at all. The status text (`data-code-status`) and Retry (`data-code-retry`) appear while loading or after a failure. Run (`data-code-run`) is swapped for Stop (`data-code-cancel`) while a program runs. Format (`data-code-format`, jai only) is described in [Jai formatter](jai-formatter.md). `mode="modal"` adds an "Open in playground" link (`data-code-open-page`) before Close (`data-code-close`); `mode="page"` replaces Close with a back link to `/projects#<id>` (`data-code-back`).
+- **Header bar.** Left to right (which is also the focus order): the editor tools, the status, Retry, Run/Stop, then the window buttons. See [Editor tools](#editor-tools) below for the left group. `.ide-tools` has `margin-right: auto`, so Run and the window buttons stay right-aligned when the status is hidden on phones. There is no language name or mark in it: the section's `aria-label` (`"<label> code editor"`), the modal's label and the page `<h1>` name the language instead. Quasi and BaerScript have no file names, so their editors show no file label at all. The status text (`data-code-status`) and Retry (`data-code-retry`) appear while loading or after a failure. Run (`data-code-run`) is swapped for Stop (`data-code-cancel`) while a program runs. Format (`data-code-format`, jai only) is described in [Jai formatter](jai-formatter.md). `mode="modal"` adds an "Open in playground" link (`data-code-open-page`) before Close (`data-code-close`); `mode="page"` replaces Close with a back link to `/projects#<id>` (`data-code-back`).
 - **File tree** (`data-code-files-pane`). The pane header has visible New file / New folder buttons. Each row has a `⋯` menu button, so nothing depends on right-click. Right-click, arrow keys, F2 (rename) and Shift+F10 (menu) still work. The new-item input appears inline at the end of the target folder's children (like VS Code), pushing later rows down.
 - **Open-file tabs** (`data-code-tabs`, jai only). A VS Code-style strip above the editor, the same 2.25rem height as the file tree's pane head. See [Open-file tabs](#open-file-tabs) below.
 - **File icons** (jai only). Tree rows and tabs show a small type icon; see [File icons](#file-icons) below.
@@ -50,6 +50,19 @@ Two lifecycles plug into the same markup:
 - jai uses `src/lib/jai-playground.ts` and `src/lib/jai/workspace-ui.ts`. These add the virtual filesystem, the compiler worker and the language client.
 
 Both run the starter once as soon as the runtime is ready, then auto-run 600 ms after each edit. See [Quasi](quasi-web-playground.md), [BaerScript](baerscript-web-playground.md) and [jai](jai-integration.md) for the runtime specifics.
+
+### Editor tools
+
+The left group in the header (`.ide-tools`, `role="group"`, "Editor tools") holds icon buttons that act on the editor, styled as `.ide-icon .ide-tool`:
+
+- **Format** (`data-code-format`, multi-file jai only): an indent glyph (lines with a `>` marker). Its tooltip names the shortcut, rewritten per platform by `code-workspace-layout.ts` (`Format file (⇧⌥F)` on Apple platforms, `Format file (Shift+Alt+F)` elsewhere); `aria-keyshortcuts="Shift+Alt+F"`. It is shown but disabled while the formatter driver loads, so the group never shifts, and is hidden only once the driver turns out to be missing (`driverMissing` in `workspace-ui.ts`) or the release is disabled.
+- **Vim mode** (`data-code-vim`, every language): the Vim mark drawn inline as one filled path, a diamond with the slab V cut out (`fill-rule="evenodd"`, `currentColor`). `aria-pressed` carries the state; pressed adds the raised background, a 1px blue inset ring and a blue-tinted mark. `aria-label` and `title` are "Vim mode".
+
+**Alignment.** The group starts where the editor column starts, not above the file tree. The bar's left padding is `--ide-editor-start` + `0.4rem`; for the multi-file workspace that is `--files-width` + 1px (the divider), so dragging the tree divider moves the tools with it. It is capped at `100% - 19rem`, so a very wide tree never pushes Run and the window buttons out of the bar. A `::before` rule continues the tree divider through the bar. Quasi and BaerScript (`.ide--single`) have no tree, so the start is `0`; on phones (below `42rem`) the tree is its own pane, so the start is `0` there too and the rule is hidden.
+
+There is no overflow menu: the header has only two tools and a few window buttons, which fit at every width down to phones. Add one if more tools arrive.
+
+**Adding a tool.** Add an `ide-icon ide-tool` button inside `.ide-tools` with an inline 20×20 SVG (stroked by default via `.ide :global(svg)`; set `fill`/`stroke` for filled marks as `.ide-tool--vim svg` does), an `aria-label`, a `title` that names any shortcut, and a `data-code-*` hook for the script.
 
 ### Open-file tabs
 
@@ -83,7 +96,7 @@ The Jai workspace keeps a strip of tabs for open files above the editor. The mod
 
 ### Editor extras
 
-- **Vim mode**: the `Vim` button in the toolbar toggles `@replit/codemirror-vim` for every editor on the page. The choice is stored in `localStorage` (`code-editor-vim`). `code-editor.ts` keeps it in a compartment that is placed first in each state, so Vim sees keys before the default keymaps. `setState` re-applies it, because states made for other files may predate a toggle.
+- **Vim mode**: the Vim button (the Vim mark) in the editor tools toggles `@replit/codemirror-vim` for every editor on the page. The choice is stored in `localStorage` (`code-editor-vim`). `code-editor.ts` keeps it in a compartment that is placed first in each state, so Vim sees keys before the default keymaps. `setState` re-applies it, because states made for other files may predate a toggle.
 - **Hovers**: the Jai client asks for Markdown hovers and renders them with `marked` + DOMPurify, colouring `jai` code with the editor's highlighter (`markdownHoverContent` in `code-editor.ts`, `hover-markdown.ts`); see [Markdown hovers](jai-language-features.md). Plain-text hovers (older servers, other languages) render as highlighted code.
 - **Overload hovers**: when a hover's code is several `name :: (...)` lines (a Markdown `jai` fence, or plain text), it shows an "N overloads" count and one row per overload, with a rule between rows and a hanging indent for wrapped headers.
 - **Go to definition**: F12, or Cmd-click (macOS) / Ctrl-click on a name; the pointer becomes a hand while the modifier is held over a name (`definitionClick` in `code-editor.ts`). A target in another workspace file opens (or focuses) that file's tab. A target in a module or the stdlib (any URI outside `file:///jai-script/`) is fetched with the compiler's non-standard `jai/source` request and shown read-only in the preview tab; hover, completion and further definitions are off there (`viewing` in `workspace-ui.ts`). Choosing a file tab or a file in the tree returns to the workspace. Stdlib targets need a compiler build with semantic definitions (jaic after 2026-10-05).
