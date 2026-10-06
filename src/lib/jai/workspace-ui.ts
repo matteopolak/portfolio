@@ -10,8 +10,32 @@ import { showPane } from '../code-workspace-layout.ts';
 import { Workspace } from './workspace.ts';
 import { loadStarter } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
-import { LanguageClient, pathFromUri } from './language-client.ts';
-import { definitionTarget, renameSymbol } from './language-actions.ts';
+import {
+  LanguageClient,
+  documentUri,
+  pathFromUri,
+  positionAt,
+  resourceFromUri,
+} from './language-client.ts';
+import {
+  applyWorkspaceEdit,
+  definitionTarget,
+  normalizeLocations,
+  positionRequest,
+  prepareRename,
+  renameSymbol,
+  resolveLocation,
+  type NavigationTarget,
+  type PlannedEdit,
+} from './language-actions.ts';
+import {
+  languageFeatures,
+  refreshLanguage,
+  type LanguageDocument,
+} from './lsp-extensions.ts';
+import { locationLabel, provides, supportsCommand } from './lsp-features.ts';
+import { closePicker, showPicker, type PickerItem } from './picker.ts';
+import { closeHoverTooltips, type EditorView } from '@codemirror/view';
 import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
 import type { RunOutput } from './engine.ts';
@@ -25,7 +49,12 @@ import {
   mapOffset,
 } from './format.ts';
 import type {
+  CodeAction,
+  Command,
+  Expansion,
+  Range,
   ServerCapabilities,
+  SymbolInformation,
   WorkerRequest,
   WorkerResponse,
 } from './lsp-types.ts';
@@ -43,6 +72,35 @@ const errorMessage = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
 
 const extension = (path: string) => path.slice(path.lastIndexOf('.') + 1);
+
+const mac = () => /Mac|iPhone|iPad/u.test(navigator.platform);
+
+/** LSP SymbolKind numbers the server uses, for the symbol search list. */
+const symbolKinds: Record<number, string> = {
+  2: 'module',
+  5: 'type',
+  7: 'field',
+  10: 'enum',
+  12: 'procedure',
+  13: 'variable',
+  14: 'constant',
+  22: 'enum member',
+  23: 'struct',
+};
+
+/**
+ * The read-only file in the preview tab: a module or stdlib file (opened in
+ * the language server too, for highlighting and links), or generated code.
+ */
+interface Preview {
+  path: string;
+  uri: string;
+  text: string;
+  kind: 'library' | 'expansion';
+  /** For expansions: what generated it, for the tab's tooltip. */
+  title?: string;
+  state?: EditorState;
+}
 
 export async function createSession(
   panel: HTMLElement,
@@ -66,7 +124,7 @@ export async function createSession(
   const states = new Map<string, EditorState>();
   // Open-file tabs; `preview` holds the read-only file in the preview tab.
   const tabs = new OpenTabs();
-  let preview: { path: string; text: string; state?: EditorState } | undefined;
+  let preview: Preview | undefined;
   // Scroll position of each open tab; a tab opened afresh starts at the top.
   const scrolls = new Map<string, StateEffect<unknown>>();
   const tabKey = (tab: OpenTab) => (tab.preview ? '~' : '') + tab.path;
@@ -98,43 +156,72 @@ export async function createSession(
   // Function declarations below are hoisted; the runner only calls them later.
   const runner: AutoRunner = createAutoRunner(execute, cancelExecution);
 
+  /** Path of the read-only file in the preview tab while it is shown, if any. */
+  let viewing: string | undefined;
+  /** The language document in the editor: a workspace `.jai` file or an opened library preview. */
+  function languageDocument(): LanguageDocument | undefined {
+    if (viewing)
+      return preview?.kind === 'library' && preview.path === viewing
+        ? { uri: preview.uri, version: 1, readonly: true }
+        : undefined;
+    const selected = workspace.selected;
+    if (!selected || !isFormattable(selected.path.name)) return undefined;
+    return {
+      uri: documentUri(selected.path.name),
+      version: selected.version,
+    };
+  }
+  function syncedClient() {
+    if (!languageDocument()) return undefined;
+    clearTimeout(syncTimer);
+    language?.sync(workspace.documents);
+    return language;
+  }
+  const can = (name: keyof ServerCapabilities) =>
+    Boolean(language && provides(languageCapabilities, name));
+  /** A key binding that only applies when the server has `name`. */
+  const when =
+    (name: keyof ServerCapabilities, action: (view: EditorView) => unknown) =>
+    (view: EditorView) => {
+      if (!can(name)) return false;
+      void action(view);
+      return true;
+    };
+  /** The workspace file under the cursor, for requests that need one. */
+  const selectedPath = () =>
+    !viewing && language ? workspace.selected?.path.name : undefined;
+
   const editor = createEditor(find('editor'), {
     text: workspace.selected?.text ?? '',
     language: 'jai',
-    canDefine: () =>
-      Boolean(language && languageCapabilities?.definitionProvider),
-    canRename: () => Boolean(language && languageCapabilities?.renameProvider),
-    onDefinition: async (offset) => {
-      const selected = workspace.selected;
-      if (!selected || !language || signal.aborted || viewing) return;
+    canDefine: () => can('definitionProvider'),
+    canRename: () => can('renameProvider') && !viewing,
+    onDefinition: (offset) => goTo(offset, 'textDocument/definition'),
+    onPrepareRename: async (offset) => {
+      const path = selectedPath();
+      const provider = languageCapabilities?.renameProvider;
+      if (!path || !language) return undefined;
+      const word = editor.view.state.wordAt(offset);
+      // Without prepareProvider the word under the cursor is the name.
+      if (
+        typeof provider !== 'object' ||
+        !provider ||
+        !('prepareProvider' in provider)
+      )
+        return word ?? undefined;
       try {
-        const target = await definitionTarget(
+        const range = await prepareRename(
           language,
           workspace,
-          selected.path.name,
+          path,
           offset,
           signal
         );
-        if (
-          !target ||
-          signal.aborted ||
-          workspace.selected?.path.name !== selected.path.name ||
-          viewing
-        )
-          return;
-        saveState();
-        if (target.text !== undefined) {
-          preview = { path: target.path, text: target.text };
-          tabs.preview(target.path);
-        } else tabs.open(target.path);
-        show();
-        editor.view.dispatch({
-          selection: { anchor: target.from, head: target.to },
-          scrollIntoView: true,
-        });
-        editor.focus();
+        if (!range) announce("This name can't be renamed");
+        return range;
       } catch (error) {
-        if (!signal.aborted) showError(errorMessage(error));
+        if (!signal.aborted) announce(errorMessage(error));
+        return undefined;
       }
     },
     onRename: async (offset, newName) => {
@@ -151,35 +238,39 @@ export async function createSession(
           signal
         );
         if (signal.aborted) return;
-        for (const update of updates) {
-          const previous = states.get(update.path);
-          const state = previous
-            ? previous.update({ changes: update.changes }).state
-            : editor.createState(update.text, update.path);
-          states.set(update.path, state);
-        }
-        show();
-        language.sync(workspace.documents);
-        runner.changed();
+        applied(updates);
+        if (updates.length)
+          announce(
+            `Renamed in ${updates.length} file${updates.length === 1 ? '' : 's'}`
+          );
       } catch (error) {
         if (!signal.aborted) showError(errorMessage(error));
         throw error;
       }
     },
-    currentDocument: () => ({
-      path: workspace.selected?.path.name ?? 'main.jai',
-      text: workspace.selected?.text ?? '',
-      version: workspace.selected?.version ?? 0,
+    currentDocument: languageDocument,
+    service: syncedClient,
+    serverFormatHover: () => can('inlayHintProvider'),
+    extensions: languageFeatures({
+      document: languageDocument,
+      client: syncedClient,
+      capabilities: () => (language ? languageCapabilities : undefined),
+      modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
+      openLink: (target) => void openUri(target),
+      runLens: (view, lens, pos) => void runCommand(view, lens.command, pos),
+      codeActions: (view) => void codeActions(view),
     }),
-    service: () => {
-      // A read-only stdlib view or a non-Jai file (jaifmt.toml) is not a
-      // language document: no hover or completion.
-      if (viewing || !isFormattable(workspace.selected?.path.name ?? ''))
-        return undefined;
-      clearTimeout(syncTimer);
-      language?.sync(workspace.documents);
-      return language;
-    },
+    keys: [
+      { key: 'Shift-F12', run: when('referencesProvider', references) },
+      {
+        key: 'Mod-F12',
+        run: when('typeDefinitionProvider', (view) =>
+          goTo(view.state.selection.main.head, 'textDocument/typeDefinition')
+        ),
+      },
+      { key: 'Mod-.', run: when('codeActionProvider', codeActions) },
+      { key: 'Mod-p', run: when('workspaceSymbolProvider', symbolSearch) },
+    ],
     onChange: (text) => {
       if (workspace.selected) workspace.edit(text);
       if (ready) runner.changed();
@@ -206,9 +297,343 @@ export async function createSession(
     },
     { passive: true, signal }
   );
+  /** Updates editor states after workspace edits (rename, code actions). */
+  function applied(updates: PlannedEdit[]) {
+    for (const update of updates) {
+      const previous = states.get(update.path);
+      const state = previous
+        ? previous.update({ changes: update.changes }).state
+        : editor.createState(update.text, update.path);
+      states.set(update.path, state);
+    }
+    show();
+    language?.sync(workspace.documents);
+    runner.changed();
+  }
+
+  /** Shows a navigation target: a workspace file's tab or the read-only preview tab. */
+  function reveal(target: NavigationTarget, title?: string) {
+    saveState();
+    if (target.text === undefined) tabs.open(target.path);
+    else
+      openPreview({
+        path: target.path,
+        uri: target.resource.uri,
+        text: target.text,
+        kind: target.resource.kind === 'expansion' ? 'expansion' : 'library',
+        title,
+      });
+    show();
+    editor.view.dispatch({
+      selection: { anchor: target.from, head: target.to },
+      scrollIntoView: true,
+    });
+    showPane(panel, 'code');
+    editor.focus();
+  }
+  function openPreview(next: Preview) {
+    if (preview && preview.uri !== next.uri && preview.kind === 'library')
+      language?.closeReadonly(preview.uri);
+    preview = next;
+    if (next.kind === 'library') language?.openReadonly(next.uri, next.text);
+    tabs.preview(next.path);
+  }
+  function closePreview() {
+    if (preview?.kind === 'library') language?.closeReadonly(preview.uri);
+    preview = undefined;
+  }
+
+  /** The request position: the cursor in a workspace file or the library preview. */
+  function requestOrigin(offset: number) {
+    const document = languageDocument();
+    if (!document || !language) return undefined;
+    return {
+      document,
+      params: {
+        textDocument: { uri: document.uri },
+        position: positionAt(editor.view.state.doc.toString(), offset),
+      },
+    };
+  }
+
+  /** Definition or type definition, from a workspace file or a library preview. */
+  async function goTo(offset: number, method: string) {
+    if (!language || signal.aborted) return;
+    const path = selectedPath();
+    try {
+      let target: NavigationTarget | undefined;
+      if (path)
+        target = await definitionTarget(
+          language,
+          workspace,
+          path,
+          offset,
+          signal,
+          method
+        );
+      else {
+        const origin = requestOrigin(offset);
+        if (!origin) return;
+        const result = await language.request<unknown>(
+          method,
+          origin.params,
+          signal
+        );
+        const [location] = normalizeLocations(result);
+        if (location && languageDocument()?.uri === origin.document.uri)
+          target = await resolveLocation(
+            language,
+            workspace.documents,
+            location.uri,
+            location.range,
+            signal
+          );
+      }
+      if (signal.aborted) return;
+      if (!target) {
+        announce(
+          method === 'textDocument/typeDefinition'
+            ? 'No type definition found'
+            : 'No definition found'
+        );
+        return;
+      }
+      reveal(target);
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
+  /** Opens a link or symbol URI at `range` (the start of the file without one). */
+  async function openUri(uri: string, range?: Range, title?: string) {
+    if (!language || signal.aborted) return;
+    try {
+      const target = await resolveLocation(
+        language,
+        workspace.documents,
+        uri,
+        range,
+        signal
+      );
+      if (signal.aborted) return;
+      if (target) reveal(target, title);
+      else announce('That file is not available here');
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
+  const pickerAt = (view: EditorView, pos: number) => {
+    const coords = view.coordsAtPos(pos);
+    return coords
+      ? { left: coords.left, top: coords.top, bottom: coords.bottom }
+      : undefined;
+  };
+  const picker = (
+    view: EditorView,
+    options: Parameters<typeof showPicker>[1]
+  ) => {
+    // A hover left open would sit on top of the list.
+    view.dispatch({ effects: closeHoverTooltips });
+    return showPicker(view.dom, { closed: () => view.focus(), ...options });
+  };
+  /** A location's file for lists: the workspace path, or `stdlib/...` for library files. */
+  const displayPath = (uri: string) => resourceFromUri(uri)?.path ?? uri;
+
+  /** Lists locations; picking one opens it. */
+  function locationItems(
+    locations: { uri: string; range: Range }[],
+    documents: readonly { path: string; text: string }[]
+  ): PickerItem[] {
+    return locations.map(({ uri, range }) => {
+      const path = pathFromUri(uri);
+      const text = documents.find((item) => item.path === path)?.text;
+      const line = text?.split('\n')[range.start.line]?.trim();
+      return {
+        label: locationLabel(displayPath(uri), range.start.line),
+        preview: line,
+        run: () => void openUri(uri, range),
+      };
+    });
+  }
+
+  async function references(view: EditorView) {
+    const path = selectedPath();
+    if (!path || !language) return;
+    const offset = view.state.selection.main.head;
+    try {
+      const { result, documents } = await positionRequest<unknown>(
+        language,
+        workspace,
+        'textDocument/references',
+        path,
+        offset,
+        { context: { includeDeclaration: true } },
+        signal
+      );
+      const locations = normalizeLocations(result);
+      const word = view.state.wordAt(offset);
+      const name = word ? view.state.sliceDoc(word.from, word.to) : 'symbol';
+      if (!locations.length) {
+        announce(`No references to ${name}`);
+        return;
+      }
+      picker(view, {
+        title: `${locations.length} reference${locations.length === 1 ? '' : 's'} to ${name}`,
+        items: locationItems(locations, documents),
+        at: pickerAt(view, offset),
+      });
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
+  /** Runs a server command; lists string results, opens an expansion. */
+  async function runCommand(
+    view: EditorView,
+    command: Command | undefined,
+    pos: number
+  ) {
+    if (!command || !language) return;
+    if (!supportsCommand(languageCapabilities, command.command)) return;
+    try {
+      const result = await language.request<unknown>(
+        'workspace/executeCommand',
+        { command: command.command, arguments: command.arguments ?? [] },
+        signal
+      );
+      if (signal.aborted) return;
+      if (Array.isArray(result)) {
+        picker(view, {
+          title: command.title,
+          items: result.map((item) => ({ label: String(item) })),
+          at: pickerAt(view, pos),
+          empty: 'No instances yet',
+        });
+      } else if (result && typeof result === 'object' && 'uri' in result)
+        void showExpansion(result as Expansion);
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
+  async function showExpansion(expansion: Expansion) {
+    if (!language) return;
+    let text = typeof expansion.text === 'string' ? expansion.text : undefined;
+    text ??=
+      (await language.request<string | null>(
+        'jai/source',
+        { uri: expansion.uri },
+        signal
+      )) ?? undefined;
+    if (signal.aborted || text === undefined) return;
+    const target = await resolveLocation(
+      language,
+      workspace.documents,
+      expansion.uri,
+      undefined,
+      signal
+    ).catch(() => undefined);
+    const path = target?.path ?? 'expansion';
+    reveal(
+      {
+        resource: target?.resource ?? {
+          kind: 'expansion',
+          path,
+          source: '',
+          uri: expansion.uri,
+        },
+        path,
+        from: 0,
+        to: 0,
+        text,
+      },
+      `Expansion of ${expansion.kind === 'macro' ? 'a macro call' : `#${expansion.kind ?? 'code'}`} at ${path}`
+    );
+  }
+
+  async function codeActions(view: EditorView) {
+    const path = selectedPath();
+    if (!path || !language) return;
+    const documents = workspace.documents;
+    const document = documents.find((item) => item.path === path);
+    if (!document) return;
+    const { from, to, head } = view.state.selection.main;
+    language.sync(documents);
+    try {
+      const actions = await language.request<CodeAction[] | null>(
+        'textDocument/codeAction',
+        {
+          textDocument: { uri: documentUri(path) },
+          range: {
+            start: positionAt(document.text, from),
+            end: positionAt(document.text, to),
+          },
+          context: { diagnostics: [] },
+        },
+        signal
+      );
+      if (signal.aborted) return;
+      if (!actions?.length) {
+        announce('No code actions here');
+        return;
+      }
+      picker(view, {
+        title: 'Code actions',
+        at: pickerAt(view, head),
+        items: actions.map((action) => ({
+          label: action.title,
+          detail: action.kind === 'refactor.inline' ? 'inline' : undefined,
+          run: () => {
+            try {
+              if (action.edit) {
+                saveState();
+                applied(applyWorkspaceEdit(workspace, documents, action.edit));
+              }
+              if (action.command) void runCommand(view, action.command, head);
+            } catch (error) {
+              showError(errorMessage(error));
+            }
+          },
+        })),
+      });
+    } catch (error) {
+      if (!signal.aborted) showError(errorMessage(error));
+    }
+  }
+
+  function symbolSearch(view: EditorView) {
+    if (!language) return;
+    const client = language;
+    picker(view, {
+      title: 'Go to symbol in workspace',
+      placeholder: 'Symbol name',
+      empty: 'No matching symbols',
+      search: async (query) => {
+        client.sync(workspace.documents);
+        const symbols = await client.request<SymbolInformation[] | null>(
+          'workspace/symbol',
+          { query },
+          signal
+        );
+        return (symbols ?? []).slice(0, 200).map((symbol) => {
+          const path = displayPath(symbol.location.uri);
+          return {
+            label: symbol.name,
+            detail: [
+              symbolKinds[symbol.kind],
+              locationLabel(path, symbol.location.range.start.line),
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            run: () => void openUri(symbol.location.uri, symbol.location.range),
+          };
+        });
+      },
+    });
+  }
+
   let filesBefore = new Set<string>();
-  /** Path of the module or stdlib file shown read-only (after go to definition), if any. */
-  let viewing: string | undefined;
   function saveState() {
     if (viewing) {
       if (preview?.path === viewing) preview.state = editor.view.state;
@@ -226,7 +651,12 @@ export async function createSession(
       workspace.deselect();
       viewing = tab.path;
       editor.setState(
-        preview.state ?? editor.createState(preview.text, tab.path)
+        preview.state ??
+          editor.createState(
+            preview.text,
+            // Expansions are Jai, though their tab names a source position.
+            preview.kind === 'expansion' ? 'expansion.jai' : tab.path
+          )
       );
       editor.setEditable(false);
       editor.diagnostics([], preview.text);
@@ -274,7 +704,17 @@ export async function createSession(
         button.setAttribute('role', 'tab');
         button.setAttribute('aria-selected', String(active));
         button.tabIndex = active ? 0 : -1;
-        button.title = tab.preview ? `${tab.path} (read-only)` : tab.path;
+        const expansion =
+          tab.preview &&
+          preview?.path === tab.path &&
+          preview.kind === 'expansion'
+            ? preview
+            : undefined;
+        button.title = expansion
+          ? `${expansion.title ?? tab.path} (read-only)`
+          : tab.preview
+            ? `${tab.path} (read-only)`
+            : tab.path;
         // The visible spans run together in the computed name; spell it out.
         button.setAttribute(
           'aria-label',
@@ -286,7 +726,10 @@ export async function createSession(
         label.className = 'ide-filetab-name';
         label.textContent = name;
         button.append(
-          fileIcon(fileIconKind(tab.path), 'ide-filetab-icon'),
+          fileIcon(
+            fileIconKind(expansion ? 'expansion.jai' : tab.path),
+            'ide-filetab-icon'
+          ),
           label
         );
         if (folder) {
@@ -334,21 +777,23 @@ export async function createSession(
   }
   function activateTab(tab: OpenTab) {
     if (tab === tabs.active) return;
+    closePicker();
     saveState();
     tabs.activate(tab);
     show();
   }
   function closeTab(tab: OpenTab) {
     const hadFocus = tabStrip?.contains(document.activeElement) ?? false;
+    closePicker();
     if (tab !== tabs.active) {
       tabs.close(tab);
-      if (tab.preview) preview = undefined;
+      if (tab.preview) closePreview();
       forgetClosedScrolls();
       renderTabs();
     } else {
       saveState();
       tabs.close(tab);
-      if (tab.preview) preview = undefined;
+      if (tab.preview) closePreview();
       show();
     }
     if (hadFocus) focusActiveTab();
@@ -881,6 +1326,7 @@ export async function createSession(
           const path = pathFromUri(params.uri);
           const selected = workspace.selected;
           if (
+            path !== undefined &&
             selected &&
             path === selected.path.name &&
             params.version === selected.version
@@ -898,6 +1344,9 @@ export async function createSession(
     const initialized = await client.initialize();
     languageCapabilities = initialized?.capabilities;
     client.sync(workspace.documents);
+    // Decorations (tokens, hints, links, ...) start once the server is up.
+    if (!signal.aborted)
+      editor.view.dispatch({ effects: refreshLanguage.of(null) });
   }
   await driverLoaded;
   if (signal.aborted) throw abortError();
