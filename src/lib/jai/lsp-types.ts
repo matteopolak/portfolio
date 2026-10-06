@@ -45,6 +45,7 @@ export interface Hover {
 export interface Diagnostic {
   range: Range;
   severity?: number;
+  code?: string | number;
   message: unknown;
   source?: string;
 }
@@ -68,13 +69,119 @@ export interface TextDocumentEdit {
 
 export interface WorkspaceEdit {
   documentChanges?: TextDocumentEdit[];
-  changes?: unknown;
+  /** Unversioned edits by URI; checked against an unchanged workspace instead. */
+  changes?: Record<string, TextEdit[]>;
   changeAnnotations?: unknown;
 }
 
+export interface Command {
+  title: string;
+  command: string;
+  arguments?: unknown[];
+}
+
+export interface CodeAction {
+  title: string;
+  kind?: string;
+  edit?: WorkspaceEdit;
+  command?: Command;
+}
+
+export interface CodeLens {
+  range: Range;
+  command?: Command;
+}
+
+export interface InlayHintLabelPart {
+  value: string;
+  tooltip?: MarkupText;
+}
+
+export interface InlayHint {
+  position: Position;
+  label: string | InlayHintLabelPart[];
+  /** 1 type, 2 parameter. */
+  kind?: number;
+  paddingLeft?: boolean;
+  paddingRight?: boolean;
+  tooltip?: MarkupText;
+}
+
+export interface SignatureInformation {
+  label: string;
+  documentation?: MarkupText;
+  parameters?: { label: string | [number, number] }[];
+  activeParameter?: number;
+}
+
+export interface SignatureHelp {
+  signatures: SignatureInformation[];
+  activeSignature?: number;
+  activeParameter?: number;
+}
+
+export interface DocumentLink {
+  range: Range;
+  target?: string;
+}
+
+export interface DocumentHighlight {
+  range: Range;
+  kind?: number;
+}
+
+export interface FoldingRange {
+  startLine: number;
+  endLine: number;
+  startCharacter?: number;
+  endCharacter?: number;
+  kind?: string;
+}
+
+export interface SymbolInformation {
+  name: string;
+  kind: number;
+  location: Location;
+  containerName?: string;
+}
+
+export interface SemanticTokensLegend {
+  tokenTypes: string[];
+  tokenModifiers: string[];
+}
+
+/** The `jai/expansion` result (also `jai.showExpansion`). */
+export interface Expansion {
+  uri: string;
+  kind?: string;
+  text: string;
+  source?: Location;
+}
+
+/** Providers are `true`, an options object, or absent; anything else is treated as present. */
 export interface ServerCapabilities {
+  hoverProvider?: unknown;
   definitionProvider?: unknown;
+  typeDefinitionProvider?: unknown;
+  referencesProvider?: unknown;
   renameProvider?: unknown;
+  documentHighlightProvider?: unknown;
+  workspaceSymbolProvider?: unknown;
+  foldingRangeProvider?: unknown;
+  documentLinkProvider?: unknown;
+  inlayHintProvider?: unknown;
+  signatureHelpProvider?: {
+    triggerCharacters?: string[];
+    retriggerCharacters?: string[];
+  };
+  codeActionProvider?: unknown;
+  codeLensProvider?: unknown;
+  executeCommandProvider?: { commands?: string[] };
+  semanticTokensProvider?: {
+    legend?: SemanticTokensLegend;
+    full?: unknown;
+  };
+  experimental?: { jai?: { expansions?: boolean } };
 }
 
 export interface InitializeResult {
@@ -87,7 +194,7 @@ export interface JsonRpcMessage {
   method?: string;
   params?: unknown;
   result?: unknown;
-  error?: { message: string };
+  error?: { code?: number; message: string };
 }
 
 /** Messages exchanged with the compiler worker. */

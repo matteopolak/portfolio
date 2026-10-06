@@ -1,4 +1,4 @@
-import { EditorState, Compartment } from '@codemirror/state';
+import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { vim } from '@replit/codemirror-vim';
 import {
   EditorView,
@@ -11,6 +11,7 @@ import {
   crosshairCursor,
   highlightActiveLine,
   hoverTooltip,
+  closeHoverTooltips,
   type Tooltip,
 } from '@codemirror/view';
 import {
@@ -58,11 +59,15 @@ import {
 import { formatStringAt } from './jai/format-string.ts';
 import { tomlLanguage } from './toml-language.ts';
 import {
-  documentUri,
   positionAt,
   offsetAt,
   type LanguageClient,
 } from './jai/language-client.ts';
+import {
+  foldingChanged,
+  linkAt as documentLinkAt,
+  type LanguageDocument,
+} from './jai/lsp-extensions.ts';
 import type {
   CompletionItem,
   CompletionList,
@@ -293,6 +298,202 @@ const theme = EditorView.theme(
       textIndent: '-2ch',
       borderTop: '1px solid var(--ide-rule)',
     },
+    // Semantic tokens refine the tokenizer's colours; `span` covers either nesting.
+    '.cm-sem-type, .cm-sem-type span': { color: 'var(--ide-syntax-type)' },
+    '.cm-sem-namespace, .cm-sem-namespace span': {
+      color: 'color-mix(in oklch, var(--ide-syntax-type) 70%, var(--ide-fg))',
+    },
+    '.cm-sem-type-parameter, .cm-sem-type-parameter span': {
+      color: 'var(--ide-syntax-type)',
+      fontStyle: 'italic',
+    },
+    '.cm-sem-function, .cm-sem-function span': {
+      color: 'var(--ide-syntax-function)',
+    },
+    '.cm-sem-expand, .cm-sem-expand span, .cm-sem-macro, .cm-sem-macro span, .cm-sem-decorator, .cm-sem-decorator span':
+      { color: 'var(--ide-syntax-directive)' },
+    '.cm-sem-expand, .cm-sem-expand span': { fontStyle: 'italic' },
+    '.cm-sem-enum-member, .cm-sem-enum-member span, .cm-sem-constant, .cm-sem-constant span':
+      { color: 'var(--ide-syntax-number)' },
+    '.cm-sem-format, .cm-sem-format span': {
+      color: 'var(--ide-syntax-format)',
+      fontWeight: '650',
+    },
+    '.cm-inlay-hint': {
+      padding: '0 3px',
+      borderRadius: '3px',
+      color: 'var(--ide-faint)',
+      backgroundColor: 'oklch(100% 0 0 / 0.04)',
+      fontSize: '0.86em',
+      fontStyle: 'normal',
+      fontWeight: '400',
+      verticalAlign: '0.04em',
+      userSelect: 'none',
+      pointerEvents: 'auto',
+    },
+    '.cm-inlay-hint[data-pad-left]': { marginLeft: '0.5ch' },
+    '.cm-inlay-hint[data-pad-right]': { marginRight: '0.5ch' },
+    '.cm-lsp-highlight': { backgroundColor: 'var(--ide-selection-match)' },
+    '.cm-lsp-highlight--write': {
+      boxShadow: 'inset 0 -1px var(--ide-muted)',
+    },
+    '.cm-lsp-link, .cm-lsp-link span': {
+      textDecoration: 'underline',
+      textUnderlineOffset: '3px',
+      cursor: 'pointer',
+    },
+    '.cm-lsp-lens': {
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+      lineHeight: '1.5',
+      padding: '2px 0 0',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    },
+    '.cm-lsp-lens__button': {
+      padding: '0',
+      color: 'var(--ide-faint)',
+      background: 'none',
+      border: 'none',
+      font: 'inherit',
+      cursor: 'pointer',
+    },
+    '.cm-lsp-lens__button:hover, .cm-lsp-lens__button:focus-visible': {
+      color: 'var(--ide-muted)',
+      textDecoration: 'underline',
+    },
+    '.cm-lsp-bulb': {
+      display: 'inline-flex',
+      verticalAlign: '-0.15em',
+      marginLeft: '1.5ch',
+      padding: '1px',
+      width: '1.2em',
+      height: '1.2em',
+      color: 'var(--yellow)',
+      background: 'none',
+      border: 'none',
+      borderRadius: '3px',
+      cursor: 'pointer',
+      opacity: '0.8',
+    },
+    '.cm-lsp-bulb:hover': { opacity: '1', backgroundColor: 'var(--ide-hover)' },
+    '.cm-lsp-bulb svg': {
+      width: '100%',
+      height: '100%',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: '1.3',
+      strokeLinecap: 'round',
+    },
+    '.cm-lsp-signature': {
+      padding: '5px 10px',
+      maxWidth: 'min(36rem, calc(100vw - 32px))',
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12.5px',
+      color: 'var(--ide-muted)',
+      whiteSpace: 'pre-wrap',
+    },
+    '.cm-lsp-signature__active': {
+      color: 'var(--ide-fg-strong)',
+      fontWeight: '650',
+      textDecoration: 'underline',
+      textUnderlineOffset: '3px',
+      textDecorationColor: 'var(--yellow)',
+    },
+    '.cm-lsp-signature__count': {
+      marginRight: '1ch',
+      color: 'var(--ide-faint)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+    },
+    '.jai-picker': {
+      position: 'absolute',
+      zIndex: '12',
+      display: 'flex',
+      flexDirection: 'column',
+      width: 'min(30rem, calc(100% - 16px))',
+      maxHeight: 'min(20rem, 70%)',
+      overflow: 'hidden',
+      color: 'var(--ide-fg)',
+      backgroundColor: 'var(--ide-raised)',
+      border: '1px solid var(--ide-rule)',
+      borderRadius: '6px',
+      boxShadow: '0 10px 30px oklch(0% 0 0 / 0.45)',
+      outline: 'none',
+    },
+    '.jai-picker[data-centered]': {
+      top: '10px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+    },
+    '.jai-picker__title': {
+      padding: '6px 10px',
+      color: 'var(--ide-muted)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+      borderBottom: '1px solid var(--ide-rule)',
+    },
+    '.jai-picker__input': {
+      margin: '6px',
+      padding: '5px 8px',
+      color: 'var(--ide-fg-strong)',
+      backgroundColor: 'var(--ide-sunken)',
+      border: '1px solid var(--ide-rule)',
+      borderRadius: '4px',
+      outline: 'none',
+      font: '13px var(--ide-mono)',
+    },
+    '.jai-picker__input:focus': { borderColor: 'var(--blue)' },
+    '.jai-picker__list': {
+      margin: '0',
+      padding: '3px 0',
+      overflowY: 'auto',
+      listStyle: 'none',
+    },
+    '.jai-picker__item': {
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)',
+      columnGap: '1.5ch',
+      alignItems: 'baseline',
+      padding: '4px 10px',
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12.5px',
+      cursor: 'pointer',
+    },
+    '.jai-picker__item[data-static]': { cursor: 'default' },
+    '.jai-picker__item[aria-selected="true"]': {
+      color: 'var(--ide-fg-strong)',
+      backgroundColor: 'var(--ide-selection)',
+    },
+    '.jai-picker__label': {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    '.jai-picker__detail': {
+      color: 'var(--ide-muted)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      textAlign: 'right',
+    },
+    '.jai-picker__preview': {
+      gridColumn: '1 / -1',
+      color: 'var(--ide-muted)',
+      font: '12px var(--ide-mono)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'pre',
+    },
+    '.jai-picker__empty': {
+      padding: '6px 10px',
+      color: 'var(--ide-faint)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '12px',
+    },
     '.cm-vim-panel': {
       padding: '2px 10px',
       minHeight: '1.5em',
@@ -404,23 +605,28 @@ const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
   return path.endsWith('.toml') ? tomlLanguage : [];
 };
 
-export interface EditorDocument {
-  path: string;
-  text: string;
-  version: number;
-}
-
 export interface EditorOptions {
   text: string;
   onChange: (text: string) => void;
   onCursor?: (line: number, column: number) => void;
-  currentDocument?: () => EditorDocument;
+  /** The language document shown (a workspace file or a read-only preview). */
+  currentDocument?: () => LanguageDocument | undefined;
   service?: () => LanguageClient | undefined;
   language?: EditorLanguage;
   onDefinition?: (offset: number) => Promise<void>;
   onRename?: (offset: number, name: string) => Promise<void>;
+  /** With prepareRename: the range that will be renamed, or undefined (with a message shown). */
+  onPrepareRename?: (
+    offset: number
+  ) => Promise<{ from: number; to: number } | undefined>;
   canDefine?: () => boolean;
   canRename?: () => boolean;
+  /** Extra keys (references, code actions, symbol search), before the defaults. */
+  keys?: { key: string; run: (view: EditorView) => boolean }[];
+  /** Language-server decorations, included in every state. */
+  extensions?: Extension;
+  /** When true the server explains format strings; the client-side hover stays off. */
+  serverFormatHover?: () => boolean;
 }
 
 export type Editor = ReturnType<typeof createEditor>;
@@ -460,6 +666,8 @@ function hoverContent(
   text: string,
   language: StreamLanguage<unknown>
 ): HTMLElement {
+  const format = serverFormatHover(text);
+  if (format) return format;
   const dom = document.createElement('div');
   dom.className = 'jai-hover';
   const lines = text.split('\n');
@@ -478,6 +686,45 @@ function hoverContent(
     const row = document.createElement('div');
     row.className = 'jai-hover__overload';
     row.append(...highlightedHover(line, language));
+    dom.append(row);
+  }
+  return dom;
+}
+
+/**
+ * The server's format-string hover is plain text: the literal, then one row
+ * per `%` (`▸` marks the hovered one):
+ *
+ *     "% and %2\n"
+ *       %  → total: s64
+ *     ▸ %2 → s: s64
+ *
+ * It gets the same layout as the client-side fallback below.
+ */
+const formatRow = /^([▸ ]) (\S+?)\s*→\s?(.*)$/u;
+function serverFormatHover(text: string): HTMLElement | undefined {
+  const [literal, ...rows] = text.split('\n');
+  if (!literal.startsWith('"') || !rows.length) return undefined;
+  const parsed = rows.map((row) => formatRow.exec(row));
+  if (parsed.some((row) => !row)) return undefined;
+  const dom = document.createElement('div');
+  dom.className = 'jai-hover jai-hover--overloads jai-hover--format';
+  const head = document.createElement('div');
+  head.className = 'jai-hover__format-head';
+  head.append(highlighted(`print(${literal})`, jaiLanguage, 6, literal.length));
+  dom.append(head);
+  for (const match of parsed as RegExpExecArray[]) {
+    const [, marker, spec, rest] = match;
+    const row = document.createElement('div');
+    row.className = 'jai-hover__overload jai-hover__format-row';
+    if (marker === '▸') row.dataset.current = 'true';
+    const mark = document.createElement('span');
+    mark.className = 'jai-hover__format-spec';
+    mark.textContent = spec;
+    const code = document.createElement('code');
+    code.className = 'jai-hover__format-argument';
+    code.append(highlighted(rest, jaiLanguage));
+    row.append(mark, ' → ', code);
     dom.append(row);
   }
   return dom;
@@ -598,13 +845,17 @@ export function createEditor(
     text,
     onChange,
     onCursor = () => {},
-    currentDocument = () => ({ path: 'main', text: '', version: 0 }),
+    currentDocument = () => undefined,
     service = () => undefined,
     language = 'jai',
     onDefinition,
     onRename,
+    onPrepareRename,
     canDefine = () => true,
     canRename = () => true,
+    keys = [],
+    extensions = [],
+    serverFormatHover = () => false,
   }: EditorOptions
 ) {
   const editable = new Compartment();
@@ -617,7 +868,9 @@ export function createEditor(
   const linkAt = (view: EditorView, event: MouseEvent) => {
     if (!modifier(event) || !onDefinition || !canDefine()) return undefined;
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-    return view.state.wordAt(pos) ? pos : undefined;
+    return view.state.wordAt(pos) || documentLinkAt(view.state, pos)
+      ? pos
+      : undefined;
   };
   const showLink = (view: EditorView, on: boolean) =>
     view.contentDOM.classList.toggle('cm-definition-link', on);
@@ -651,15 +904,33 @@ export function createEditor(
   }
   function renameAtCursor(view: EditorView) {
     if (!onRename || !canRename()) return false;
-    const rename = onRename;
     closeRename();
     const offset = view.state.selection.main.head;
-    const word = view.state.wordAt(offset);
+    if (!onPrepareRename) {
+      const word = view.state.wordAt(offset);
+      openRename(
+        view,
+        offset,
+        word ? view.state.sliceDoc(word.from, word.to) : ''
+      );
+      return true;
+    }
+    const doc = view.state.doc;
+    void onPrepareRename(offset).then((range) => {
+      // The text moved on, or the name can't be renamed (the caller says why).
+      if (!range || view.state.doc !== doc) return;
+      openRename(view, offset, doc.sliceString(range.from, range.to));
+    });
+    return true;
+  }
+  function openRename(view: EditorView, offset: number, value: string) {
+    if (!onRename) return;
+    const rename = onRename;
     const input = document.createElement('input');
     renameInput = input;
     input.className = 'cm-rename-input';
     input.setAttribute('aria-label', 'Rename symbol');
-    input.value = word ? view.state.doc.sliceString(word.from, word.to) : '';
+    input.value = value;
     view.dom.append(input);
     input.focus();
     input.select();
@@ -685,15 +956,14 @@ export function createEditor(
     input.addEventListener('blur', () => {
       if (!input.disabled) closeRename();
     });
-    return true;
   }
 
   const completions = async (
     context: CompletionContext
   ): Promise<CompletionResult | null> => {
-    const client = service();
-    if (!client) return null;
     const current = currentDocument();
+    const client = current && !current.readonly ? service() : undefined;
+    if (!current || !client) return null;
     const version = current.version;
     const controller = new AbortController();
     context.addEventListener('abort', () => controller.abort(), {
@@ -707,14 +977,14 @@ export function createEditor(
       >(
         'textDocument/completion',
         {
-          textDocument: { uri: documentUri(current.path) },
+          textDocument: { uri: current.uri },
           position: positionAt(context.state.doc.toString(), context.pos),
         },
         controller.signal
       );
       if (
-        currentDocument().path !== current.path ||
-        currentDocument().version !== version
+        currentDocument()?.uri !== current.uri ||
+        currentDocument()?.version !== version
       )
         return null;
       const items = Array.isArray(response)
@@ -739,33 +1009,34 @@ export function createEditor(
   const hover = hoverTooltip(async (view, position, side) => {
     // The client-side format-string hover is the fallback: a hover from the
     // language server for the same position replaces it, so only one shows.
+    // Newer servers explain format strings themselves (with argument types).
     const local =
-      language === 'jai' ? formatStringHover(view, position, side) : null;
-    const client = service();
-    if (!client) return local;
+      language === 'jai' && !serverFormatHover()
+        ? formatStringHover(view, position, side)
+        : null;
     const current = currentDocument();
+    const client = current ? service() : undefined;
+    if (!current || !client) return local;
     const version = current.version;
+    const text = view.state.doc.toString();
     try {
       const result = await client.request<Hover | null>('textDocument/hover', {
-        textDocument: { uri: documentUri(current.path) },
-        position: positionAt(view.state.doc.toString(), position),
+        textDocument: { uri: current.uri },
+        position: positionAt(text, position),
       });
       if (
-        currentDocument().path !== current.path ||
-        currentDocument().version !== version
+        currentDocument()?.uri !== current.uri ||
+        currentDocument()?.version !== version ||
+        view.state.doc.toString() !== text
       )
         return null;
-      const text = result ? textContent(result.contents) : '';
-      if (!result || !text) return local;
+      const contents = result ? textContent(result.contents) : '';
+      if (!result || !contents) return local;
       return {
-        pos: result.range
-          ? offsetAt(current.text, result.range.start)
-          : position,
-        end: result.range
-          ? offsetAt(current.text, result.range.end)
-          : undefined,
+        pos: result.range ? offsetAt(text, result.range.start) : position,
+        end: result.range ? offsetAt(text, result.range.end) : undefined,
         create() {
-          return { dom: hoverContent(text, languageFor(language)) };
+          return { dom: hoverContent(contents, languageFor(language)) };
         },
       };
     } catch {
@@ -795,6 +1066,7 @@ export function createEditor(
         bracketMatching(),
         closeBrackets(),
         foldGutter({
+          foldingChanged,
           markerDOM: (open) => {
             const marker = document.createElement('span');
             marker.className = open
@@ -811,8 +1083,11 @@ export function createEditor(
         autocompletion({ override: [completions], icons: false }),
         hover,
         editable.of(EditorView.editable.of(true)),
+        // Before definitionClick, so a Cmd/Ctrl-click on a link follows it.
+        extensions,
         definitionClick,
         keymap.of([
+          ...keys,
           {
             key: 'F12',
             run: (view) => {
@@ -867,8 +1142,14 @@ export function createEditor(
     createState: state,
     setState: (value: EditorState) => {
       view.setState(value);
-      // States made for other files may predate a Vim toggle.
-      view.dispatch({ effects: vimMode.reconfigure(vimExtension(vimEnabled)) });
+      // States made for other files may predate a Vim toggle, and a saved
+      // state may still hold the hover that was open when it was left.
+      view.dispatch({
+        effects: [
+          vimMode.reconfigure(vimExtension(vimEnabled)),
+          closeHoverTooltips,
+        ],
+      });
       const cursor = view.state.selection.main.head;
       const line = view.state.doc.lineAt(cursor);
       onCursor(line.number, cursor - line.from + 1);
@@ -887,7 +1168,8 @@ export function createEditor(
                   ? 'info'
                   : 'error',
             message: String(value.message),
-            source: value.source,
+            // `jai-format`, `jai-parser`, ... say which check reported it.
+            source: typeof value.code === 'string' ? value.code : value.source,
           });
         } catch {
           /* Invalid server ranges never become guessed editor positions. */
