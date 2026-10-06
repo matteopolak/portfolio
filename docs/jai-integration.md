@@ -28,8 +28,19 @@ fresh. Astro navigation also disposes the session. Run uses a fixed
 hanging; Stop also terminates the execution worker. The `jai_play_*` bridge returns
 program stdout/stderr in write order, rendered diagnostics, and `main`'s exit code;
 the output pane shows writes (stderr tinted), then diagnostics or `Exit code: N`.
-The session opens with a two-file starter (`main.jai` loading `lib/math.jai` and
-printing through `Basic`) and runs it once when ready.
+The session opens with the compiler's language tour and runs it once when ready.
+`loadStarter` (`src/lib/jai/starter.ts`) fetches `/jai/<full-commit>/tour.json`
+(`{ schema_version: 1, main: "main.jai", files: [...] }`), then every listed file from
+`/jai/<full-commit>/tour/`, and adds the default `jaifmt.toml`. The tour is a
+multi-folder workspace (`basics/`, `types/`, `data/`, `memory/`, `generics/`, `meta/`,
+`finale/`, about 14 files) written and tested in the compiler repo (`examples/tour`,
+its `docs/browser/tour.md`). `main.jai` and `tour.md` open in tabs, `main.jai` active;
+a `/playground/jai#meta/macros.jai` link opens and activates that file as well.
+The index is validated (schema, `main.jai`, at most 64 plain relative paths, 1 MiB
+in total). A release without `tour.json` (every release before the tour shipped),
+or any fetch or validation failure, falls back to the built-in two-file starter
+(`main.jai` loading `lib/math.jai`); only an abort propagates. Tests:
+`tests/jai/starter.test.ts`.
 
 ### Producer contract
 
@@ -130,8 +141,10 @@ unavailable-playground message until its first verified release exists.
 Run `pnpm sync:web-assets` to stage the pinned release. To try an unreleased compiler,
 build it with `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
 repo and run `JAI_WEB_LOCAL=<dir> node scripts/sync-jai-web.ts`: it copies that build's
-`jai_wasm.wasm` and `jaifmt-playground.jai` into `public/jai/<pinned revision>/` without
-verification (public/jai is ignored). `pnpm dev`'s `predev` re-syncs the pinned release, so start
+`jai_wasm.wasm`, `jaifmt-playground.jai` and, when present, `tour.json` with the `tour/`
+files it lists into `public/jai/<pinned revision>/` without verification (public/jai is
+ignored). `JAI_WASM_DIR=<dir> pnpm test:jai` also runs that build's tour and checks it is
+already formatted under the default `jaifmt.toml`. `pnpm dev`'s `predev` re-syncs the pinned release, so start
 the server with `pnpm exec astro dev` afterwards; the next normal sync restores the release. `sync-jai-web.ts` validates
 the pointer and release digests; `verify-jai-bundle.py` validates the exact archive
 inventory, paths, regular-file modes, sizes, digests and Wasm header before writing

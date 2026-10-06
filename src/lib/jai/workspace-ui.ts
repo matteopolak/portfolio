@@ -8,7 +8,7 @@ import { createEditor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
 import { showPane } from '../code-workspace-layout.ts';
 import { Workspace } from './workspace.ts';
-import { starterFiles } from './starter.ts';
+import { loadStarter } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
 import { LanguageClient, pathFromUri } from './language-client.ts';
 import { definitionTarget, renameSymbol } from './language-actions.ts';
@@ -59,7 +59,10 @@ export async function createSession(
     tabStrip = panel.querySelector<HTMLElement>('[data-code-tabs]'),
     empty = panel.querySelector<HTMLElement>('[data-code-empty]'),
     editorHost = find('editor');
-  const workspace = new Workspace(starterFiles);
+  // The compiler release's tour (or the built-in starter for older releases).
+  const starter = await loadStarter(revision, signal);
+  if (signal.aborted) throw abortError();
+  const workspace = new Workspace(starter.files);
   const states = new Map<string, EditorState>();
   // Open-file tabs; `preview` holds the read-only file in the preview tab.
   const tabs = new OpenTabs();
@@ -860,9 +863,12 @@ export async function createSession(
   }
   // A playground deep link (`/playground/jai#lib/math.jai`) opens that file.
   const requested = panel.dataset.codeOpen;
-  const initial = workspace.selected?.path.name;
-  if (initial) tabs.open(initial);
-  if (requested && workspace.names.includes(requested)) tabs.open(requested);
+  const names = new Set(workspace.names);
+  const opening = starter.open.filter((path) => names.has(path));
+  for (const path of opening) tabs.open(path);
+  // The first starter tab (main.jai) is active unless a link asks for another file.
+  if (requested && names.has(requested)) tabs.open(requested);
+  else if (opening[0]) tabs.open(opening[0]);
   show();
   const driverLoaded = loadDriver();
   const runtime = await initializeWorker();

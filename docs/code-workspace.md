@@ -55,7 +55,7 @@ Both run the starter once as soon as the runtime is ready, then auto-run 600 ms 
 
 The Jai workspace keeps a strip of tabs for open files above the editor. The model is `OpenTabs` in `src/lib/jai/open-tabs.ts` (no DOM, unit-tested in `tests/jai/open-tabs.test.ts`); `workspace-ui.ts` renders it (`renderTabs`) and shows the active tab (`show`).
 
-- **Opening.** Choosing a file in the tree, creating one, or going to a definition in another workspace file opens its tab after the active one, or focuses it if it is already open. The session starts with the starter's `main.jai` (plus a deep-linked file, if any).
+- **Opening.** Choosing a file in the tree, creating one, or going to a definition in another workspace file opens its tab after the active one, or focuses it if it is already open. The session starts with the starter's tabs (`main.jai`, plus `tour.md` when the release ships the language tour; see [jai](jai-integration.md)) and a deep-linked file, if any.
 - **Closing.** Each tab has a × button; middle-click and Delete (on a focused tab) also close it. Closing the active tab activates its right neighbour, else its left. Closing the last tab hides the editor and shows an empty state (`data-code-empty`).
 - **Preview tab.** A module or stdlib file reached by go to definition opens in the single preview tab: italic, with a lock icon after the name (`.ide-filetab-readonly`; the tab's `aria-label` and `title` say "read-only"). The next stdlib definition replaces it in place. Its text and editor state live in `preview` in `workspace-ui.ts`, not in the workspace.
 - **Tree changes.** `changed(moves)` from the file tree renames tabs through `OpenTabs.move` and closes the tabs of deleted files with `OpenTabs.retain`.

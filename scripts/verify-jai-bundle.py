@@ -10,8 +10,8 @@ from pathlib import Path, PurePosixPath
 
 def verify(directory, revision):
     manifest = json.loads((directory / "jai-playground.manifest.json").read_text())
-    # Schema 1 bundles carried the compiler repo's own playground page; schema 2 ships only the
-    # wasm, its engine and the jaifmt driver, which is all this site uses.
+    # Schema 1 bundles carried the compiler repo's own playground page; schema 2 ships the wasm, its
+    # engine, the jaifmt driver and (newer releases) the tour: tour.json plus nested tour/ sources.
     schema = manifest.get("schema_version")
     if (schema not in (1, 2) or manifest.get("commit") != revision
             or manifest.get("dirty_checkout") is not False
