@@ -1,9 +1,9 @@
 /*
- * Rendered preview for `.md` files in the code workspace. It lives inside the
- * editor host next to CodeMirror's `.cm-editor`, and a small view switch sits
- * at the right end of the open-file tab strip. Rendering is in
- * `markdown-render.ts`; this module owns the DOM, the view choice, scroll
- * sync and link clicks.
+ * Rendered preview for `.md` files in the code workspace: the view of a
+ * Markdown preview tab, or (on phones) a source tab toggled to Preview. It
+ * lives inside an editor group's host next to CodeMirror's `.cm-editor`.
+ * Rendering is in `markdown-render.ts`; this module owns the DOM, scroll sync
+ * and link clicks. `jai/workspace-ui.ts` decides what each group shows.
  */
 import DOMPurify from 'dompurify';
 import type { EditorView } from '@codemirror/view';
@@ -14,19 +14,10 @@ import { tomlLanguage } from './toml-language.ts';
 import {
   escapeHtml,
   isMarkdownPath,
-  markdownView,
-  parseViewChoice,
   renderMarkdown,
-  SPLIT_MIN_WIDTH,
-  type MarkdownView,
-  type MarkdownViewChoice,
 } from './markdown-render.ts';
 import './markdown-preview.css';
 
-const STORAGE_KEY = 'code-editor-markdown-view';
-const SPLIT_KEY = 'code-editor-markdown-split';
-/** Narrowest either side of the split may get, in pixels. */
-const SPLIT_MIN_PANE = 180;
 /** Re-render delay after an edit; typing stays smooth on long files. */
 const RENDER_DELAY = 150;
 
@@ -64,163 +55,44 @@ function highlight(code: string, language: string) {
   return html + escapeHtml(code.slice(at));
 }
 
-function loadChoice(): MarkdownViewChoice {
-  try {
-    return parseViewChoice(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return {};
-  }
-}
-
-/** The source side's share of the split (0.5 when unset or unreadable). */
-function loadSplit() {
-  try {
-    const value = Number(localStorage.getItem(SPLIT_KEY));
-    return value > 0 && value < 1 ? value : 0.5;
-  } catch {
-    return 0.5;
-  }
-}
-
-function saveSplit(value: number) {
-  try {
-    localStorage.setItem(SPLIT_KEY, String(value));
-  } catch {
-    /* Without storage the width lasts for this page. */
-  }
-}
-
-function saveChoice(choice: MarkdownViewChoice) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(choice));
-  } catch {
-    /* Without storage the choice lasts for this page. */
-  }
-}
-
-const icons: Record<MarkdownView, string> = {
-  source: '<path d="m6 5.5-3.5 4.5L6 14.5M14 5.5l3.5 4.5-3.5 4.5"></path>',
-  split: '<path d="M3 4h14v12H3zM10 4v12"></path>',
-  preview:
-    '<path d="M1.75 10S4.75 4.5 10 4.5 18.25 10 18.25 10 15.25 15.5 10 15.5 1.75 10 1.75 10Z"></path><circle cx="10" cy="10" r="2.5"></circle>',
-};
-const labels: Record<MarkdownView, string> = {
-  source: 'Source',
-  split: 'Split',
-  preview: 'Preview',
-};
-
 export interface MarkdownPreviewOptions {
   /** The workspace's file names, for links between files. */
   files: () => Iterable<string>;
-  /** Opens a workspace file in the editor (a link was followed). */
-  open: (path: string) => void;
+  /** The current text of a workspace file. */
+  text: (path: string) => string | undefined;
+  /** Follows a link to another workspace file, and a heading in it if given. */
+  open: (path: string, anchor?: string) => void;
 }
 
+/**
+ * The rendered view of one `.md` file inside an editor group's host, next to
+ * CodeMirror's `.cm-editor` (which `data-markdown-view` hides). `link` pairs
+ * it with an editor showing the same file elsewhere, for scroll sync.
+ */
 export function createMarkdownPreview(
-  panel: HTMLElement,
-  view: EditorView,
-  { files, open }: MarkdownPreviewOptions,
+  host: HTMLElement,
+  { files, text, open }: MarkdownPreviewOptions,
   signal: AbortSignal
 ) {
-  const host = panel.querySelector<HTMLElement>('[data-code-editor]')!;
-  const main = panel.querySelector<HTMLElement>('[data-code-main]')!;
   const preview = document.createElement('article');
   preview.className = 'md-preview';
   preview.dataset.codeMarkdown = '';
   preview.tabIndex = 0;
   preview.setAttribute('aria-label', 'Markdown preview');
   preview.hidden = true;
-  // Split view: dragging the rule between source and preview sizes both.
-  const divider = document.createElement('div');
-  divider.className = 'md-divider';
-  divider.setAttribute('role', 'separator');
-  divider.setAttribute('aria-label', 'Resize source and preview');
-  divider.setAttribute('aria-orientation', 'vertical');
-  divider.setAttribute('aria-valuemin', '0');
-  divider.setAttribute('aria-valuemax', '100');
-  divider.title = 'Drag to resize (double-click to reset)';
-  divider.tabIndex = 0;
-  divider.hidden = true;
-  host.append(divider, preview);
+  host.append(preview);
 
-  const switcher = document.createElement('div');
-  switcher.className = 'md-switch';
-  switcher.dataset.codeMarkdownSwitch = '';
-  switcher.setAttribute('role', 'group');
-  switcher.setAttribute('aria-label', 'Markdown view');
-  switcher.hidden = true;
-  const buttons = (['source', 'split', 'preview'] as const).map((mode) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.mdView = mode;
-    button.title =
-      mode === 'split' ? 'Source and preview side by side' : labels[mode];
-    button.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true">${icons[mode]}</svg><span>${labels[mode]}</span>`;
-    button.addEventListener(
-      'click',
-      () => {
-        choose(mode);
-        if (mode === 'preview') preview.focus({ preventScroll: true });
-        else view.focus();
-      },
-      { signal }
-    );
-    return button;
-  });
-  switcher.append(...buttons);
-  main.append(switcher);
-
-  let choice = loadChoice();
   let path: string | undefined;
-  let current: MarkdownView | undefined;
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
-  let pendingAnchor: { path: string; anchor: string } | undefined;
-  let wide = main.clientWidth >= SPLIT_MIN_WIDTH;
-
-  function apply(mode: MarkdownView | undefined) {
-    current = mode;
-    if (mode) {
-      host.dataset.markdownView = mode;
-      panel.dataset.markdown = mode;
-      panel.dataset.markdownLayout = wide ? 'wide' : 'narrow';
-    } else {
-      delete host.dataset.markdownView;
-      delete panel.dataset.markdown;
-      delete panel.dataset.markdownLayout;
-    }
-    preview.hidden = !mode || mode === 'source';
-    divider.hidden = mode !== 'split';
-    switcher.hidden = !mode;
-    for (const button of buttons) {
-      const value = button.dataset.mdView as MarkdownView;
-      // Narrow layouts have no room for split; they toggle Source/Preview.
-      button.hidden = value === 'split' && !wide;
-      button.setAttribute('aria-pressed', String(value === mode));
-    }
-    fitSwitch();
-    if (mode === 'split') requestAnimationFrame(syncFromEditor);
-  }
-
-  // The tab strip gives way to the switch (`--md-switch-width`).
-  function fitSwitch() {
-    if (current && switcher.offsetWidth)
-      panel.style.setProperty('--md-switch-width', `${switcher.offsetWidth}px`);
-    else if (!current) panel.style.removeProperty('--md-switch-width');
-  }
-
-  function choose(mode: MarkdownView) {
-    if (wide) choice = { ...choice, wide: mode };
-    else if (mode !== 'split') choice = { ...choice, narrow: mode };
-    saveChoice(choice);
-    if (mode !== 'source') render();
-    apply(mode);
-  }
+  let pendingAnchor: string | undefined;
+  /** The editor showing the same file, scrolled in step with the preview. */
+  let view: EditorView | undefined;
+  let unlink: AbortController | undefined;
 
   function render() {
     clearTimeout(renderTimer);
     if (!path) return;
-    const html = renderMarkdown(view.state.doc.toString(), {
+    const html = renderMarkdown(text(path) ?? '', {
       path,
       files: files(),
       highlight,
@@ -238,34 +110,34 @@ export function createMarkdownPreview(
   }
   const emptyNote = '<p class="md-empty">Nothing to preview yet.</p>';
 
-  /** Called whenever the editor shows another file (or none). */
+  /** Shows the rendered `shown` file, or hands the host back to the editor. */
   function show(shown: string | undefined) {
     clearTimeout(renderTimer);
-    if (!isMarkdownPath(shown)) {
-      path = undefined;
-      apply(undefined);
+    const changed = shown !== path;
+    path = isMarkdownPath(shown) ? shown : undefined;
+    preview.hidden = !path;
+    if (!path) {
+      delete host.dataset.markdownView;
+      link(undefined);
       return;
     }
-    const changed = shown !== path;
-    path = shown;
+    host.dataset.markdownView = 'preview';
     render();
     if (changed) preview.scrollTop = 0;
-    wide = main.clientWidth >= SPLIT_MIN_WIDTH;
-    apply(markdownView(main.clientWidth, choice, view.state.doc.length === 0));
-    const pending = pendingAnchor;
+    const anchor = pendingAnchor;
     pendingAnchor = undefined;
-    if (pending && pending.path === shown) scrollToAnchor(pending.anchor);
+    if (anchor) scrollToAnchor(anchor);
   }
 
-  /** Called on every edit to the shown file. */
+  /** Called after any edit to the shown file. */
   function changed() {
-    if (!path || current === 'source') return;
+    if (!path) return;
     clearTimeout(renderTimer);
     renderTimer = setTimeout(() => {
       const top = preview.scrollTop;
       render();
       preview.scrollTop = top;
-      if (current === 'split') syncFromEditor();
+      syncFromEditor();
     }, RENDER_DELAY);
   }
 
@@ -288,79 +160,14 @@ export function createMarkdownPreview(
       event.preventDefault();
       const anchor = link.dataset.mdAnchor;
       const file = link.dataset.mdFile;
-      if (file && file !== path) {
-        if (anchor) pendingAnchor = { path: file, anchor };
-        open(file);
-      } else if (anchor) scrollToAnchor(anchor);
-    },
-    { signal }
-  );
-
-  let split = loadSplit();
-  function setSplit(value: number, save = true) {
-    const width = host.clientWidth;
-    const least = width > 0 ? Math.min(0.5, SPLIT_MIN_PANE / width) : 0.2;
-    split = Math.max(least, Math.min(1 - least, value));
-    host.style.setProperty('--md-source', `${split}fr`);
-    host.style.setProperty('--md-preview', `${1 - split}fr`);
-    divider.setAttribute('aria-valuenow', String(Math.round(split * 100)));
-    if (save) saveSplit(split);
-  }
-  setSplit(split, false);
-  let dragFrom: number | undefined;
-  let dragSplit = split;
-  divider.addEventListener(
-    'pointerdown',
-    (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      dragFrom = event.clientX;
-      dragSplit = split;
-      divider.setPointerCapture(event.pointerId);
-      panel.classList.add('resizing');
-      divider.classList.add('dragging');
-    },
-    { signal }
-  );
-  divider.addEventListener(
-    'pointermove',
-    (event) => {
-      if (dragFrom === undefined || !host.clientWidth) return;
-      setSplit(dragSplit + (event.clientX - dragFrom) / host.clientWidth);
-    },
-    { signal }
-  );
-  const endDrag = () => {
-    if (dragFrom === undefined) return;
-    dragFrom = undefined;
-    panel.classList.remove('resizing');
-    divider.classList.remove('dragging');
-    syncFromEditor();
-  };
-  divider.addEventListener('pointerup', endDrag, { signal });
-  divider.addEventListener('pointercancel', endDrag, { signal });
-  divider.addEventListener('lostpointercapture', endDrag, { signal });
-  divider.addEventListener(
-    'dblclick',
-    () => {
-      setSplit(0.5);
-      syncFromEditor();
-    },
-    { signal }
-  );
-  divider.addEventListener(
-    'keydown',
-    (event) => {
-      const step = { ArrowLeft: -0.02, ArrowRight: 0.02 }[event.key];
-      if (step === undefined) return;
-      event.preventDefault();
-      setSplit(split + step);
+      if (file && file !== path) open(file, anchor);
+      else if (anchor) scrollToAnchor(anchor);
     },
     { signal }
   );
 
   /*
-   * Scroll sync (split view only): each top-level block carries its first
+   * Scroll sync (while linked): each top-level block carries its first
    * source line, and positions between two blocks are interpolated. A
    * programmatic scroll on one side mutes that side's handler for a frame
    * so the two never chase each other.
@@ -375,19 +182,24 @@ export function createMarkdownPreview(
       })
     );
   // Document height inside the scroller above line 1 (CodeMirror's padding).
-  const editorOffset = () =>
-    view.documentTop -
-    view.scrollDOM.getBoundingClientRect().top +
-    view.scrollDOM.scrollTop;
+  const editorOffset = (editor: EditorView) =>
+    editor.documentTop -
+    editor.scrollDOM.getBoundingClientRect().top +
+    editor.scrollDOM.scrollTop;
   /** The (fractional, 1-based) source line at the top of the editor. */
-  function editorLine() {
-    const top = view.scrollDOM.scrollTop - editorOffset();
-    const block = view.lineBlockAtHeight(Math.max(0, top));
-    const line = view.state.doc.lineAt(block.from).number;
+  function editorLine(editor: EditorView) {
+    const top = editor.scrollDOM.scrollTop - editorOffset(editor);
+    const block = editor.lineBlockAtHeight(Math.max(0, top));
+    const line = editor.state.doc.lineAt(block.from).number;
     return line + Math.max(0, top - block.top) / Math.max(1, block.height);
   }
+  // Both sides must be on screen: a hidden one reports no size.
+  const syncing = (editor: EditorView | undefined): editor is EditorView =>
+    Boolean(
+      editor && path && preview.clientHeight && editor.scrollDOM.clientHeight
+    );
   function syncFromEditor() {
-    if (current !== 'split') return;
+    if (!syncing(view)) return;
     const scroller = view.scrollDOM;
     let top: number;
     if (scroller.scrollTop <= 0) top = 0;
@@ -397,7 +209,7 @@ export function createMarkdownPreview(
     )
       top = preview.scrollHeight;
     else {
-      const line = editorLine();
+      const line = editorLine(view);
       const points = anchors();
       const index = points.findLastIndex((point) => point.line <= line);
       if (index === -1) top = 0;
@@ -415,7 +227,8 @@ export function createMarkdownPreview(
     preview.scrollTop = top - 12;
   }
   function syncFromPreview() {
-    if (current !== 'split') return;
+    if (!syncing(view)) return;
+    const editor = view;
     const top = preview.scrollTop + 12;
     let line: number;
     if (preview.scrollTop <= 0) line = 1;
@@ -423,7 +236,7 @@ export function createMarkdownPreview(
       preview.scrollTop + preview.clientHeight >=
       preview.scrollHeight - 2
     )
-      line = view.state.doc.lines + 1;
+      line = editor.state.doc.lines + 1;
     else {
       const points = anchors();
       const index = points.findLastIndex((point) => point.top <= top);
@@ -431,7 +244,7 @@ export function createMarkdownPreview(
       else {
         const from = points[index];
         const to = points[index + 1] ?? {
-          line: view.state.doc.lines + 1,
+          line: editor.state.doc.lines + 1,
           top: preview.scrollHeight,
         };
         line =
@@ -440,22 +253,15 @@ export function createMarkdownPreview(
             Math.max(1, to.top - from.top);
       }
     }
-    const doc = view.state.doc;
+    const doc = editor.state.doc;
     const whole = Math.min(doc.lines, Math.max(1, Math.floor(line)));
-    const block = view.lineBlockAt(doc.line(whole).from);
+    const block = editor.lineBlockAt(doc.line(whole).from);
     muteEditor = performance.now() + 120;
-    view.scrollDOM.scrollTop =
+    editor.scrollDOM.scrollTop =
       line > doc.lines
-        ? view.scrollDOM.scrollHeight
-        : block.top + block.height * (line - whole) + editorOffset();
+        ? editor.scrollDOM.scrollHeight
+        : block.top + block.height * (line - whole) + editorOffset(editor);
   }
-  view.scrollDOM.addEventListener(
-    'scroll',
-    () => {
-      if (performance.now() >= muteEditor) syncFromEditor();
-    },
-    { signal, passive: true }
-  );
   preview.addEventListener(
     'scroll',
     () => {
@@ -464,34 +270,50 @@ export function createMarkdownPreview(
     { signal, passive: true }
   );
 
-  // Crossing the split breakpoint re-picks the view for that layout.
-  const resized = new ResizeObserver(() => {
-    fitSwitch();
-    const now = main.clientWidth >= SPLIT_MIN_WIDTH;
-    if (now === wide) return;
-    wide = now;
-    if (path)
-      apply(
-        markdownView(main.clientWidth, choice, view.state.doc.length === 0)
-      );
-  });
-  resized.observe(main);
-  resized.observe(switcher);
+  /** Pairs the preview with `editor` (showing the same file) for scroll sync, or unpairs it. */
+  function link(editor: EditorView | undefined) {
+    if (editor === view) return;
+    unlink?.abort();
+    unlink = undefined;
+    view = editor;
+    if (!editor) return;
+    unlink = new AbortController();
+    editor.scrollDOM.addEventListener(
+      'scroll',
+      () => {
+        if (performance.now() >= muteEditor) syncFromEditor();
+      },
+      { signal: unlink.signal, passive: true }
+    );
+    requestAnimationFrame(syncFromEditor);
+  }
 
   signal.addEventListener(
     'abort',
     () => {
       clearTimeout(renderTimer);
-      resized.disconnect();
-      apply(undefined);
+      unlink?.abort();
+      delete host.dataset.markdownView;
       preview.remove();
-      divider.remove();
-      host.style.removeProperty('--md-source');
-      host.style.removeProperty('--md-preview');
-      switcher.remove();
     },
     { once: true }
   );
 
-  return { show, changed };
+  return {
+    element: preview,
+    get path() {
+      return path;
+    },
+    show,
+    changed,
+    link,
+    /** Scrolls to a heading once the file is shown (a link with `#anchor`). */
+    reveal(anchor: string) {
+      if (path) scrollToAnchor(anchor);
+      else pendingAnchor = anchor;
+    },
+    focus: () => preview.focus({ preventScroll: true }),
+  };
 }
+
+export type MarkdownPreview = ReturnType<typeof createMarkdownPreview>;

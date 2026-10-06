@@ -35,7 +35,7 @@ The session opens with the compiler's language tour and runs it once when ready.
 `/jai/<full-commit>/tour/`, and adds the default `jaifmt.toml`. The tour is a
 multi-folder workspace (`basics/`, `types/`, `data/`, `memory/`, `generics/`, `meta/`,
 `finale/`, about 14 files) written and tested in the compiler repo (`examples/tour`,
-its `docs/browser/tour.md`). `main.jai` and `tour.md` open in tabs, `main.jai` active;
+its `docs/browser/tour.md`). `main.jai` and a preview of `tour.md` open in tabs, `main.jai` active (a saved layout reopens its own tabs instead);
 a `/playground/jai#meta/macros.jai` link opens and activates that file as well.
 The index is validated (schema, `main.jai`, at most 64 plain relative paths, 1 MiB
 in total). A release without `tour.json` (every release before the tour shipped),

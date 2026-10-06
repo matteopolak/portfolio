@@ -1,8 +1,20 @@
-/** One editor tab: a workspace file, or a read-only preview (a stdlib file). */
+/**
+ * One editor tab: a workspace file, a read-only preview (a stdlib file), or
+ * the rendered view of a workspace `.md` file (`markdown`).
+ */
 export interface OpenTab {
   readonly path: string;
   readonly preview: boolean;
+  readonly markdown?: boolean;
 }
+
+/** Two tabs that show the same thing (a group never holds both). */
+export const sameTab = (a: OpenTab, b: OpenTab) =>
+  a.path === b.path &&
+  a.preview === b.preview &&
+  Boolean(a.markdown) === Boolean(b.markdown);
+
+const isFile = (tab: OpenTab) => !tab.preview && !tab.markdown;
 
 /**
  * The open-file tabs of the Jai workspace, without any DOM. At most one
@@ -35,11 +47,46 @@ export class OpenTabs {
 
   /** Focuses the workspace file's tab, opening it after the active tab if needed. */
   open(path: string): OpenTab {
-    let tab = this.#tabs.find((item) => !item.preview && item.path === path);
+    let tab = this.#tabs.find((item) => isFile(item) && item.path === path);
     if (!tab) {
       tab = Object.freeze({ path, preview: false });
       this.#insert(tab);
     }
+    this.#focus(tab);
+    return tab;
+  }
+
+  /** Focuses the rendered view of the `.md` file `path`, opening it after the active tab if needed. */
+  openMarkdown(path: string): OpenTab {
+    let tab = this.#tabs.find((item) => item.markdown && item.path === path);
+    if (!tab) {
+      tab = Object.freeze({ path, preview: false, markdown: true });
+      this.#insert(tab);
+    }
+    this.#focus(tab);
+    return tab;
+  }
+
+  /**
+   * Puts `tab` (from another group, or this one to reorder it) at `index`
+   * (after the active tab by default) and focuses it. A tab already here
+   * that shows the same thing makes way; so does any other preview tab.
+   */
+  place(tab: OpenTab, index?: number): OpenTab {
+    const existing = this.#tabs.find(
+      (item) =>
+        item === tab || sameTab(item, tab) || (tab.preview && item.preview)
+    );
+    let at = index ?? -1;
+    if (existing) {
+      const from = this.#tabs.indexOf(existing);
+      this.#tabs.splice(from, 1);
+      this.#recent = this.#recent.filter((item) => item !== existing);
+      if (this.#active === existing) this.#active = undefined;
+      if (at > from) at--;
+    }
+    if (at < 0) this.#insert(tab);
+    else this.#tabs.splice(Math.min(at, this.#tabs.length), 0, tab);
     this.#focus(tab);
     return tab;
   }
@@ -72,17 +119,31 @@ export class OpenTabs {
     this.#tabs = this.#tabs.map((tab) => {
       const target = tab.preview ? undefined : moves.get(tab.path);
       if (target === undefined) return tab;
-      const moved = Object.freeze({ path: target, preview: false });
+      const moved: OpenTab = Object.freeze(
+        tab.markdown
+          ? { path: target, preview: false, markdown: true }
+          : { path: target, preview: false }
+      );
       if (this.#active === tab) this.#active = moved;
       this.#recent = this.#recent.map((item) => (item === tab ? moved : item));
       return moved;
     });
   }
 
-  /** Closes the file tabs whose paths are no longer in the workspace. */
+  /**
+   * Closes the file and Markdown tabs whose paths are no longer in the
+   * workspace, and Markdown tabs of files renamed away from `.md`.
+   */
   retain(names: ReadonlySet<string>) {
     this.#remove(
-      new Set(this.#tabs.filter((tab) => !tab.preview && !names.has(tab.path)))
+      new Set(
+        this.#tabs.filter(
+          (tab) =>
+            !tab.preview &&
+            (!names.has(tab.path) ||
+              (tab.markdown && !/\.(md|markdown)$/iu.test(tab.path)))
+        )
+      )
     );
   }
 
@@ -116,7 +177,7 @@ export function tabLabel(tab: OpenTab, tabs: readonly OpenTab[]) {
   const base = (path: string) => path.slice(path.lastIndexOf('/') + 1);
   const name = base(tab.path);
   const shared = tabs.some(
-    (other) => other !== tab && base(other.path) === name
+    (other) => other.path !== tab.path && base(other.path) === name
   );
   const folder = tab.path.slice(0, Math.max(0, tab.path.lastIndexOf('/')));
   return { name, folder: shared ? folder : '' };

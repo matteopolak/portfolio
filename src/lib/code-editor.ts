@@ -13,6 +13,7 @@ import {
   hoverTooltip,
   closeHoverTooltips,
   type Tooltip,
+  type ViewUpdate,
 } from '@codemirror/view';
 import {
   defaultKeymap,
@@ -703,7 +704,8 @@ const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
 
 export interface EditorOptions {
   text: string;
-  onChange: (text: string) => void;
+  /** `update` is the change's ViewUpdate (its transactions say who made it). */
+  onChange: (text: string, update: ViewUpdate) => void;
   onCursor?: (line: number, column: number) => void;
   /** The language document shown (a workspace file or a read-only preview). */
   currentDocument?: () => LanguageDocument | undefined;
@@ -733,6 +735,8 @@ export type Editor = ReturnType<typeof createEditor>;
  */
 const VIM_STORAGE_KEY = 'code-editor-vim';
 const vimEditors = new Set<(enabled: boolean) => void>();
+const vimClicks = new WeakSet<Event>();
+const lastFocused = new WeakMap<HTMLElement, EditorView>();
 let vimEnabled = (() => {
   try {
     return localStorage.getItem(VIM_STORAGE_KEY) === '1';
@@ -1260,7 +1264,7 @@ export function createEditor(
           autocorrect: 'off',
         }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) onChange(update.state.doc.toString());
+          if (update.docChanged) onChange(update.state.doc.toString(), update);
           if (update.docChanged || update.selectionSet) {
             const cursor = update.state.selection.main.head;
             const line = update.state.doc.lineAt(cursor);
@@ -1278,10 +1282,19 @@ export function createEditor(
     view.dispatch({ effects: vimMode.reconfigure(vimExtension(enabled)) });
     vimButton?.setAttribute('aria-pressed', String(enabled));
   };
-  const toggleVim = () => {
+  // A workspace with several editor groups has one editor per group, all
+  // listening to the same button: the first listener toggles, and focus
+  // returns to whichever of them was focused last.
+  const toggleVim = (event: Event) => {
+    if (vimClicks.has(event)) return;
+    vimClicks.add(event);
     setVimEnabled(!vimEnabled);
-    view.focus();
+    const last = lastFocused.get(vimButton!);
+    (last && !last.dom.isConnected ? view : (last ?? view)).focus();
   };
+  view.contentDOM.addEventListener('focus', () => {
+    if (vimButton) lastFocused.set(vimButton, view);
+  });
   vimButton?.setAttribute('aria-pressed', String(vimEnabled));
   vimButton?.addEventListener('click', toggleVim);
   vimEditors.add(applyVim);

@@ -1,12 +1,37 @@
 import {
+  Annotation,
   EditorSelection,
+  Transaction,
+  type ChangeSpec,
   type EditorState,
   type StateEffect,
 } from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
-import { createEditor } from '../code-editor.ts';
+import { createEditor, type Editor } from '../code-editor.ts';
 import { createCodeOutput } from '../code-output.ts';
-import { showPane } from '../code-workspace-layout.ts';
+import {
+  isNarrow,
+  NARROW_QUERY,
+  showPane,
+  trackDrag,
+  workspaceLayout,
+  type DropTarget,
+} from '../code-workspace-layout.ts';
+import {
+  emptyGroup,
+  groupDropZone,
+  groupsOf,
+  insertionIndex,
+  MAX_GROUPS,
+  neighbourGroup,
+  nextGroupId,
+  removeGroup,
+  splitGroup,
+  updateGroup,
+  type DropZone,
+  type EditorNode,
+  type SplitSide,
+} from '../workspace-layout-model.ts';
 import { Workspace, type WorkspaceDocument } from './workspace.ts';
 import { loadStarter } from './starter.ts';
 import { initializeFileTree } from './file-tree.ts';
@@ -38,12 +63,25 @@ import {
 } from './lsp-extensions.ts';
 import { locationLabel, provides, supportsCommand } from './lsp-features.ts';
 import { closePicker, showPicker, type PickerItem } from './picker.ts';
-import { closeHoverTooltips, EditorView } from '@codemirror/view';
-import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
+import {
+  closeHoverTooltips,
+  EditorView,
+  type ViewUpdate,
+} from '@codemirror/view';
+import { OpenTabs, sameTab, tabLabel, type OpenTab } from './open-tabs.ts';
 import { NavHistory, type NavLocation, type NavOp } from './nav-history.ts';
 import { watchNavigationInput, type NavDirection } from './nav-input.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
-import { createMarkdownPreview } from '../markdown-preview.ts';
+import {
+  createMarkdownPreview,
+  type MarkdownPreview,
+} from '../markdown-preview.ts';
+import {
+  isMarkdownPath,
+  markdownView,
+  parseViewChoice,
+  type MarkdownView,
+} from '../markdown-render.ts';
 import type { RunOutput } from './engine.ts';
 import {
   FORMAT_DRIVER_ASSET,
@@ -133,10 +171,14 @@ interface Preview {
   /** For expansions: what generated it, for the tab's tooltip. */
   title?: string;
   state?: EditorState;
+  /** The group whose editor made `state` (a state carries its editor's extensions). */
+  stateGroup?: string;
 }
 
 /** A place in the navigation history (Go Back / Go Forward). */
 interface Place extends NavLocation {
+  /** The editor group it was in; restoring focuses it again while it exists. */
+  group?: string;
   anchor: number;
   head: number;
   /** The document position at the top of the editor's viewport. */
@@ -159,6 +201,70 @@ const navState = (state: unknown): NavState | undefined => {
     ? value
     : undefined;
 };
+/** Marks the copies of an edit that keep other groups' editors in step. */
+const mirrored = Annotation.define<boolean>();
+/** Annotations for such a copy: no undo step of its own in the receiving editor. */
+const mirroredEdit = [mirrored.of(true), Transaction.addToHistory.of(false)];
+
+/** The one change that turns `before` into `after` (common ends kept). */
+function replacement(before: string, after: string): ChangeSpec {
+  let start = 0;
+  const limit = Math.min(before.length, after.length);
+  while (start < limit && before[start] === after[start]) start++;
+  let end = 0;
+  while (
+    end < limit - start &&
+    before[before.length - 1 - end] === after[after.length - 1 - end]
+  )
+    end++;
+  return {
+    from: start,
+    to: before.length - end,
+    insert: after.slice(start, after.length - end),
+  };
+}
+
+/** Where the phone layout keeps its Source / Preview choice for `.md` tabs. */
+const MARKDOWN_VIEW_KEY = 'code-editor-markdown-view';
+
+/**
+ * One editor group: a tab strip and an editor (plus a Markdown preview) in
+ * the editor area. Every group has its own tabs, editor states and scroll
+ * positions; the workspace text is shared, so two groups showing one file
+ * stay in step (`edited`).
+ */
+interface Group {
+  id: string;
+  element: HTMLElement;
+  strip: HTMLElement;
+  actions: HTMLElement;
+  host: HTMLElement;
+  empty: HTMLElement;
+  tabs: OpenTabs;
+  editor: Editor;
+  markdown: MarkdownPreview;
+  /** Saved editor state of each file tab that is not on screen. */
+  states: Map<string, EditorState>;
+  /** Scroll position of each open tab; a tab opened afresh starts at the top. */
+  scrolls: Map<string, StateEffect<unknown>>;
+  /** The tab the reader has scrolled since it was shown (see `show`). */
+  scrollOwner?: OpenTab;
+  /** Path of the read-only file in the preview tab while it is shown. */
+  viewing?: string;
+  /** The workspace file in the editor, if a file tab is active. */
+  file?: string;
+  /** Ends the group's listeners when it closes. */
+  life: AbortController;
+}
+
+/** Where a dragged tab or tree file lands. */
+interface TabDrop {
+  group: string;
+  zone: DropZone;
+  /** Position in the tab strip, for drops on the strip. */
+  index?: number;
+}
+
 /** `#lib/math.jai`: the deep link the playground page reads on load. */
 const fileHash = (path: string) =>
   '#' + path.split('/').map(encodeURIComponent).join('/');
@@ -174,24 +280,46 @@ export async function createSession(
   const run = find<HTMLButtonElement>('run'),
     cancel = find<HTMLButtonElement>('cancel'),
     formatButton = panel.querySelector<HTMLButtonElement>('[data-code-format]'),
-    status = panel.querySelector<HTMLElement>('[data-code-status]'),
-    tabStrip = panel.querySelector<HTMLElement>('[data-code-tabs]'),
-    empty = panel.querySelector<HTMLElement>('[data-code-empty]'),
-    editorHost = find('editor');
+    status = panel.querySelector<HTMLElement>('[data-code-status]');
+  // The server-rendered group is the first group; later ones are copies of it.
+  const template = find('group');
+  const blank = template.cloneNode(true) as HTMLElement;
+  const layout = workspaceLayout(panel);
   // The compiler release's tour (or the built-in starter for older releases).
   const starter = await loadStarter(revision, signal);
   if (signal.aborted) throw abortError();
   const workspace = new Workspace(starter.files);
-  const states = new Map<string, EditorState>();
-  // Open-file tabs; `preview` holds the read-only file in the preview tab.
-  const tabs = new OpenTabs();
+  /*
+   * Editor groups by id. `group` is the focused one (the last clicked or
+   * focused), and `editor` and `tabs` are its parts:
+   * Format, Run, go to definition and the tree all act on it.
+   */
+  const groups = new Map<string, Group>();
+  let group!: Group;
+  let editor!: Editor;
+  let tabs!: OpenTabs;
+  /** Groups in the order they were focused, most recent last. */
+  let focusOrder: Group[] = [];
+  /** The split tree when no layout controller keeps it. */
+  let ownTree: EditorNode = emptyGroup();
+  const editorTree = () => layout?.layout.editors ?? ownTree;
+  // `preview` holds the read-only file in the (single) preview tab.
   let preview: Preview | undefined;
-  // Scroll position of each open tab; a tab opened afresh starts at the top.
-  const scrolls = new Map<string, StateEffect<unknown>>();
-  const tabKey = (tab: OpenTab) => (tab.preview ? '~' : '') + tab.path;
-  // The tab the reader has scrolled since it was shown. Only scrolling they
-  // started is recorded, never the jumps from switching or restoring a file.
-  let scrollOwner: OpenTab | undefined;
+  const tabKey = (tab: OpenTab) =>
+    (tab.preview ? '~' : tab.markdown ? '#' : '') + tab.path;
+  /** A file's text in the workspace (the truth every group's editor follows). */
+  const fileText = (path: string) =>
+    workspace.documents.find((document) => document.path === path)?.text;
+  let phoneChoice: MarkdownView | undefined = (() => {
+    try {
+      return parseViewChoice(localStorage.getItem(MARKDOWN_VIEW_KEY));
+    } catch {
+      return undefined;
+    }
+  })();
+  /** How a `.md` source tab shows on phones: its source, or rendered in place. */
+  const phoneView = (path: string) =>
+    markdownView(phoneChoice, !fileText(path)?.length);
   // Go Back / Go Forward; see nav-history.ts and docs/code-workspace.md.
   const nav = new NavHistory<Place>();
   // Set while an entry is being restored, so the restore records nothing.
@@ -202,9 +330,10 @@ export async function createSession(
    * left is read from here.
    */
   let settled: ReturnType<typeof viewport> | undefined;
-  function forgetClosedScrolls() {
-    const open = new Set(tabs.tabs.map(tabKey));
-    for (const key of scrolls.keys()) if (!open.has(key)) scrolls.delete(key);
+  function forgetClosedScrolls(g: Group = group) {
+    const open = new Set(g.tabs.tabs.map(tabKey));
+    for (const key of g.scrolls.keys())
+      if (!open.has(key)) g.scrolls.delete(key);
   }
   const workers = new Set<Worker>();
   let running = false;
@@ -231,20 +360,16 @@ export async function createSession(
   // Function declarations below are hoisted; the runner only calls them later.
   const runner: AutoRunner = createAutoRunner(execute, cancelExecution);
 
-  /** Path of the read-only file in the preview tab while it is shown, if any. */
-  let viewing: string | undefined;
-  /** The language document in the editor: a workspace `.jai` file or an opened library preview. */
-  function languageDocument(): LanguageDocument | undefined {
-    if (viewing)
-      return preview?.kind === 'library' && preview.path === viewing
+  /** The language document in a group's editor: a workspace `.jai` file or an opened library preview. */
+  function languageDocument(g: Group = group): LanguageDocument | undefined {
+    if (g.viewing)
+      return preview?.kind === 'library' && preview.path === g.viewing
         ? { uri: preview.uri, version: 1, readonly: true }
         : undefined;
-    const selected = workspace.selected;
-    if (!selected || !isFormattable(selected.path.name)) return undefined;
-    return {
-      uri: documentUri(selected.path.name),
-      version: selected.version,
-    };
+    const path = g.file;
+    if (!path || !isFormattable(path)) return undefined;
+    const file = workspace.documents.find((item) => item.path === path);
+    return file && { uri: documentUri(path), version: file.version };
   }
   function syncedClient() {
     if (!languageDocument()) return undefined;
@@ -259,12 +384,14 @@ export async function createSession(
    */
   const prefetching = new Set<string>();
   async function prefetch(path: string) {
+    // The focused group's editor makes the state, and that group keeps it.
+    const g = group;
     const file = workspace.documents.find((d) => d.path === path);
     if (
       !file ||
       !language ||
       !isFormattable(path) ||
-      states.has(path) ||
+      g.states.has(path) ||
       prefetching.has(path)
     )
       return;
@@ -272,15 +399,19 @@ export async function createSession(
     try {
       language.sync(workspace.documents);
       const state = await prefetchDecorations(
-        editor.createState(file.text, path),
+        g.editor.createState(file.text, path),
         language,
         languageCapabilities,
         documentUri(path),
         signal
       );
       const now = workspace.documents.find((d) => d.path === path);
-      if (!signal.aborted && now?.version === file.version && !states.has(path))
-        states.set(path, state);
+      if (
+        !signal.aborted &&
+        now?.version === file.version &&
+        !g.states.has(path)
+      )
+        g.states.set(path, state);
     } catch {
       /* Unsupported or cancelled: the file decorates itself once shown. */
     } finally {
@@ -299,37 +430,43 @@ export async function createSession(
     };
   /** The workspace file under the cursor, for requests that need one. */
   const selectedPath = () =>
-    !viewing && language ? workspace.selected?.path.name : undefined;
+    !group.viewing && language ? workspace.selected?.path.name : undefined;
 
   /*
    * Diagnostics by URI, kept so a tab shows its squiggles again when it is
    * reopened, and so code action requests can send the ones they touch.
    */
   const published = new Map<string, Published>();
-  /** The selected file's diagnostics, if they are for its current text. */
-  function currentDiagnostics(): Published | undefined {
-    const selected = workspace.selected;
-    if (viewing || !selected) return undefined;
-    const entry = published.get(documentUri(selected.path.name));
-    return entry?.version === selected.version ? entry : undefined;
+  /** The diagnostics of a group's file, if they are for its current text. */
+  function currentDiagnostics(g: Group = group): Published | undefined {
+    if (g.viewing || !g.file) return undefined;
+    const path = g.file;
+    const file = workspace.documents.find((item) => item.path === path);
+    const entry = published.get(documentUri(path));
+    return file && entry?.version === file.version ? entry : undefined;
   }
-  /** `context.diagnostics` for a code action request over `range` of the selected file. */
-  const diagnosticsFor = (range: Range) =>
-    diagnosticsAt(currentDiagnostics()?.diagnostics ?? [], range);
+  /** `context.diagnostics` for a code action request over `range` of a group's file. */
+  const diagnosticsFor = (range: Range, g: Group = group) =>
+    diagnosticsAt(currentDiagnostics(g)?.diagnostics ?? [], range);
+  /** Shows `entry` in every group whose file it belongs to. */
+  function showPublished(entry: Published) {
+    for (const g of groups.values())
+      if (currentDiagnostics(g) === entry) showDiagnostics(g);
+  }
   /** How many lints in `entry` have a quick fix. */
   const fixableCount = (entry: Published | undefined) =>
     entry?.fixes
       ? [...entry.fixes.values()].filter((fixes) => fixes.length).length
       : 0;
-  function showDiagnostics() {
-    const selected = workspace.selected;
-    const entry = currentDiagnostics();
-    if (!selected || !entry) {
-      editor.diagnostics([], selected?.text ?? '');
+  function showDiagnostics(g: Group = group) {
+    const text = g.file === undefined ? undefined : fileText(g.file);
+    const entry = currentDiagnostics(g);
+    if (text === undefined || !entry) {
+      g.editor.diagnostics([], text ?? '');
       return;
     }
     const fixable = fixableCount(entry);
-    editor.diagnostics(entry.diagnostics, selected.text, (diagnostic) => {
+    g.editor.diagnostics(entry.diagnostics, text, (diagnostic) => {
       const rule = lintRule(diagnostic);
       const fixes = entry.fixes?.get(diagnostic);
       if (!rule || !fixes?.length) return undefined;
@@ -376,7 +513,7 @@ export async function createSession(
     // A newer publish (an edit) replaced this entry: its own lookup follows.
     if (signal.aborted || published.get(uri) !== entry) return;
     entry.fixes = fixes;
-    if (currentDiagnostics() === entry) showDiagnostics();
+    showPublished(entry);
   }
   /**
    * Applies a code action's edit computed against `documents`. An edit of
@@ -393,7 +530,7 @@ export async function createSession(
     const [only] = updates;
     if (
       updates.length === 1 &&
-      !viewing &&
+      !group.viewing &&
       only.path === workspace.selected?.path.name &&
       editor.view.state.doc.toString() === workspace.selected.text
     ) {
@@ -509,164 +646,308 @@ export async function createSession(
     }
   }
 
-  const editor = createEditor(find('editor'), {
-    text: workspace.selected?.text ?? '',
-    language: 'jai',
-    canDefine: () => can('definitionProvider'),
-    canRename: () => can('renameProvider') && !viewing,
-    onDefinition: (offset) => goTo(offset, 'textDocument/definition'),
-    onPrepareRename: async (offset) => {
-      const path = selectedPath();
-      const provider = languageCapabilities?.renameProvider;
-      if (!path || !language) return undefined;
-      const word = editor.view.state.wordAt(offset);
-      // Without prepareProvider the word under the cursor is the name.
-      if (
-        typeof provider !== 'object' ||
-        !provider ||
-        !('prepareProvider' in provider)
-      )
-        return word ?? undefined;
-      try {
-        const range = await prepareRename(
-          language,
-          workspace,
-          path,
-          offset,
-          signal
-        );
-        if (!range) announce("This name can't be renamed");
-        return range;
-      } catch (error) {
-        if (!signal.aborted) announce(errorMessage(error));
-        return undefined;
-      }
-    },
-    onRename: async (offset, newName) => {
-      const selected = workspace.selected;
-      if (!selected || !language || signal.aborted) return;
-      try {
-        saveState();
-        const updates = await renameSymbol(
-          language,
-          workspace,
-          selected.path.name,
-          offset,
-          newName,
-          signal
-        );
-        if (signal.aborted) return;
-        applied(updates);
-        if (updates.length)
-          announce(
-            `Renamed in ${updates.length} file${updates.length === 1 ? '' : 's'}`
-          );
-      } catch (error) {
-        if (!signal.aborted) showError(errorMessage(error));
-        throw error;
-      }
-    },
-    currentDocument: languageDocument,
-    service: syncedClient,
-    serverFormatHover: () => can('inlayHintProvider'),
-    extensions: [
-      languageFeatures({
-        document: languageDocument,
-        client: syncedClient,
-        capabilities: () => (language ? languageCapabilities : undefined),
-        modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
-        openLink: (target) => void openUri(target),
-        runLens: (view, lens, pos) => void runCommand(view, lens.command, pos),
-        codeActions: (view) => void codeActions(view),
-        diagnosticsAt: diagnosticsFor,
-      }),
-      // A far click or search match is a step back to, as in VS Code.
-      EditorView.updateListener.of((update) => {
+  /** The editor of group `g`; its language features follow that group's file. */
+  function createGroupEditor(g: Group) {
+    return createEditor(g.host, {
+      text: '',
+      language: 'jai',
+      canDefine: () => can('definitionProvider'),
+      canRename: () => can('renameProvider') && !g.viewing,
+      onDefinition: (offset) => goTo(offset, 'textDocument/definition'),
+      onPrepareRename: async (offset) => {
+        const path = selectedPath();
+        const provider = languageCapabilities?.renameProvider;
+        if (!path || !language) return undefined;
+        const word = g.editor.view.state.wordAt(offset);
+        // Without prepareProvider the word under the cursor is the name.
         if (
-          restoring ||
-          !update.selectionSet ||
-          !update.transactions.some(
-            (tr) =>
-              tr.isUserEvent('select.pointer') ||
-              tr.isUserEvent('select.search')
-          )
+          typeof provider !== 'object' ||
+          !provider ||
+          !('prepareProvider' in provider)
         )
-          return;
-        const to = here();
-        if (!to) return;
-        const { anchor, head } = update.startState.selection.main;
-        const line = update.startState.doc.lineAt(head).number;
-        if (Math.abs(to.line - line) < JUMP_LINES) return;
-        // The view may already have scrolled to the new selection.
-        const from = { ...to, ...settled, anchor, head, line };
-        mirror(nav.navigate(from, to));
-      }),
-    ],
-    keys: [
-      { key: 'Shift-F12', run: when('referencesProvider', references) },
-      {
-        key: 'Mod-F12',
-        run: when('typeDefinitionProvider', (view) =>
-          goTo(view.state.selection.main.head, 'textDocument/typeDefinition')
-        ),
+          return word ?? undefined;
+        try {
+          const range = await prepareRename(
+            language,
+            workspace,
+            path,
+            offset,
+            signal
+          );
+          if (!range) announce("This name can't be renamed");
+          return range;
+        } catch (error) {
+          if (!signal.aborted) announce(errorMessage(error));
+          return undefined;
+        }
       },
-      { key: 'Mod-.', run: when('codeActionProvider', codeActions) },
-      { key: 'Mod-p', run: when('workspaceSymbolProvider', symbolSearch) },
-    ],
-    onChange: (text) => {
-      if (workspace.selected) workspace.edit(text);
-      markdown.changed();
-      if (ready) runner.changed();
-      else editedDuringBoot = true;
-      editor.diagnostics([], text);
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => language?.sync(workspace.documents), 120);
-    },
-  });
+      onRename: async (offset, newName) => {
+        const selected = workspace.selected;
+        if (!selected || !language || signal.aborted) return;
+        try {
+          saveState();
+          const updates = await renameSymbol(
+            language,
+            workspace,
+            selected.path.name,
+            offset,
+            newName,
+            signal
+          );
+          if (signal.aborted) return;
+          applied(updates);
+          if (updates.length)
+            announce(
+              `Renamed in ${updates.length} file${updates.length === 1 ? '' : 's'}`
+            );
+        } catch (error) {
+          if (!signal.aborted) showError(errorMessage(error));
+          throw error;
+        }
+      },
+      currentDocument: () => languageDocument(g),
+      service: syncedClient,
+      serverFormatHover: () => can('inlayHintProvider'),
+      extensions: [
+        languageFeatures({
+          document: () => languageDocument(g),
+          client: syncedClient,
+          capabilities: () => (language ? languageCapabilities : undefined),
+          modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
+          openLink: (target) => void openUri(target),
+          runLens: (view, lens, pos) =>
+            void runCommand(view, lens.command, pos),
+          codeActions: (view) => void codeActions(view),
+          diagnosticsAt: (range) => diagnosticsFor(range, g),
+        }),
+        // A far click or search match is a step back to, as in VS Code.
+        EditorView.updateListener.of((update) => {
+          if (
+            restoring ||
+            g !== group ||
+            !update.selectionSet ||
+            !update.transactions.some(
+              (tr) =>
+                tr.isUserEvent('select.pointer') ||
+                tr.isUserEvent('select.search')
+            )
+          )
+            return;
+          const to = here();
+          if (!to) return;
+          const { anchor, head } = update.startState.selection.main;
+          const line = update.startState.doc.lineAt(head).number;
+          if (Math.abs(to.line - line) < JUMP_LINES) return;
+          // The view may already have scrolled to the new selection.
+          const from = { ...to, ...settled, anchor, head, line };
+          mirror(nav.navigate(from, to));
+        }),
+      ],
+      keys: [
+        { key: 'Shift-F12', run: when('referencesProvider', references) },
+        {
+          key: 'Mod-F12',
+          run: when('typeDefinitionProvider', (view) =>
+            goTo(view.state.selection.main.head, 'textDocument/typeDefinition')
+          ),
+        },
+        { key: 'Mod-.', run: when('codeActionProvider', codeActions) },
+        { key: 'Mod-p', run: when('workspaceSymbolProvider', symbolSearch) },
+      ],
+      onChange: (text, update) => edited(g, text, update),
+    });
+  }
 
-  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
-    editor.view.scrollDOM.addEventListener(
-      type,
-      () => (scrollOwner = tabs.active),
-      { passive: true, signal }
+  /**
+   * Makes a group. The first uses the server-rendered element; later ones a
+   * clean copy of it.
+   */
+  function createGroup(id: string): Group {
+    const element = template.dataset.groupId
+      ? (blank.cloneNode(true) as HTMLElement)
+      : template;
+    element.dataset.groupId = id;
+    element.removeAttribute('data-active');
+    const life = new AbortController();
+    const groupSignal = AbortSignal.any([signal, life.signal]);
+    const part = (name: string) =>
+      element.querySelector<HTMLElement>(`[data-code-${name}]`)!;
+    const g = {
+      id,
+      element,
+      strip: part('tabs'),
+      actions: part('group-actions'),
+      host: part('editor'),
+      empty: part('empty'),
+      tabs: new OpenTabs(),
+      states: new Map(),
+      scrolls: new Map(),
+      life,
+    } as unknown as Group;
+    g.editor = createGroupEditor(g);
+    g.markdown = createMarkdownPreview(
+      g.host,
+      {
+        files: () => workspace.names,
+        text: fileText,
+        open: (path, anchor) => followLink(g, path, anchor),
+      },
+      groupSignal
     );
-  // The place a click or a search key jumps from, read before the editor moves.
-  editor.view.dom.addEventListener(
-    'pointerdown',
-    () => (settled = viewport()),
-    {
+    groups.set(id, g);
+    const listen = { passive: true, signal: groupSignal };
+    const { view } = g.editor;
+    // Clicking or focusing anything in a group makes it the focused group.
+    element.addEventListener('pointerdown', () => activateGroup(g), {
       capture: true,
-      passive: true,
-      signal,
+      ...listen,
+    });
+    element.addEventListener('focusin', () => activateGroup(g), listen);
+    for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+      view.scrollDOM.addEventListener(
+        type,
+        () => (g.scrollOwner = g.tabs.active),
+        listen
+      );
+    // The place a click or a search key jumps from, read before the editor moves.
+    view.dom.addEventListener(
+      'pointerdown',
+      () => {
+        if (g === group) settled = viewport();
+      },
+      { capture: true, ...listen }
+    );
+    view.dom.addEventListener(
+      'keydown',
+      (event) => {
+        if (g === group && ['Enter', 'F3', 'g', 'G'].includes(event.key))
+          settled = viewport();
+      },
+      { capture: true, ...listen }
+    );
+    // Hidden panes (phone layouts) report no size and are left alone.
+    view.scrollDOM.addEventListener(
+      'scroll',
+      () => {
+        if (g === group) settled = viewport();
+        const tab = g.tabs.active;
+        if (tab && tab === g.scrollOwner && view.scrollDOM.clientHeight)
+          g.scrolls.set(tabKey(tab), view.scrollSnapshot());
+      },
+      listen
+    );
+    g.host.addEventListener(
+      'compositionstart',
+      runner.compositionStart,
+      listen
+    );
+    g.host.addEventListener('compositionend', runner.compositionEnd, listen);
+    wireTabStrip(g, groupSignal);
+    return g;
+  }
+
+  /** Makes `g` the focused group: the one Format, Run and the tree act on. */
+  function activateGroup(g: Group) {
+    if (g === group || !groups.has(g.id)) return;
+    group?.element.removeAttribute('data-active');
+    group = g;
+    editor = g.editor;
+    tabs = g.tabs;
+    settled = undefined;
+    focusOrder = [...focusOrder.filter((item) => item !== g), g];
+    g.element.setAttribute('data-active', '');
+    if (g.file) workspace.select(g.file);
+    else workspace.deselect();
+    updateFormat();
+    tree.render();
+  }
+
+  /**
+   * An edit in group `g`. The workspace takes the new text, and every other
+   * editor on the same file gets the same change (marked `mirrored`, so it is
+   * not taken for an edit of its own and adds no undo step there).
+   */
+  function edited(g: Group, text: string, update: ViewUpdate) {
+    if (update.transactions.some((tr) => tr.annotation(mirrored))) return;
+    const path = g.file;
+    if (!path) return;
+    if (g !== group) activateGroup(g);
+    workspace.edit(text);
+    for (const other of groups.values()) {
+      if (other === g) continue;
+      if (other.file === path) {
+        const { view } = other.editor;
+        view.dispatch({
+          changes: view.state.doc.eq(update.startState.doc)
+            ? update.changes
+            : replacement(view.state.doc.toString(), text),
+          annotations: mirroredEdit,
+        });
+        other.editor.diagnostics([], text);
+        continue;
+      }
+      const saved = other.states.get(path);
+      if (saved?.doc.eq(update.startState.doc))
+        other.states.set(
+          path,
+          saved.update({ changes: update.changes, annotations: mirroredEdit })
+            .state
+        );
     }
-  );
-  editor.view.dom.addEventListener(
-    'keydown',
-    (event) => {
-      if (['Enter', 'F3', 'g', 'G'].includes(event.key)) settled = viewport();
-    },
-    { capture: true, passive: true, signal }
-  );
-  // Hidden panes (phone layouts) report no size and are left alone.
-  editor.view.scrollDOM.addEventListener(
-    'scroll',
-    () => {
-      settled = viewport();
-      const tab = tabs.active;
-      if (tab && tab === scrollOwner && editor.view.scrollDOM.clientHeight)
-        scrolls.set(tabKey(tab), editor.view.scrollSnapshot());
-    },
-    { passive: true, signal }
-  );
+    for (const other of groups.values())
+      if (other.markdown.path === path) other.markdown.changed();
+    if (ready) runner.changed();
+    else editedDuringBoot = true;
+    g.editor.diagnostics([], text);
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => language?.sync(workspace.documents), 120);
+  }
+  /** `state` with its document brought up to the workspace's `text`. */
+  function current(state: EditorState, text: string) {
+    const doc = state.doc.toString();
+    return doc === text
+      ? state
+      : state.update({
+          changes: replacement(doc, text),
+          annotations: mirroredEdit,
+        }).state;
+  }
+
+  /**
+   * Carries a tab's editor state (from another group) into group `g`. A
+   * state holds its own editor's extensions, so `g` gets a fresh state with
+   * the same text and selection; the undo history stays behind.
+   */
+  function adopt(g: Group, path: string, state: EditorState) {
+    const fresh = g.editor.createState(state.doc.toString(), path);
+    return fresh.update({ selection: state.selection }).state;
+  }
+
   /** Updates editor states after workspace edits (rename, code actions). */
   function applied(updates: PlannedEdit[]) {
-    for (const update of updates) {
-      const previous = states.get(update.path);
-      const state = previous
-        ? previous.update({ changes: update.changes }).state
-        : editor.createState(update.text, update.path);
-      states.set(update.path, state);
-    }
+    for (const update of updates)
+      for (const g of groups.values()) {
+        // Another group showing the file follows on screen.
+        if (g !== group && g.file === update.path) {
+          const { view } = g.editor;
+          view.dispatch({
+            changes: replacement(view.state.doc.toString(), update.text),
+            annotations: mirroredEdit,
+          });
+          continue;
+        }
+        const previous = g.states.get(update.path);
+        if (previous)
+          g.states.set(
+            update.path,
+            previous.update({ changes: update.changes }).state
+          );
+        else if (g === group)
+          g.states.set(
+            update.path,
+            editor.createState(update.text, update.path)
+          );
+      }
     show();
     language?.sync(workspace.documents);
     runner.changed();
@@ -688,7 +969,8 @@ export async function createSession(
   /** Where the editor is now, for the navigation history; undefined with no tab open. */
   function here(): Place | undefined {
     const tab = tabs.active;
-    if (!tab || (tab.preview && preview?.path !== tab.path)) return undefined;
+    if (!tab || tab.markdown || (tab.preview && preview?.path !== tab.path))
+      return undefined;
     const { view } = editor;
     const { anchor, head } = view.state.selection.main;
     const place = {
@@ -698,8 +980,14 @@ export async function createSession(
       ...viewport(),
     };
     return tab.preview
-      ? { ...place, file: preview!.uri, readonly: true, view: preview }
-      : { ...place, file: tab.path };
+      ? {
+          ...place,
+          file: preview!.uri,
+          readonly: true,
+          view: preview,
+          group: group.id,
+        }
+      : { ...place, file: tab.path, group: group.id };
   }
   /*
    * The full-page playground mirrors the history into the browser's, so the
@@ -721,7 +1009,8 @@ export async function createSession(
   }
   /** Points the URL at the file on screen; a rename leaves older entries' URLs behind. */
   function addressBar() {
-    const path = page && !viewing ? workspace.selected?.path.name : undefined;
+    const path =
+      page && !group.viewing ? workspace.selected?.path.name : undefined;
     if (path && location.hash !== fileHash(path))
       history.replaceState(history.state, '', fileHash(path));
   }
@@ -737,6 +1026,9 @@ export async function createSession(
     restoring = true;
     try {
       closePicker();
+      // Back in the group it was in, or the focused one if that has closed.
+      const home = place.group ? groups.get(place.group) : undefined;
+      if (home) activateGroup(home);
       if (place.readonly) {
         if (!place.view) return;
         saveState();
@@ -836,6 +1128,11 @@ export async function createSession(
   function openPreview(next: Preview) {
     if (preview && preview.uri !== next.uri && preview.kind === 'library')
       language?.closeReadonly(preview.uri);
+    // There is one preview tab; another group's gives way.
+    for (const other of [...groups.values()]) {
+      const shown = other.tabs.tabs.find((tab) => tab.preview);
+      if (other !== group && shown) detach(other, shown);
+    }
     preview = next;
     if (next.kind === 'library') language?.openReadonly(next.uri, next.text);
     tabs.preview(next.path);
@@ -1149,89 +1446,350 @@ export async function createSession(
     });
   }
 
-  // Rendered view of `.md` files beside (or instead of) the source.
-  const markdown = createMarkdownPreview(
-    panel,
-    editor.view,
-    {
-      files: () => workspace.names,
-      open: (path) =>
-        navigation(() => {
-          saveState();
-          tabs.open(path);
-          show();
-        }),
-    },
-    signal
-  );
-
   let filesBefore = new Set<string>();
-  function saveState() {
-    if (viewing) {
-      if (preview?.path === viewing) preview.state = editor.view.state;
-    } else if (workspace.selected)
-      states.set(workspace.selected.path.name, editor.view.state);
+  function saveState(g: Group = group) {
+    if (g.viewing) {
+      if (preview?.path === g.viewing) {
+        preview.state = g.editor.view.state;
+        preview.stateGroup = g.id;
+      }
+    } else if (g.file) g.states.set(g.file, g.editor.view.state);
   }
   /*
-   * Shows the active tab. The workspace selection always names the active
-   * file tab, and is empty while the preview tab is active or no tab is open,
-   * so edits, formatting and diagnostics only ever target an open file.
+   * Shows a group's active tab. The workspace selection always names the
+   * focused group's file tab, and is empty while its preview or Markdown tab
+   * is active or no tab is open, so edits, formatting and diagnostics only
+   * ever target an open file.
    */
-  function show() {
-    const tab = tabs.active;
+  function show(g: Group = group) {
+    const tab = g.tabs.active;
+    g.viewing = undefined;
+    g.file = undefined;
+    // The `.md` file rendered in this group, if any.
+    let rendered: string | undefined;
+    const text = tab && !tab.preview ? fileText(tab.path) : undefined;
     if (tab?.preview && preview?.path === tab.path) {
-      workspace.deselect();
-      viewing = tab.path;
-      editor.setState(
-        preview.state ??
-          editor.createState(
-            preview.text,
-            // Expansions are Jai, though their tab names a source position.
-            preview.kind === 'expansion' ? 'expansion.jai' : tab.path
-          )
+      g.viewing = tab.path;
+      const made = g.editor.createState(
+        preview.text,
+        // Expansions are Jai, though their tab names a source position.
+        preview.kind === 'expansion' ? 'expansion.jai' : tab.path
       );
-      editor.setEditable(false);
-      editor.diagnostics([], preview.text);
+      g.editor.setState(
+        preview.state && preview.stateGroup !== g.id
+          ? made.update({ selection: preview.state.selection }).state
+          : (preview.state ?? made)
+      );
+      g.editor.diagnostics([], preview.text);
+    } else if (tab?.markdown && text !== undefined) {
+      rendered = tab.path;
+      g.editor.setState(g.editor.createState(''));
+      g.editor.setEditable(false);
+    } else if (tab && text !== undefined) {
+      g.file = tab.path;
+      g.editor.setState(
+        current(
+          g.states.get(tab.path) ?? g.editor.createState(text, tab.path),
+          text
+        )
+      );
+      g.editor.setEditable(true);
+      // Phones swap a `.md` source tab for its rendered view in place.
+      if (
+        isMarkdownPath(tab.path) &&
+        isNarrow() &&
+        phoneView(tab.path) === 'preview'
+      )
+        rendered = tab.path;
+      showDiagnostics(g);
     } else {
-      viewing = undefined;
-      if (tab && !tab.preview) workspace.select(tab.path);
-      else workspace.deselect();
-      const selected = workspace.selected;
-      editor.setState(
-        selected
-          ? (states.get(selected.path.name) ??
-              editor.createState(selected.text, selected.path.name))
-          : editor.createState('')
-      );
-      editor.setEditable(Boolean(selected));
-      showDiagnostics();
+      g.editor.setState(g.editor.createState(''));
+      g.editor.setEditable(false);
     }
-    const open = Boolean(workspace.selected || viewing);
-    editorHost.hidden = !open;
-    if (empty) empty.hidden = open;
-    forgetClosedScrolls();
-    scrollOwner = undefined;
-    settled = undefined;
-    const scroll = tab && scrolls.get(tabKey(tab));
-    if (scroll) editor.view.dispatch({ effects: scroll });
-    else editor.view.scrollDOM.scrollTo(0, 0);
-    markdown.show(viewing ?? workspace.selected?.path.name);
-    renderTabs();
-    updateFormat();
-    tree.render();
+    if (g === group) {
+      if (g.file) workspace.select(g.file);
+      else workspace.deselect();
+    }
+    const open = Boolean(g.file || g.viewing || rendered);
+    g.host.hidden = !open;
+    g.empty.hidden = open;
+    forgetClosedScrolls(g);
+    g.scrollOwner = undefined;
+    if (g === group) settled = undefined;
+    const scroll = tab && g.scrolls.get(tabKey(tab));
+    if (scroll) g.editor.view.dispatch({ effects: scroll });
+    else g.editor.view.scrollDOM.scrollTo(0, 0);
+    g.markdown.show(rendered);
+    renderTabs(g);
+    renderActions(g);
+    if (g === group) {
+      updateFormat();
+      tree.render();
+    }
+    linkPreviews();
+    saveLayout();
   }
-  function renderTabs() {
-    if (!tabStrip) return;
-    const all = tabs.tabs;
-    tabStrip.replaceChildren(
+  /**
+   * Pairs each Markdown preview tab on screen with an editor showing its
+   * source in another group (the most recently focused), for scroll sync.
+   */
+  function linkPreviews() {
+    for (const g of groups.values()) {
+      const tab = g.tabs.active;
+      const source = tab?.markdown
+        ? [...focusOrder, ...groups.values()]
+            .reverse()
+            .find((other) => other !== g && other.file === tab.path)
+        : undefined;
+      g.markdown.link(source?.editor.view);
+    }
+  }
+  /** A link in group `g`'s rendered Markdown to another workspace file. */
+  function followLink(g: Group, path: string, anchor?: string) {
+    const tab = g.tabs.active;
+    navigation(() => {
+      activateGroup(g);
+      saveState(g);
+      if (tab?.markdown && isMarkdownPath(path)) {
+        // The preview follows the link, as VS Code's does.
+        const index = g.tabs.tabs.indexOf(tab);
+        g.tabs.close(tab);
+        g.tabs.place(markdownTab(path), index);
+      } else if (tab?.markdown) {
+        openBeside(g, fileTab(path));
+        return;
+      } else g.tabs.open(path);
+      if (anchor && isMarkdownPath(path)) g.markdown.reveal(anchor);
+      show(g);
+    });
+  }
+  const fileTab = (path: string): OpenTab =>
+    Object.freeze({ path, preview: false });
+  const markdownTab = (path: string): OpenTab =>
+    Object.freeze({ path, preview: false, markdown: true });
+
+  /** The split tree with each group's tabs filled in, as the layout saves it. */
+  function treeWithTabs(node: EditorNode = editorTree()) {
+    let filled = node;
+    for (const g of groups.values()) {
+      const saved = g.tabs.tabs.filter((tab) => !tab.preview);
+      const active = g.tabs.active ? saved.indexOf(g.tabs.active) : -1;
+      filled = updateGroup(filled, g.id, (item) => ({
+        ...item,
+        tabs: saved.map((tab) => ({
+          path: tab.path,
+          kind: tab.markdown ? 'markdown' : 'file',
+        })),
+        active: Math.max(0, active),
+      }));
+    }
+    return filled;
+  }
+  const groupElement = (id: string) => groups.get(id)?.element;
+  /** Saves the open tabs with the layout (`render` also rebuilds the editor area). */
+  function saveLayout(node?: EditorNode) {
+    if (signal.aborted || !groups.size) return;
+    const next = treeWithTabs(node);
+    if (layout) layout.setEditors(next, node ? groupElement : undefined);
+    else ownTree = next;
+  }
+
+  /** Reset layout: every group's tabs move into the focused group, which is left alone. */
+  function mergeGroups() {
+    const keep = group;
+    const active = keep.tabs.active;
+    saveState(keep);
+    for (const g of [...groups.values()]) {
+      if (g === keep) continue;
+      saveState(g);
+      for (const tab of g.tabs.tabs) {
+        if (keep.tabs.tabs.some((item) => sameTab(item, tab))) continue;
+        const state = g.states.get(tab.path);
+        if (state && !keep.states.has(tab.path))
+          keep.states.set(tab.path, adopt(keep, tab.path, state));
+        keep.tabs.place(tab, keep.tabs.tabs.length);
+      }
+      groups.delete(g.id);
+      g.life.abort();
+      g.editor.destroy();
+      g.element.remove();
+    }
+    focusOrder = [keep];
+    if (active) keep.tabs.activate(active);
+    saveLayout(emptyGroup(keep.id));
+    show(keep);
+  }
+
+  /** Closes an empty group; its space goes to its neighbours. */
+  function dropGroup(g: Group) {
+    const next = removeGroup(editorTree(), g.id);
+    if (!next || !groups.has(g.id)) return;
+    groups.delete(g.id);
+    focusOrder = focusOrder.filter((item) => item !== g);
+    g.life.abort();
+    g.editor.destroy();
+    g.element.remove();
+    if (group === g) {
+      const fallback = focusOrder.at(-1) ?? groups.values().next().value!;
+      activateGroup(fallback);
+    }
+    saveLayout(next);
+    linkPreviews();
+  }
+
+  /**
+   * Takes `tab` out of group `g` without closing what it shows (it moves to
+   * another group); a group left empty closes, unless it is the last one.
+   */
+  function detach(g: Group, tab: OpenTab) {
+    const active = tab === g.tabs.active;
+    if (active) saveState(g);
+    g.tabs.close(tab);
+    if (!g.tabs.tabs.length && groups.size > 1) {
+      dropGroup(g);
+      return;
+    }
+    if (active) show(g);
+    else {
+      forgetClosedScrolls(g);
+      renderTabs(g);
+      saveLayout();
+    }
+  }
+
+  /** Opens `tab` in a new group on `side` of group `target`. */
+  function splitWith(
+    target: Group,
+    side: SplitSide,
+    tab: OpenTab,
+    state?: EditorState,
+    scroll?: StateEffect<unknown>
+  ) {
+    const created = createGroup(nextGroupId(editorTree()));
+    if (state) created.states.set(tab.path, adopt(created, tab.path, state));
+    if (scroll) created.scrolls.set(tabKey(tab), scroll);
+    created.tabs.place(tab);
+    saveLayout(
+      splitGroup(editorTree(), target.id, side, emptyGroup(created.id))
+    );
+    activateGroup(created);
+    show(created);
+    return created;
+  }
+
+  /**
+   * Opens `tab` in the group beside `g` (right, else left), or in a new group
+   * split off to its right: VS Code's "open to the side".
+   */
+  function openBeside(g: Group, tab: OpenTab) {
+    const tree = editorTree();
+    const id =
+      neighbourGroup(tree, g.id, 'right') ?? neighbourGroup(tree, g.id, 'left');
+    const target = id ? groups.get(id) : undefined;
+    if (target) {
+      activateGroup(target);
+      saveState(target);
+      target.tabs.place(tab);
+      show(target);
+    } else if (groups.size < MAX_GROUPS) splitWith(g, 'right', tab);
+    else {
+      saveState(g);
+      g.tabs.place(tab);
+      show(g);
+    }
+    focusGroup(group);
+  }
+
+  /** Focuses what a group shows: its rendered Markdown, else its editor. */
+  function focusGroup(g: Group) {
+    if (g.markdown.path) g.markdown.focus();
+    else g.editor.focus();
+  }
+
+  const actionIcons = {
+    side: '<path d="M2.5 4h15v12h-15zM10 4v12M12.5 8.5h3M12.5 11.5h3"></path>',
+    source: '<path d="m6 5.5-3.5 4.5L6 14.5M14 5.5l3.5 4.5-3.5 4.5"></path>',
+    preview:
+      '<path d="M1.75 10S4.75 4.5 10 4.5 18.25 10 18.25 10 15.25 15.5 10 15.5 1.75 10 1.75 10Z"></path><circle cx="10" cy="10" r="2.5"></circle>',
+  };
+  function actionButton(label: string, icon: string, run: () => void) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true">${icon}</svg>`;
+    button.addEventListener('click', run);
+    return button;
+  }
+  /**
+   * The group's actions at the right of its tab strip: open the Markdown
+   * preview (or the source) to the side, and on phones a Source / Preview
+   * toggle for a `.md` source tab.
+   */
+  function renderActions(g: Group) {
+    const tab = g.tabs.active;
+    const items: HTMLElement[] = [];
+    if (tab?.markdown) {
+      const side = actionButton(
+        'Open source to the side',
+        actionIcons.source,
+        () => openBeside(g, fileTab(tab.path))
+      );
+      side.classList.add('md-side');
+      items.push(side);
+    } else if (tab && !tab.preview && isMarkdownPath(tab.path)) {
+      const side = actionButton(
+        'Open preview to the side',
+        actionIcons.side,
+        () => openBeside(g, markdownTab(tab.path))
+      );
+      side.classList.add('md-side');
+      side.dataset.codeOpenPreview = '';
+      const toggle = document.createElement('span');
+      toggle.className = 'md-toggle';
+      toggle.setAttribute('role', 'group');
+      toggle.setAttribute('aria-label', 'Markdown view');
+      const view = phoneView(tab.path);
+      for (const mode of ['source', 'preview'] as const) {
+        const button = actionButton(
+          mode === 'source' ? 'Source' : 'Preview',
+          actionIcons[mode],
+          () => {
+            phoneChoice = mode;
+            try {
+              localStorage.setItem(MARKDOWN_VIEW_KEY, mode);
+            } catch {
+              /* Without storage the choice lasts for this page. */
+            }
+            saveState(g);
+            show(g);
+            focusGroup(g);
+          }
+        );
+        button.dataset.mdView = mode;
+        button.setAttribute('aria-pressed', String(mode === view));
+        const label = document.createElement('span');
+        label.textContent = mode === 'source' ? 'Source' : 'Preview';
+        button.append(label);
+        toggle.append(button);
+      }
+      items.push(side, toggle);
+    }
+    g.actions.replaceChildren(...items);
+  }
+
+  function renderTabs(g: Group = group) {
+    const all = g.tabs.tabs;
+    g.strip.replaceChildren(
       ...all.map((tab, index) => {
         const { name, folder } = tabLabel(tab, all);
-        const active = tab === tabs.active;
+        const active = tab === g.tabs.active;
         const item = document.createElement('div');
         item.className = 'ide-filetab';
         item.dataset.tabIndex = String(index);
         if (active) item.dataset.active = 'true';
         if (tab.preview) item.dataset.preview = 'true';
+        if (tab.markdown) item.dataset.markdown = 'true';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'ide-filetab-open';
@@ -1248,17 +1806,23 @@ export async function createSession(
           ? `${expansion.title ?? tab.path} (read-only)`
           : tab.preview
             ? `${tab.path} (read-only)`
-            : tab.path;
+            : tab.markdown
+              ? `Preview of ${tab.path}`
+              : tab.path;
         // The visible spans run together in the computed name; spell it out.
         button.setAttribute(
           'aria-label',
-          [name, folder && `in ${folder}`, tab.preview && 'read-only']
+          [
+            tab.markdown ? `Preview ${name}` : name,
+            folder && `in ${folder}`,
+            tab.preview && 'read-only',
+          ]
             .filter(Boolean)
             .join(', ')
         );
         const label = document.createElement('span');
         label.className = 'ide-filetab-name';
-        label.textContent = name;
+        label.textContent = tab.markdown ? `Preview ${name}` : name;
         button.append(
           fileIcon(
             fileIconKind(expansion ? 'expansion.jai' : tab.path),
@@ -1281,33 +1845,37 @@ export async function createSession(
         close.tabIndex = -1;
         close.dataset.tabClose = '';
         close.title = 'Close (Delete)';
-        close.setAttribute('aria-label', `Close ${name}`);
+        close.setAttribute(
+          'aria-label',
+          `Close ${tab.markdown ? `preview ${name}` : name}`
+        );
         close.innerHTML =
           '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg>';
         item.append(button, close);
         return item;
       })
     );
-    revealActiveTab();
+    revealActiveTab(g);
   }
   // Keeps the active tab in view without scrolling the page around it.
-  function revealActiveTab() {
-    const current = tabStrip?.querySelector<HTMLElement>('[data-active]');
-    if (!tabStrip || !current) return;
+  function revealActiveTab(g: Group) {
+    const strip = g.strip;
+    const current = strip.querySelector<HTMLElement>('[data-active]');
+    if (!current) return;
     const left = current.offsetLeft,
       right = left + current.offsetWidth;
-    if (left < tabStrip.scrollLeft) tabStrip.scrollLeft = left;
-    else if (right > tabStrip.scrollLeft + tabStrip.clientWidth)
-      tabStrip.scrollLeft = right - tabStrip.clientWidth;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (right > strip.scrollLeft + strip.clientWidth)
+      strip.scrollLeft = right - strip.clientWidth;
   }
-  function tabAt(target: EventTarget | null) {
+  function tabAt(g: Group, target: EventTarget | null) {
     const item = (target as Element | null)?.closest<HTMLElement>(
       '.ide-filetab'
     );
-    return item ? tabs.tabs[Number(item.dataset.tabIndex)] : undefined;
+    return item ? g.tabs.tabs[Number(item.dataset.tabIndex)] : undefined;
   }
-  function focusActiveTab() {
-    tabStrip?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  function focusActiveTab(g: Group = group) {
+    g.strip.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
   }
   function activateTab(tab: OpenTab) {
     if (tab === tabs.active) return;
@@ -1318,68 +1886,244 @@ export async function createSession(
       show();
     });
   }
-  function closeTab(tab: OpenTab) {
-    const hadFocus = tabStrip?.contains(document.activeElement) ?? false;
+  function closeTab(tab: OpenTab, g: Group = group) {
+    const hadFocus = g.strip.contains(document.activeElement);
     closePicker();
-    if (tab !== tabs.active) {
-      tabs.close(tab);
+    if (tab !== g.tabs.active) {
+      g.tabs.close(tab);
       if (tab.preview) closePreview();
-      forgetClosedScrolls();
-      renderTabs();
+      forgetClosedScrolls(g);
+      renderTabs(g);
+      saveLayout();
     } else {
-      saveState();
-      tabs.close(tab);
+      saveState(g);
+      g.tabs.close(tab);
       if (tab.preview) closePreview();
-      show();
+      show(g);
     }
-    if (hadFocus) focusActiveTab();
+    // Closing a group's last tab closes the group, unless it is the only one.
+    if (!g.tabs.tabs.length && groups.size > 1) {
+      dropGroup(g);
+      if (hadFocus) focusActiveTab();
+      return;
+    }
+    if (hadFocus) focusActiveTab(g);
   }
-  if (tabStrip) {
+
+  /* Drag and drop of tabs (and tree files) between and around groups. */
+  const tabName = (tab: OpenTab) => {
+    const name = tab.path.slice(tab.path.lastIndexOf('/') + 1);
+    return tab.markdown ? `Preview ${name}` : name;
+  };
+  function resolveTabDrop(
+    x: number,
+    y: number
+  ): DropTarget<TabDrop> | undefined {
+    for (const g of groups.values()) {
+      const box = g.element.getBoundingClientRect();
+      if (x < box.left || x > box.right || y < box.top || y > box.bottom)
+        continue;
+      const head = g.strip.parentElement!.getBoundingClientRect();
+      if (y <= head.bottom) {
+        const items = [
+          ...g.strip.querySelectorAll<HTMLElement>('.ide-filetab'),
+        ];
+        const spans = items.map((item) => {
+          const rect = item.getBoundingClientRect();
+          return { left: rect.left, width: rect.width };
+        });
+        const index = insertionIndex(spans, x);
+        const last = spans.at(-1);
+        const edge =
+          index < spans.length
+            ? spans[index].left
+            : last
+              ? last.left + last.width
+              : head.left;
+        return {
+          rect: {
+            left: Math.max(head.left, Math.min(edge - 1, head.right - 2)),
+            top: head.top,
+            width: 2,
+            height: head.height,
+          },
+          insert: true,
+          value: { group: g.id, zone: 'center', index },
+        };
+      }
+      const content = {
+        x: box.left,
+        y: head.bottom,
+        width: box.width,
+        height: box.bottom - head.bottom,
+      };
+      const zone = groupDropZone(content, x, y, {
+        empty: !g.tabs.tabs.length,
+        full: groups.size >= MAX_GROUPS,
+      });
+      const half = (size: number) => size / 2;
+      const rect =
+        zone === 'left'
+          ? {
+              left: content.x,
+              top: content.y,
+              width: half(content.width),
+              height: content.height,
+            }
+          : zone === 'right'
+            ? {
+                left: content.x + half(content.width),
+                top: content.y,
+                width: half(content.width),
+                height: content.height,
+              }
+            : zone === 'top'
+              ? {
+                  left: content.x,
+                  top: content.y,
+                  width: content.width,
+                  height: half(content.height),
+                }
+              : zone === 'bottom'
+                ? {
+                    left: content.x,
+                    top: content.y + half(content.height),
+                    width: content.width,
+                    height: half(content.height),
+                  }
+                : {
+                    left: content.x,
+                    top: content.y,
+                    width: content.width,
+                    height: content.height,
+                  };
+      return { rect, value: { group: g.id, zone } };
+    }
+    return undefined;
+  }
+  /**
+   * Drops `tab` (from group `from`, or from the tree) on a group: on its tab
+   * strip or middle it opens there, on a side it splits a new group off. A
+   * tab moves; dragging a group's only tab to its own side copies it, so the
+   * file shows in both.
+   */
+  function dropTab(from: Group | undefined, tab: OpenTab, target: TabDrop) {
+    const dest = groups.get(target.group);
+    if (!dest || (from && !from.tabs.tabs.includes(tab))) return;
+    closePicker();
+    if (from) saveState(from);
+    const state =
+      from && !tab.preview && !tab.markdown
+        ? from.states.get(tab.path)
+        : undefined;
+    if (tab.preview && !from) return;
+    if (target.zone === 'center') {
+      if (from === dest) {
+        if (target.index !== undefined) dest.tabs.place(tab, target.index);
+        else dest.tabs.activate(tab);
+      } else {
+        if (from) detach(from, tab);
+        if (state && !dest.states.has(tab.path))
+          dest.states.set(tab.path, adopt(dest, tab.path, state));
+        const scroll = from?.scrolls.get(tabKey(tab));
+        if (scroll && !dest.tabs.tabs.some((item) => sameTab(item, tab)))
+          dest.scrolls.set(tabKey(tab), scroll);
+        saveState(dest);
+        dest.tabs.place(tab, target.index);
+      }
+      activateGroup(dest);
+      show(dest);
+    } else {
+      const copy = from === dest && dest.tabs.tabs.length === 1;
+      if (copy && tab.preview) return;
+      if (from && !copy) detach(from, tab);
+      splitWith(dest, target.zone, tab, state, from?.scrolls.get(tabKey(tab)));
+    }
+    showPane(panel, 'code');
+    focusGroup(group);
+  }
+
+  function wireTabStrip(g: Group, groupSignal: AbortSignal) {
+    const strip = g.strip;
+    const listen = { signal: groupSignal };
     // Phones hide the strip with the Files pane; reveal again once it is shown.
-    const resized = new ResizeObserver(revealActiveTab);
-    resized.observe(tabStrip);
-    signal.addEventListener('abort', () => resized.disconnect(), {
+    const resized = new ResizeObserver(() => revealActiveTab(g));
+    resized.observe(strip);
+    groupSignal.addEventListener('abort', () => resized.disconnect(), {
       once: true,
     });
-    tabStrip.addEventListener(
+    strip.addEventListener(
+      'pointerdown',
+      (event) => {
+        const tab = tabAt(g, event.target);
+        if (
+          !tab ||
+          isNarrow() ||
+          (event.target as Element).closest('[data-tab-close]')
+        )
+          return;
+        const item = (event.target as Element).closest<HTMLElement>(
+          '.ide-filetab'
+        );
+        trackDrag<TabDrop>(event, {
+          panel,
+          label: tabName(tab),
+          resolve: (x, y) => {
+            item?.setAttribute('data-dragging', '');
+            return resolveTabDrop(x, y);
+          },
+          drop: (target) => dropTab(g, tab, target),
+        });
+        window.addEventListener(
+          'pointerup',
+          () => item?.removeAttribute('data-dragging'),
+          { once: true, capture: true }
+        );
+      },
+      listen
+    );
+    strip.addEventListener(
       'click',
       (event) => {
-        const tab = tabAt(event.target);
+        const tab = tabAt(g, event.target);
         if (!tab) return;
+        activateGroup(g);
         if ((event.target as Element).closest('[data-tab-close]')) {
-          closeTab(tab);
+          closeTab(tab, g);
           return;
         }
         activateTab(tab);
         showPane(panel, 'code');
-        editor.focus();
+        focusGroup(g);
       },
-      { signal }
+      listen
     );
     // Middle-click closes; preventing mousedown stops the autoscroll cursor.
-    tabStrip.addEventListener(
+    strip.addEventListener(
       'mousedown',
       (event) => {
-        if (event.button === 1 && tabAt(event.target)) event.preventDefault();
+        if (event.button === 1 && tabAt(g, event.target))
+          event.preventDefault();
       },
-      { signal }
+      listen
     );
-    tabStrip.addEventListener(
+    strip.addEventListener(
       'auxclick',
       (event) => {
-        const tab = event.button === 1 ? tabAt(event.target) : undefined;
+        const tab = event.button === 1 ? tabAt(g, event.target) : undefined;
         if (!tab) return;
         event.preventDefault();
-        closeTab(tab);
+        closeTab(tab, g);
       },
-      { signal }
+      listen
     );
-    tabStrip.addEventListener(
+    strip.addEventListener(
       'keydown',
       (event) => {
-        const tab = tabAt(event.target);
+        const tab = tabAt(g, event.target);
         if (!tab || event.altKey || event.ctrlKey || event.metaKey) return;
-        const all = tabs.tabs,
+        activateGroup(g);
+        const all = g.tabs.tabs,
           index = all.indexOf(tab);
         const next =
           event.key === 'ArrowRight'
@@ -1394,28 +2138,28 @@ export async function createSession(
         if (next) {
           event.preventDefault();
           activateTab(next);
-          focusActiveTab();
+          focusActiveTab(g);
         } else if (event.key === 'Delete') {
           event.preventDefault();
-          closeTab(tab);
+          closeTab(tab, g);
         }
       },
-      { signal }
+      listen
     );
     // A vertical wheel scrolls overflowing tabs sideways, as in VS Code.
-    tabStrip.addEventListener(
+    strip.addEventListener(
       'wheel',
       (event) => {
         if (
           event.deltaX ||
           !event.deltaY ||
-          tabStrip.scrollWidth <= tabStrip.clientWidth
+          strip.scrollWidth <= strip.clientWidth
         )
           return;
         event.preventDefault();
-        tabStrip.scrollLeft += event.deltaY;
+        strip.scrollLeft += event.deltaY;
       },
-      { signal, passive: false }
+      { signal: groupSignal, passive: false }
     );
   }
   const tree = initializeFileTree(
@@ -1424,7 +2168,7 @@ export async function createSession(
     {
       beforeChange: () => {
         filesBefore = new Set(workspace.names);
-        saveState();
+        for (const g of groups.values()) saveState(g);
       },
       intent: (path) => void prefetch(path),
       select: (path) => {
@@ -1434,34 +2178,43 @@ export async function createSession(
           show();
         });
         showPane(panel, 'code');
-        editor.focus();
+        focusGroup(group);
       },
       changed: (moves) => {
         // Where the editor was, in case a new file opens (a navigation).
         const from = here();
         let renamed = false;
-        if (moves) {
-          const saved = [...states];
-          for (const [from, to] of moves) {
-            const state = saved.find(([path]) => path === from)?.[1];
-            states.delete(from);
-            // A new extension needs new highlighting, which a saved state can't change.
-            if (state && extension(from) === extension(to))
-              states.set(to, state);
+        const names = new Set(workspace.names);
+        for (const g of groups.values()) {
+          if (moves) {
+            const saved = [...g.states];
+            for (const [from, to] of moves) {
+              const state = saved.find(([path]) => path === from)?.[1];
+              g.states.delete(from);
+              // A new extension needs new highlighting, which a saved state can't change.
+              if (state && extension(from) === extension(to))
+                g.states.set(to, state);
+            }
+            g.tabs.move(moves);
           }
-          tabs.move(moves);
+          for (const path of g.states.keys())
+            if (!names.has(path)) g.states.delete(path);
+          // Deleted files lose their tabs.
+          g.tabs.retain(names);
+        }
+        if (moves) {
           nav.move(moves);
           renamed = true;
         }
-        const names = new Set(workspace.names);
-        for (const path of states.keys())
-          if (!names.has(path)) states.delete(path);
-        // Deleted files lose their tabs; a newly created file opens in one.
-        tabs.retain(names);
         nav.retain(names);
+        // A group whose files all went closes, unless it is the last.
+        for (const g of [...groups.values()])
+          if (!g.tabs.tabs.length && groups.size > 1) dropGroup(g);
+        // A newly created file opens in the focused group.
         const selected = workspace.selected?.path.name;
         const created = !moves && selected && !filesBefore.has(selected);
         if (created) tabs.open(selected);
+        for (const g of groups.values()) if (g !== group) show(g);
         show();
         const to = created ? here() : undefined;
         if (to) mirror(nav.navigate(from, to));
@@ -1476,6 +2229,24 @@ export async function createSession(
       error: showError,
     },
     signal
+  );
+  // A file dragged from the tree opens in, or splits off, an editor group.
+  find('files').addEventListener(
+    'pointerdown',
+    (event) => {
+      const row = (event.target as Element).closest<HTMLElement>(
+        '[data-tree-kind="file"]'
+      );
+      const path = row?.dataset.treePath;
+      if (!path || isNarrow()) return;
+      trackDrag<TabDrop>(event, {
+        panel,
+        label: path.slice(path.lastIndexOf('/') + 1),
+        resolve: resolveTabDrop,
+        drop: (target) => dropTab(undefined, fileTab(path), target),
+      });
+    },
+    { signal }
   );
 
   function terminate(worker: Worker | undefined) {
@@ -1649,7 +2420,7 @@ export async function createSession(
     formatButton.disabled =
       !ready ||
       formatting ||
-      viewing !== undefined ||
+      group?.viewing !== undefined ||
       !isFormattable(workspace.selected?.path.name ?? '');
   }
   function announce(message: string) {
@@ -1810,7 +2581,7 @@ export async function createSession(
       }
       const current = workspace.selected;
       if (
-        viewing ||
+        group.viewing ||
         current?.path.name !== path ||
         current.version !== selected.version
       ) {
@@ -1860,12 +2631,6 @@ export async function createSession(
     { signal }
   );
 
-  editorHost.addEventListener('compositionstart', runner.compositionStart, {
-    signal,
-  });
-  editorHost.addEventListener('compositionend', runner.compositionEnd, {
-    signal,
-  });
   run.addEventListener(
     'click',
     () => {
@@ -1911,16 +2676,28 @@ export async function createSession(
       language?.dispose();
       for (const worker of workers) worker.terminate();
       workers.clear();
-      editor.destroy();
+      // Back to the server-rendered group; the saved layout is kept for the next session.
+      for (const g of groups.values()) {
+        g.life.abort();
+        g.editor.destroy();
+        g.tabs.clear();
+        g.strip.replaceChildren();
+        g.actions.replaceChildren();
+        g.host.hidden = false;
+        g.empty.hidden = true;
+        if (g.element !== template) g.element.remove();
+      }
+      groups.clear();
+      focusOrder = [];
+      delete template.dataset.groupId;
+      template.setAttribute('data-active', '');
+      template.style.flex = '';
+      layout?.editors.replaceChildren(template);
       find('files').replaceChildren();
       output.clear();
-      tabs.clear();
       nav.clear();
       clearTimeout(traversing);
       preview = undefined;
-      tabStrip?.replaceChildren();
-      editorHost.hidden = false;
-      if (empty) empty.hidden = true;
       run.disabled = true;
       run.hidden = false;
       cancel.hidden = true;
@@ -1928,19 +2705,66 @@ export async function createSession(
     },
     { once: true }
   );
-  if (signal.aborted) {
-    editor.destroy();
-    throw abortError();
+  if (signal.aborted) throw abortError();
+  /*
+   * The groups and tabs of the saved layout, keeping files that exist. A
+   * group left without tabs goes, unless every group is empty.
+   */
+  const names = new Set(workspace.names);
+  let restored = editorTree();
+  for (const node of groupsOf(restored)) {
+    const g = createGroup(node.id);
+    for (const item of node.tabs) {
+      if (!names.has(item.path)) continue;
+      if (item.kind === 'file') g.tabs.open(item.path);
+      else if (isMarkdownPath(item.path)) g.tabs.openMarkdown(item.path);
+    }
+    const active = node.tabs[node.active];
+    const tab =
+      active &&
+      g.tabs.tabs.find(
+        (open) =>
+          open.path === active.path &&
+          Boolean(open.markdown) === (active.kind === 'markdown')
+      );
+    if (tab) g.tabs.activate(tab);
+  }
+  for (const g of [...groups.values()]) {
+    if (g.tabs.tabs.length || groups.size === 1) continue;
+    restored = removeGroup(restored, g.id) ?? restored;
+    groups.delete(g.id);
+    g.life.abort();
+    g.editor.destroy();
+    g.element.remove();
+  }
+  activateGroup(groups.get(groupsOf(restored)[0].id)!);
+  if (![...groups.values()].some((g) => g.tabs.tabs.length)) {
+    // The starter's tabs: main.jai, and the tour's guide rendered.
+    const opening = starter.open.filter((path) => names.has(path));
+    for (const path of opening)
+      if (isMarkdownPath(path) && path !== opening[0]) tabs.openMarkdown(path);
+      else tabs.open(path);
+    if (opening[0]) tabs.open(opening[0]);
   }
   // A playground deep link (`/playground/jai#lib/math.jai`) opens that file.
   const requested = panel.dataset.codeOpen;
-  const names = new Set(workspace.names);
-  const opening = starter.open.filter((path) => names.has(path));
-  for (const path of opening) tabs.open(path);
-  // The first starter tab (main.jai) is active unless a link asks for another file.
   if (requested && names.has(requested)) tabs.open(requested);
-  else if (opening[0]) tabs.open(opening[0]);
+  saveLayout(restored);
+  for (const g of groups.values()) if (g !== group) show(g);
   show();
+  // Crossing into the phone layout swaps `.md` source tabs for their preview, and back.
+  matchMedia(NARROW_QUERY).addEventListener(
+    'change',
+    () => {
+      for (const g of groups.values()) {
+        saveState(g);
+        show(g);
+      }
+      show();
+    },
+    { signal }
+  );
+  layout?.onReset(mergeGroups, signal);
   const start = here();
   if (start) {
     const id = nav.reset(start);
@@ -1965,7 +2789,7 @@ export async function createSession(
           diagnostics: params.diagnostics,
         };
         published.set(params.uri, entry);
-        if (currentDiagnostics() === entry) showDiagnostics();
+        showPublished(entry);
         void loadFixes(params.uri, entry);
       },
       failure: () => {
@@ -1978,7 +2802,8 @@ export async function createSession(
     client.sync(workspace.documents);
     // Decorations (tokens, hints, links, ...) start once the server is up.
     if (!signal.aborted)
-      editor.view.dispatch({ effects: refreshLanguage.of(null) });
+      for (const g of groups.values())
+        g.editor.view.dispatch({ effects: refreshLanguage.of(null) });
   }
   await driverLoaded;
   if (signal.aborted) throw abortError();

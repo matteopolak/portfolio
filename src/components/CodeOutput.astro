@@ -1,5 +1,5 @@
 <section class="ide-output" data-code-output-pane aria-label="Output">
-  <div class="ide-output__head">
+  <div class="ide-output__head" data-panel-handle>
     <span class="ide-output__title">Output</span>
     <span class="ide-output__summary" data-code-summary></span>
     <button type="button" class="ide-output__button" data-code-clear aria-label="Clear output" title="Clear output">
@@ -27,6 +27,9 @@
     height: 2.25rem;
     flex: none;
     padding: 0 0.35rem 0 1rem;
+    /* The header is the panel's drag handle, like the file tree's. */
+    cursor: grab;
+    user-select: none;
   }
 
   .ide-output__title {
@@ -47,6 +50,7 @@
 
   .ide-output__button {
     display: grid;
+    cursor: pointer;
     width: 1.65rem;
     height: 1.65rem;
     place-items: center;

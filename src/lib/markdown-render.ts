@@ -9,54 +9,43 @@
  */
 import { Marked, Renderer, type Token, type Tokens } from 'marked';
 
-/** How a `.md` file is shown: source and preview side by side, or one of them. */
-export type MarkdownView = 'split' | 'source' | 'preview';
-
-/** Saved choices, one per layout, so a phone toggle does not undo split view on a laptop. */
-export interface MarkdownViewChoice {
-  wide?: MarkdownView;
-  narrow?: Exclude<MarkdownView, 'split'>;
-}
-
 /**
- * Editor-column width (px) from which source and preview fit side by side.
- * Each half is then at least 380px, about 45 columns of 14px code. The jai
- * modal clears it on 1280px-wide screens; 1024px laptops and phones get the
- * single-pane toggle.
+ * How a `.md` source tab is shown on phones, where its rendered view replaces
+ * the source in place (wider layouts open a separate preview tab instead).
  */
-export const SPLIT_MIN_WIDTH = 760;
+export type MarkdownView = 'source' | 'preview';
 
 export const isMarkdownPath = (path: string | undefined) =>
   path !== undefined && /\.(md|markdown)$/iu.test(path);
 
 /**
- * The view for a markdown file. Wide editors default to split. Narrow ones
- * default to the rendered preview, because a phone visitor opening a README
- * wants to read it, except for an empty file, which has nothing to show yet.
+ * The phone view for a markdown file: the saved choice, else the rendered
+ * preview, because a phone visitor opening a README wants to read it. An
+ * empty file has nothing to show yet, so it opens as source.
  */
 export function markdownView(
-  width: number,
-  choice: MarkdownViewChoice,
+  choice: MarkdownView | undefined,
   empty = false
 ): MarkdownView {
-  if (width >= SPLIT_MIN_WIDTH) return choice.wide ?? 'split';
   if (empty) return 'source';
-  return choice.narrow ?? 'preview';
+  return choice ?? 'preview';
 }
 
-/** Parses the stored choice, dropping anything that is not a known view. */
-export function parseViewChoice(stored: string | null): MarkdownViewChoice {
-  const views = ['split', 'source', 'preview'];
+/**
+ * Parses the stored choice: `source` or `preview`, or the older
+ * `{"narrow": ...}` record. Anything else is no choice.
+ */
+export function parseViewChoice(
+  stored: string | null
+): MarkdownView | undefined {
+  if (stored === 'source' || stored === 'preview') return stored;
   try {
     const value = JSON.parse(stored ?? '{}') as Record<string, unknown>;
-    const choice: MarkdownViewChoice = {};
-    if (views.includes(value.wide as string))
-      choice.wide = value.wide as MarkdownView;
-    if (value.narrow === 'source' || value.narrow === 'preview')
-      choice.narrow = value.narrow;
-    return choice;
+    return value.narrow === 'source' || value.narrow === 'preview'
+      ? value.narrow
+      : undefined;
   } catch {
-    return {};
+    return undefined;
   }
 }
 

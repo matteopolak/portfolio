@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SPLIT_MIN_WIDTH,
   isMarkdownPath,
   joinPath,
   markdownView,
@@ -23,30 +22,27 @@ test('markdown paths', () => {
   assert.ok(!isMarkdownPath(undefined));
 });
 
-test('view: wide editors split by default and keep their own choice', () => {
-  assert.equal(markdownView(SPLIT_MIN_WIDTH, {}), 'split');
-  assert.equal(markdownView(1200, { wide: 'source' }), 'source');
-  assert.equal(markdownView(1200, { narrow: 'source' }), 'split');
-  // An empty file still splits on a wide editor; both panes are visible.
-  assert.equal(markdownView(1200, {}, true), 'split');
-});
-
-test('view: narrow editors show one pane, preview by default', () => {
-  assert.equal(markdownView(SPLIT_MIN_WIDTH - 1, {}), 'preview');
-  assert.equal(markdownView(375, { narrow: 'source' }), 'source');
-  assert.equal(markdownView(375, { wide: 'split' }), 'preview');
+test('phone view: preview by default, the saved choice otherwise', () => {
+  assert.equal(markdownView(undefined), 'preview');
+  assert.equal(markdownView('source'), 'source');
+  assert.equal(markdownView('preview'), 'preview');
   // A new, empty file opens where it can be typed into.
-  assert.equal(markdownView(375, { narrow: 'preview' }, true), 'source');
+  assert.equal(markdownView('preview', true), 'source');
+  assert.equal(markdownView(undefined, true), 'source');
 });
 
 test('stored view choices are validated', () => {
-  assert.deepEqual(parseViewChoice(null), {});
-  assert.deepEqual(parseViewChoice('not json'), {});
-  assert.deepEqual(parseViewChoice('{"wide":"preview","narrow":"source"}'), {
-    wide: 'preview',
-    narrow: 'source',
-  });
-  assert.deepEqual(parseViewChoice('{"wide":"sideways","narrow":"split"}'), {});
+  assert.equal(parseViewChoice(null), undefined);
+  assert.equal(parseViewChoice('not json'), undefined);
+  assert.equal(parseViewChoice('source'), 'source');
+  assert.equal(parseViewChoice('preview'), 'preview');
+  // The record older versions stored keeps its phone choice.
+  assert.equal(
+    parseViewChoice('{"wide":"preview","narrow":"source"}'),
+    'source'
+  );
+  assert.equal(parseViewChoice('{"wide":"split","narrow":"split"}'), undefined);
+  assert.equal(parseViewChoice('split'), undefined);
 });
 
 test('relative paths resolve against the file folder', () => {
