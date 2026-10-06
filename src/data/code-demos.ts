@@ -49,9 +49,9 @@ export const codeDemoPages: CodeDemoPage[] = [
     path: '/playground/jai',
     title: 'Jai playground',
     description:
-      'Write and run Jai in your browser: a Rust-built Jai compiler compiled to WebAssembly, with a multi-file workspace, diagnostics, hover, go to definition and a formatter.',
+      'Write and run Jai in your browser: a Rust-built Jai compiler compiled to WebAssembly, with a multi-file workspace, diagnostics, hover, go to definition, a formatter and a linter.',
     summary:
-      'Multi-file Jai workspace with the compiler, language server and formatter running in WebAssembly.',
+      'Multi-file Jai workspace with the compiler, language server, formatter and linter running in WebAssembly.',
     workspace: {
       id: 'jai',
       label: 'Jai',
