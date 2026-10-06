@@ -25,6 +25,7 @@ simply shows less with it. Never assume a provider exists.
 | `src/lib/jai/lsp-extensions.ts` | CodeMirror side of everything that decorates text: one `ViewPlugin` schedules requests, and `StateField`s hold the results (tokens, inlays, highlights, lenses, the lightbulb, links, folds, the signature tooltip). |
 | `src/lib/jai/language-client.ts` | `resourceFromUri` / `pathFromUri`, and `openReadonly`/`closeReadonly` for library previews. |
 | `src/lib/jai/language-actions.ts` | Requests that touch the workspace: `positionRequest`, `definitionTarget`, `resolveLocation`, `prepareRename`, `renameSymbol`, `planWorkspaceEdit`, `applyWorkspaceEdit`. |
+| `src/lib/jai/lint-fixes.ts` | Pure logic for jailint findings: `lintRule`, `lintMessage`, `diagnosticsAt` (a code action's `context.diagnostics`), `fixesFor`, `combineFixes` (Fix all). Tested directly. |
 | `src/lib/jai/picker.ts` | The small list used for code actions, references, polymorph instances and symbol search. |
 | `src/lib/jai/workspace-ui.ts` | Wires it together: what the current language document is, key bindings, navigation into tabs, applying edits. |
 | `src/lib/code-editor.ts` | Theme classes (`cm-sem-*`, `cm-inlay-hint`, `cm-lsp-*`, `jai-picker*`), hover rendering, F2/F12/Cmd-click. |
@@ -97,9 +98,13 @@ other editor. The server's side is in the compiler's
   (parameter) before it; `paddingLeft`/`paddingRight` become half-character
   margins. They are faint, small and not selectable.
 - **Code actions.** `Cmd/Ctrl+.` or the lightbulb at the end of the cursor's line
-  lists actions. `edit.changes` (inline `#insert`, replace `#run`) goes through
-  `applyWorkspaceEdit`; a `jai.showExpansion` command runs through
+  lists actions. `edit.changes` (inline `#insert`, replace `#run`, lint fixes)
+  goes through `applyEdit` in `workspace-ui.ts`: an edit of only the file on
+  screen is dispatched to the editor (one undo step, scroll kept), anything else
+  through `applyWorkspaceEdit`. A `jai.showExpansion` command runs through
   `workspace/executeCommand` and opens the returned text in the preview tab.
+  Requests send the published diagnostics they touch as `context.diagnostics`.
+- **Lints.** See [Lints and quick fixes](#lints-and-quick-fixes) below.
 - **Read-only previews.** Definition targets, links and symbols outside
   `file:///jai-script/` map via `resourceFromUri`:
   `file:///stdlib/Basic/module.jai` → `library` `stdlib/Basic/module.jai`;
@@ -128,6 +133,41 @@ other editor. The server's side is in the compiler's
   arrive. Without the provider there is no folding, as before.
 - **Format-string hover.** See [Jai integration](jai-integration.md#format-string-highlighting).
 
+### Lints and quick fixes
+
+Servers with jailint (compiler commits from `728a2d45` on; the pinned release
+predates it) publish its findings as ordinary diagnostics with
+`source: "jailint"` and the rule as `code`, and offer each machine-applicable
+fix as a `quickfix` code action titled `<fix> (<rule>)`, e.g.
+`remove it (unused_variable)`. The client advertises `quickfix`, `refactor`
+and `refactor.inline` in `codeActionLiteralSupport`.
+
+- **Squiggles and tooltip.** `editor.diagnostics` in `code-editor.ts` renders a
+  lint's message as the finding, a `help:` line (the server sends them joined
+  by `\n`) with `` `code` `` spans highlighted as Jai, and a
+  `jailint(<rule>)` link to the rules table of the compiler's
+  `docs/tools/jailint.md` (`LINT_DOCS`; the rules have no headings of their
+  own, so all link to `#rules`). `unused_*` rules also get `cm-lint-unused`,
+  which fades the range.
+- **Kept per file.** `workspace-ui.ts` stores the last publish per URI
+  (`published`), so a tab shows its squiggles again when reopened, and code
+  action requests (lightbulb, `Cmd/Ctrl+.`, fixes) send the diagnostics they
+  touch.
+- **Fix buttons.** After each publish, `loadFixes` asks for the code actions of
+  each lint's range (up to 50 per file) and keeps those `fixesFor` its rule.
+  Lints with a fix get a **Fix** button in the tooltip (one per fix when there
+  are several), and **Fix all (N)** when two or more lints in the file are
+  fixable. Clicking Fix asks again at the lint's current (mapped) range, so it
+  never applies an edit computed for older text.
+- **Fix all.** The server has no `source.fixAll` action, so `fixAllLints` asks
+  for the code actions of the whole file and `combineFixes` merges every
+  quick fix into one edit, leaving out fixes that overlap an earlier one
+  (the status line says to run it again). It is also the last entry of the
+  `Cmd/Ctrl+.` list ("Fix all lints in this file").
+- **Settings.** The server reads `jailint.toml` from the file system, which the
+  browser build does not have, and the client only syncs `.jai` files, so a
+  workspace `jailint.toml` has no effect yet; the defaults apply.
+
 ## How to change it
 
 - **A new decorating feature:** add an effect and field in `lsp-extensions.ts`,
@@ -145,6 +185,10 @@ other editor. The server's side is in the compiler's
 - Gotcha: library previews count toward the server's open-document limit (32);
   only one is open at a time.
 
+- **Lint UI:** tooltip markup is `lintContent` in `code-editor.ts`
+  (`.jai-lint*` and `.cm-diagnosticAction` theme rules); buttons come from the
+  `actions` callback `showDiagnostics` passes. The server's title format
+  (`<fix> (<rule>)`) is what `fixesFor` and `fixLabel` rely on.
 - **A new hover layout:** key it off standard Markdown structure in
   `renderHoverMarkdown` (pure, testable) or `markdownHoverContent` (DOM), never
   off private text conventions, so editors without this client still render it.
@@ -153,7 +197,10 @@ Tests: `tests/jai/language-features.test.ts` (URI mapping, WorkspaceEdit
 planning, location normalization, legend mapping and token decoding, inlay
 labels, signature splitting, capability checks) and
 `tests/jai/hover-markdown.test.ts` (Markdown detection, section dividers,
-overload rows, format rows, escaping).
+overload rows, format rows, escaping) and `tests/jai/lint-fixes.test.ts`
+(rule detection, message split, range matching, fix selection, Fix all
+merging; with `JAI_WASM_DIR` set, a real lint and its fix through the
+server, and that the starter and the tour have no lints).
 
 To try a compiler that has these features before the pin moves, build it with
 `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
