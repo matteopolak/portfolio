@@ -92,7 +92,7 @@ The Jai workspace keeps a strip of tabs for open files above the editor. The mod
 | `folder` / `folder-open` | directories in the tree, by collapsed state      | filled folder; the open one has a dim back panel and a tilted front, yellow |
 | `lock`                   | the read-only preview tab, after the name        | filled body with a stroked shackle, faint                                   |
 
-`file-tree.ts` uses them for rows (the chevron and `⋯` icons stay local to it); `renderTabs` in `workspace-ui.ts` puts one before each tab name. The tints are `.ide :global(svg[data-icon=…])` rules in `CodeWorkspace.astro`, shared by tree and tabs; inactive tabs dim their icon. Tree rows are `1.875rem` high with a `0.875rem` (14px) mono label (phones: `2.5rem` rows). To add a type, add a glyph and a case in `fileIconKind`, a tint rule if it needs one, and a line in `tests/jai/file-icons.test.ts` (which also checks that no glyph is drawn on top of another's outline).
+`file-tree.ts` uses them for rows (the chevron and `⋯` icons stay local to it); `renderTabs` in `workspace-ui.ts` puts one before each tab name. The tints are `.ide :global(svg[data-icon=…])` rules in `CodeWorkspace.astro`, shared by tree and tabs; inactive tabs dim their icon. **Indentation.** File and folder icons at the same depth start in the same column, `--tree-gutter` + depth × `--tree-indent` (1.75rem + depth × 1.15rem), so a folder's children always sit a full step right of the folder's own icon; a folder's chevron hangs in the gutter to the left of its icon, and the guide line for an open folder runs under that chevron. Tree rows are `1.875rem` high with a `0.875rem` (14px) mono label (phones: `2.5rem` rows). To add a type, add a glyph and a case in `fileIconKind`, a tint rule if it needs one, and a line in `tests/jai/file-icons.test.ts` (which also checks that no glyph is drawn on top of another's outline).
 
 ### Editor extras
 
@@ -121,7 +121,7 @@ Keep the `data-code-*` hooks stable. The jai host tests and `tests/jai/modal_bro
 
 ## Configuration
 
-There are no runtime flags. The narrow layout starts at `42rem`. The default files width and output height are the CSS fallbacks of `--files-width` (13rem) and `--output-height` (11rem). `prefers-reduced-motion` removes the modal animation.
+There are no runtime flags. The narrow layout starts at `42rem`. The default files width and output height are the CSS fallbacks of `--files-width` (15rem) and `--output-height` (11rem). `prefers-reduced-motion` removes the modal animation.
 
 ## Dependencies
 
