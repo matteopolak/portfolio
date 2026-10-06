@@ -150,7 +150,18 @@ export function trackDrag<T>(down: PointerEvent, options: DragOptions<T>) {
     listen
   );
   window.addEventListener('pointercancel', () => finish(false), listen);
-  window.addEventListener('blur', () => finish(false), listen);
+  // Only the window losing focus cancels. Element blurs reach this capturing
+  // listener too, and pressing a focusable row (a tree file) blurs the editor.
+  window.addEventListener(
+    'blur',
+    (event) => {
+      if (event.target === window) finish(false);
+    },
+    listen
+  );
+  // A native drag or text selection would take the pointer over.
+  for (const type of ['dragstart', 'selectstart'])
+    window.addEventListener(type, (event) => event.preventDefault(), listen);
   window.addEventListener(
     'keydown',
     (event) => {

@@ -6,6 +6,7 @@ import {
   dropZone,
   emptyGroup,
   findGroup,
+  groupDropZone,
   groupRects,
   groupsOf,
   insertionIndex,
@@ -184,6 +185,21 @@ test('drop zones: outer thirds split, the middle opens in place', () => {
   // In a corner the nearer edge wins.
   assert.equal(dropZone(rect, 105, 130), 'left');
   assert.equal(dropZone(rect, 130, 105), 'top');
+});
+
+test('group drop zones: an empty or a full workspace only opens in place', () => {
+  const rect = { x: 0, y: 0, width: 300, height: 300 };
+  const open = { empty: false, full: false };
+  assert.equal(groupDropZone(rect, 290, 150, open), 'right');
+  assert.equal(groupDropZone(rect, 150, 150, open), 'center');
+  assert.equal(
+    groupDropZone(rect, 290, 150, { empty: true, full: false }),
+    'center'
+  );
+  assert.equal(
+    groupDropZone(rect, 10, 150, { empty: false, full: true }),
+    'center'
+  );
 });
 
 test('dock zones and tab insertion points', () => {

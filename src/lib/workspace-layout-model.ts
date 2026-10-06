@@ -406,6 +406,19 @@ export function dropZone(rect: Rect, x: number, y: number): DropZone {
 }
 
 /**
+ * Where a tab or tree file dropped on a group's content goes. A group with no
+ * tabs, or a workspace that cannot hold another group, only opens it in place.
+ */
+export function groupDropZone(
+  rect: Rect,
+  x: number,
+  y: number,
+  { empty, full }: { empty: boolean; full: boolean }
+): DropZone {
+  return empty || full ? 'center' : dropZone(rect, x, y);
+}
+
+/**
  * Where a panel dropped at (`x`, `y`) inside the workspace body docks: the
  * outer quarter on the left or right, else the top or bottom half.
  */

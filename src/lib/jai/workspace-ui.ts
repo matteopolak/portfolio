@@ -18,8 +18,8 @@ import {
   type DropTarget,
 } from '../code-workspace-layout.ts';
 import {
-  dropZone,
   emptyGroup,
+  groupDropZone,
   groupsOf,
   insertionIndex,
   MAX_GROUPS,
@@ -1957,8 +1957,10 @@ export async function createSession(
         width: box.width,
         height: box.bottom - head.bottom,
       };
-      const zone: DropZone =
-        groups.size >= MAX_GROUPS ? 'center' : dropZone(content, x, y);
+      const zone = groupDropZone(content, x, y, {
+        empty: !g.tabs.tabs.length,
+        full: groups.size >= MAX_GROUPS,
+      });
       const half = (size: number) => size / 2;
       const rect =
         zone === 'left'
