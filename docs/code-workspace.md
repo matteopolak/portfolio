@@ -44,7 +44,7 @@ All colors come from `--ide-*` custom properties declared on `.ide`. Accents are
 
 Pressing Run switches to Output, and choosing or creating a file switches to Code. Auto-run results that arrive while another pane is visible set `data-output-unread`, which shows a dot on the Output tab.
 
-`src/lib/code-output.ts` is the single output writer used by both runtimes. `start()` marks a run in progress and starts its timer. `write(content, kind, details)` accepts text or nodes (jai passes stderr spans), records the result and builds a summary line such as `9 ms` or `Failed · 2 ms`. Errors are tinted through `data-kind="error"` and `data-stream="stderr"`.
+`src/lib/code-output.ts` is the single output writer used by both runtimes. `start()` marks a run in progress and starts its timer. `write(content, kind, details)` accepts text or nodes (jai passes stderr spans), records the result and builds a summary line such as `9 ms` or `Failed · 2 ms`. Errors are tinted through `data-kind="error"` and `data-stream="stderr"`. Text with ANSI colour codes (`\x1b[...m`) is drawn as a terminal would: `src/lib/ansi.ts` parses SGR codes (`parseAnsi`, pure and tested in `tests/jai/ansi.test.ts`) into spans with `ansi-*` classes mapped to the `--ide-*` palette in `CodeOutput.astro`; such spans carry `data-ansi` and keep the default text colour where no code is set, so coloured compiler errors are not tinted red as a whole. The jai engine asks the compiler for coloured, box-drawn errors with `jai_play_set_styled(1)` when the bundle has it; older bundles give plain text, which stays tinted.
 
 Two lifecycles plug into the same markup:
 
