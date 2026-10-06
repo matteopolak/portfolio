@@ -13,7 +13,36 @@
 }
 
 .ide-editor[data-markdown-view='split'] {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(0, var(--md-source, 1fr)) 1px
+    minmax(0, var(--md-preview, 1fr));
+}
+
+/* The rule between source and preview; drag it to resize both. */
+.ide .md-divider {
+  position: relative;
+  z-index: 3;
+  background: var(--ide-rule);
+  cursor: col-resize;
+  touch-action: none;
+  transition: background 120ms ease;
+}
+
+.ide .md-divider[hidden] {
+  display: none;
+}
+
+.ide .md-divider::after {
+  position: absolute;
+  inset: 0 -4px;
+  content: '';
+}
+
+.ide .md-divider:hover,
+.ide .md-divider:focus-visible,
+.ide .md-divider.dragging {
+  background: var(--blue);
+  outline: none;
 }
 
 .ide-editor[data-markdown-view='preview'] > .cm-editor {
@@ -118,10 +147,6 @@
 /* Preview alone keeps a readable measure on wide screens. */
 .ide-editor[data-markdown-view='preview'] .md-preview {
   padding-inline: max(var(--md-gutter), calc((100% - 48rem) / 2));
-}
-
-.ide-editor[data-markdown-view='split'] .md-preview {
-  border-left: 1px solid var(--ide-rule);
 }
 
 .ide .md-preview:focus-visible {
