@@ -1,0 +1,391 @@
+/*
+ * Markdown preview in the code workspace (see markdown-preview.ts). The
+ * workspace is a dark surface on every site theme, so everything here uses its
+ * `--ide-*` tokens from CodeWorkspace.astro. Tailwind's preflight resets
+ * headings and lists, so the prose styles are spelled out.
+ */
+
+/* Layout: the editor host holds CodeMirror and the preview. */
+.ide-editor[data-markdown-view] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.ide-editor[data-markdown-view='split'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.ide-editor[data-markdown-view='preview'] > .cm-editor {
+  display: none;
+}
+
+.ide-editor[data-markdown-view] > .cm-editor {
+  min-width: 0;
+}
+
+/* The view switch sits at the right end of the tab strip, which gives way to it. */
+.ide[data-markdown] .ide-main {
+  position: relative;
+}
+
+.ide[data-markdown] .ide-filetabs {
+  margin-right: var(--md-switch-width, 6.5rem);
+}
+
+.ide .md-switch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  width: max-content;
+  height: 2.25rem;
+  padding: 0 0.375rem;
+  background: var(--ide-sunken);
+  box-shadow:
+    inset 0 -1px var(--ide-rule),
+    inset 1px 0 var(--ide-rule);
+}
+
+.ide .md-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  padding: 0 0.4rem;
+  color: var(--ide-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.ide .md-switch button:hover {
+  color: var(--ide-fg-strong);
+  background: var(--ide-hover);
+}
+
+.ide .md-switch button[aria-pressed='true'] {
+  color: var(--ide-fg-strong);
+  background: var(--ide-raised);
+  box-shadow: inset 0 -2px var(--blue);
+}
+
+.ide .md-switch svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Wide layouts: three icon buttons. */
+.ide .md-switch button span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Narrow layouts (no split button): a labelled Source / Preview toggle. */
+.ide[data-markdown-layout='narrow'] .md-switch button span {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+
+/* Preview pane */
+.ide .md-preview {
+  /* The offsetParent of its blocks, which scroll sync measures. */
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  --md-gutter: 1.5rem;
+
+  padding: 1.25rem var(--md-gutter) 3rem;
+  color: var(--ide-fg);
+  background: var(--ide-bg);
+  font: 0.9375rem/1.65 var(--font-sans);
+  overflow-wrap: break-word;
+}
+
+/* Preview alone keeps a readable measure on wide screens. */
+.ide-editor[data-markdown-view='preview'] .md-preview {
+  padding-inline: max(var(--md-gutter), calc((100% - 48rem) / 2));
+}
+
+.ide-editor[data-markdown-view='split'] .md-preview {
+  border-left: 1px solid var(--ide-rule);
+}
+
+.ide .md-preview:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: -2px;
+}
+
+.ide .md-preview > :first-child {
+  margin-top: 0;
+}
+
+.ide .md-preview :is(p, ul, ol, blockquote, pre, .md-table, hr) {
+  margin: 0 0 1rem;
+}
+
+.ide .md-preview :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.6rem 0 0.75rem;
+  color: var(--ide-fg-strong);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ide .md-preview h1 {
+  padding-bottom: 0.35rem;
+  font-size: 1.6rem;
+  border-bottom: 1px solid var(--ide-rule);
+}
+
+.ide .md-preview h2 {
+  padding-bottom: 0.3rem;
+  font-size: 1.3rem;
+  border-bottom: 1px solid var(--ide-rule);
+}
+
+.ide .md-preview h3 {
+  font-size: 1.1rem;
+}
+
+.ide .md-preview :is(h4, h5, h6) {
+  font-size: 1rem;
+}
+
+.ide .md-preview h6 {
+  color: var(--ide-muted);
+}
+
+.ide .md-preview :is(strong, b) {
+  color: var(--ide-fg-strong);
+  font-weight: 700;
+}
+
+.ide .md-preview a {
+  color: color-mix(in oklch, var(--blue) 55%, white);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--blue) 50%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.ide .md-preview a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Links to workspace files read as code paths. */
+.ide .md-preview a[data-md-file] {
+  text-decoration-style: dotted;
+}
+
+.ide .md-preview .md-missing {
+  color: var(--ide-muted);
+  text-decoration: line-through dotted;
+  cursor: help;
+}
+
+.ide .md-preview :is(ul, ol) {
+  padding-left: 1.5rem;
+}
+
+.ide .md-preview ul {
+  list-style: disc;
+}
+
+.ide .md-preview ol {
+  list-style: decimal;
+}
+
+.ide .md-preview li + li,
+.ide .md-preview li > :is(ul, ol) {
+  margin-top: 0.25rem;
+}
+
+.ide .md-preview li > :is(ul, ol) {
+  margin-bottom: 0;
+}
+
+.ide .md-preview li::marker {
+  color: var(--ide-faint);
+}
+
+/* GFM task lists */
+.ide .md-preview li:has(> input[type='checkbox']:first-child) {
+  list-style: none;
+}
+
+.ide .md-preview li > input[type='checkbox']:first-child {
+  margin: 0 0.45rem 0 -1.3rem;
+  vertical-align: -0.1em;
+  accent-color: var(--blue);
+}
+
+.ide .md-preview blockquote {
+  padding: 0.1rem 0 0.1rem 1rem;
+  color: var(--ide-muted);
+  border-left: 3px solid var(--ide-rule);
+}
+
+.ide .md-preview blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.ide .md-preview hr {
+  height: 1px;
+  border: 0;
+  background: var(--ide-rule);
+}
+
+.ide .md-preview :is(code, pre) {
+  font-family: var(--ide-mono);
+}
+
+.ide .md-preview :not(pre) > code {
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+  color: var(--ide-fg-strong);
+  background: var(--ide-raised);
+  border: 1px solid var(--ide-rule);
+}
+
+.ide .md-preview pre {
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  background: var(--ide-sunken);
+  border: 1px solid var(--ide-rule);
+  tab-size: 4;
+}
+
+.ide .md-preview .md-raw {
+  color: var(--ide-muted);
+  font: 0.8125rem/1.55 var(--ide-mono);
+  white-space: pre-wrap;
+}
+
+.ide .md-preview .md-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ide .md-preview table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.ide .md-preview :is(th, td) {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--ide-rule);
+  text-align: left;
+}
+
+.ide .md-preview :is(th, td)[align='center'] {
+  text-align: center;
+}
+
+.ide .md-preview :is(th, td)[align='right'] {
+  text-align: right;
+}
+
+.ide .md-preview th {
+  color: var(--ide-fg-strong);
+  background: var(--ide-sunken);
+  font-weight: 700;
+}
+
+.ide .md-preview tbody tr:nth-child(even) {
+  background: oklch(100% 0 0 / 0.025);
+}
+
+.ide .md-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ide .md-preview .md-image-alt {
+  padding: 0 0.3em;
+  color: var(--ide-muted);
+  font-style: italic;
+  border: 1px dashed var(--ide-rule);
+}
+
+.ide .md-preview .md-empty {
+  color: var(--ide-faint);
+  font-style: italic;
+}
+
+/* Fenced code, coloured like the editor (CodeWorkspace.astro's tokens). */
+.ide .md-preview .md-tok-keyword {
+  color: var(--ide-syntax-keyword);
+  font-weight: 600;
+}
+
+.ide .md-preview .md-tok-type {
+  color: var(--ide-syntax-type);
+}
+
+.ide .md-preview .md-tok-function {
+  color: var(--ide-syntax-function);
+}
+
+.ide .md-preview .md-tok-string {
+  color: var(--ide-syntax-string);
+}
+
+.ide .md-preview .md-tok-format {
+  color: var(--ide-syntax-format);
+  font-weight: 650;
+}
+
+.ide .md-preview .md-tok-comment {
+  color: var(--ide-syntax-comment);
+  font-style: italic;
+}
+
+.ide .md-preview .md-tok-number {
+  color: var(--ide-syntax-number);
+}
+
+.ide .md-preview .md-tok-directive {
+  color: var(--ide-syntax-directive);
+}
+
+.ide .md-preview .md-tok-punct {
+  color: var(--ide-syntax-punct);
+}
+
+@media (max-width: 42rem) {
+  .ide .md-switch {
+    height: 2.75rem;
+  }
+
+  .ide .md-switch button {
+    height: 2.25rem;
+    padding: 0 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .ide .md-preview {
+    --md-gutter: 1rem;
+
+    padding: 1rem var(--md-gutter) 2.5rem;
+    font-size: 1rem;
+  }
+
+  /* The Output pane hides the tab strip; the switch goes with it. */
+  .ide[data-pane='output'] .md-switch {
+    display: none;
+  }
+}

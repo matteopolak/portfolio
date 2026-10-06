@@ -38,6 +38,7 @@ import { closePicker, showPicker, type PickerItem } from './picker.ts';
 import { closeHoverTooltips, type EditorView } from '@codemirror/view';
 import { OpenTabs, tabLabel, type OpenTab } from './open-tabs.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
+import { createMarkdownPreview } from '../markdown-preview.ts';
 import type { RunOutput } from './engine.ts';
 import {
   FORMAT_DRIVER_ASSET,
@@ -273,6 +274,7 @@ export async function createSession(
     ],
     onChange: (text) => {
       if (workspace.selected) workspace.edit(text);
+      markdown.changed();
       if (ready) runner.changed();
       else editedDuringBoot = true;
       editor.diagnostics([], text);
@@ -633,6 +635,21 @@ export async function createSession(
     });
   }
 
+  // Rendered view of `.md` files beside (or instead of) the source.
+  const markdown = createMarkdownPreview(
+    panel,
+    editor.view,
+    {
+      files: () => workspace.names,
+      open: (path) => {
+        saveState();
+        tabs.open(path);
+        show();
+      },
+    },
+    signal
+  );
+
   let filesBefore = new Set<string>();
   function saveState() {
     if (viewing) {
@@ -682,6 +699,7 @@ export async function createSession(
     const scroll = tab && scrolls.get(tabKey(tab));
     if (scroll) editor.view.dispatch({ effects: scroll });
     else editor.view.scrollDOM.scrollTo(0, 0);
+    markdown.show(viewing ?? workspace.selected?.path.name);
     renderTabs();
     updateFormat();
     tree.render();
