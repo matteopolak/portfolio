@@ -6,6 +6,8 @@ import {
 } from '@codemirror/language';
 import { Tag, tags } from '@lezer/highlight';
 import { formatCallees } from './format-string.ts';
+import { embeddedLanguageFor } from './embedded-languages.ts';
+import { wgslTokenizer, type WgslState } from './wgsl.ts';
 
 /** `%`, `%N` and `%00` in a print-family format string. */
 export const formatSpecifierTag = Tag.define(tags.string);
@@ -21,6 +23,10 @@ const types = new Set(
     ' '
   )
 );
+/** The tokenizer of a language-tagged here-string's body (`#string WGSL`) and its state. */
+type Embedded =
+  | { language: 'wgsl'; state: WgslState }
+  | { language: 'jai'; state: JaiState };
 /** An open print-family call: its bracket depth and arguments left before the format string. */
 interface FormatCall {
   depth: number;
@@ -32,6 +38,8 @@ export interface JaiState {
   /** The open string is a format string, so `%` sequences are tokens. */
   format: boolean;
   hereTag: string | null;
+  /** The open here-string's body is in another language (see embedded-languages.ts). */
+  embedded: Embedded | null;
   depth: number;
   /** Format-argument index of a print-family name awaiting its `(`. */
   callee: number | null;
@@ -81,12 +89,14 @@ export const jaiTokenizer: StreamParser<JaiState> = {
     string: false,
     format: false,
     hereTag: null,
+    embedded: null,
     depth: 0,
     callee: null,
     calls: [],
   }),
   copyState: (state) => ({
     ...state,
+    embedded: state.embedded && copyEmbedded(state.embedded),
     calls: state.calls.map((call) => ({ ...call })),
   }),
   token(stream, state) {
@@ -128,10 +138,12 @@ function token(stream: StringStream, state: JaiState): string | null {
       ) {
         stream.pos = stream.string.length - text.length + state.hereTag.length;
         state.hereTag = null;
+        state.embedded = null;
         // The closing tag matches the opening `#string TAG`.
         return 'directive';
       }
     }
+    if (state.embedded) return embeddedToken(stream, state.embedded);
     stream.skipToEnd();
     return 'string';
   }
@@ -163,6 +175,7 @@ function token(stream: StringStream, state: JaiState): string | null {
     ) as RegExpMatchArray | null;
     if (header) {
       state.hereTag = header[1] ?? null;
+      state.embedded = startEmbedded(header[1] ?? '');
       stream.skipToEnd();
     }
     return 'directive';
@@ -212,6 +225,30 @@ function token(stream: StringStream, state: JaiState): string | null {
   const call = state.calls.at(-1);
   if (ch === ',' && call?.depth === state.depth) call.argument--;
   return '{}()[],;'.includes(ch) ? 'punctuation' : 'operator';
+}
+function startEmbedded(tag: string): Embedded | null {
+  switch (embeddedLanguageFor(tag)) {
+    case 'wgsl':
+      return { language: 'wgsl', state: wgslTokenizer.startState!(4) };
+    case 'jai':
+      return { language: 'jai', state: jaiTokenizer.startState!(4) };
+    default:
+      return null;
+  }
+}
+function copyEmbedded(embedded: Embedded): Embedded {
+  return embedded.language === 'wgsl'
+    ? { language: 'wgsl', state: wgslTokenizer.copyState!(embedded.state) }
+    : { language: 'jai', state: jaiTokenizer.copyState!(embedded.state) };
+}
+/** A token of the body, up to the end of the line at most (the terminator starts a line). */
+function embeddedToken(
+  stream: StringStream,
+  embedded: Embedded
+): string | null {
+  return embedded.language === 'wgsl'
+    ? wgslTokenizer.token(stream, embedded.state)
+    : jaiTokenizer.token(stream, embedded.state);
 }
 /** Whether a `.` here continues an expression (`x.5`, `a[0].1`), as in jaic's lexer. */
 function continuesOperand(stream: StringStream): boolean {
