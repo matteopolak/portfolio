@@ -1,19 +1,30 @@
 /*
  * The code workspace's layout as plain data: where the docked panels (file
- * tree, output) sit, and the editor area's tree of splits and editor groups.
+ * tree, output, render) sit and which are open, and the editor area's tree of splits and editor groups.
  * Nothing here touches the DOM, so it runs under `node --test`;
  * `code-workspace-layout.ts` renders it and `jai/workspace-ui.ts` fills the
  * groups. Every operation returns a new value and leaves its input alone.
  */
 
 export type Dock = 'left' | 'right' | 'top' | 'bottom';
-export type PanelId = 'files' | 'output';
+export type PanelId = 'files' | 'output' | 'render';
 /** Where a dragged tab lands on an editor group: a split side or the group itself. */
 export type DropZone = 'center' | 'left' | 'right' | 'top' | 'bottom';
 export type SplitSide = Exclude<DropZone, 'center'>;
 
 export const DOCKS: readonly Dock[] = ['left', 'right', 'top', 'bottom'];
-export const PANELS: readonly PanelId[] = ['files', 'output'];
+export const PANELS: readonly PanelId[] = ['files', 'output', 'render'];
+/**
+ * Panels that can be closed. They start closed and open when needed (the
+ * Render pane when a program draws); a closed panel keeps its dock.
+ */
+export const CLOSABLE_PANELS: readonly PanelId[] = ['render'];
+/**
+ * Panels newer than the stored layout format. A saved layout without one
+ * gets it at its default place, closed, instead of falling back to the
+ * default layout.
+ */
+const ADDED_PANELS: readonly PanelId[] = ['render'];
 
 /** An open tab worth restoring: a workspace file, or the rendered view of a `.md` file. */
 export interface SavedTab {
@@ -45,19 +56,24 @@ export interface DockState {
   size: number;
   /** Panels in the dock, first to last (top to bottom, or left to right). */
   panels: PanelId[];
-  /** The first panel's share when the dock holds two. */
-  ratio: number;
+  /**
+   * Each panel's share of the dock, parallel to `panels` (summing to 1).
+   * Closed panels keep theirs; the open ones split the dock in proportion.
+   */
+  shares: number[];
 }
 
 export interface WorkspaceLayout {
   version: 1;
   docks: Record<Dock, DockState>;
+  /** Closable panels that are closed: in a dock, but not shown. */
+  closed: PanelId[];
   editors: EditorNode;
 }
 
 export const DOCK_SIZES: Readonly<Record<Dock, number>> = {
   left: 240,
-  right: 320,
+  right: 400,
   top: 176,
   bottom: 176,
 };
@@ -74,19 +90,80 @@ export function emptyGroup(id = 'g1'): GroupNode {
   return { type: 'group', id, tabs: [], active: 0 };
 }
 
-/** The tree on the left, output under the editors: the layout before any drag. */
+/** Where each panel goes in the default layout. */
+const DEFAULT_DOCKS: Readonly<Record<PanelId, Dock>> = {
+  files: 'left',
+  output: 'bottom',
+  // Beside the editors at full height: a drawing wants room both ways.
+  render: 'right',
+};
+
+const equalShares = (count: number) =>
+  Array.from({ length: count }, () => 1 / count);
+
+/**
+ * The tree on the left, output under the editors, the (closed) Render pane
+ * on the right: the layout before any drag.
+ */
 export function defaultLayout(
   panels: readonly PanelId[] = PANELS
 ): WorkspaceLayout {
   const docks = Object.fromEntries(
     DOCKS.map((dock) => [
       dock,
-      { size: DOCK_SIZES[dock], panels: [], ratio: 0.5 },
+      { size: DOCK_SIZES[dock], panels: [], shares: [] },
     ])
   ) as unknown as Record<Dock, DockState>;
-  if (panels.includes('files')) docks.left.panels = ['files'];
-  if (panels.includes('output')) docks.bottom.panels = ['output'];
-  return { version: 1, docks, editors: emptyGroup() };
+  for (const panel of PANELS) {
+    if (!panels.includes(panel)) continue;
+    const dock = docks[DEFAULT_DOCKS[panel]];
+    dock.panels = [...dock.panels, panel];
+    dock.shares = equalShares(dock.panels.length);
+  }
+  return {
+    version: 1,
+    docks,
+    closed: CLOSABLE_PANELS.filter((panel) => panels.includes(panel)),
+    editors: emptyGroup(),
+  };
+}
+
+export const isPanelOpen = (layout: WorkspaceLayout, panel: PanelId) =>
+  panelDock(layout, panel) !== undefined && !layout.closed.includes(panel);
+
+/** The open panels of `dock` with their shares of it (summing to 1). */
+export function openPanels(
+  layout: WorkspaceLayout,
+  dock: Dock
+): { panel: PanelId; share: number }[] {
+  const state = layout.docks[dock];
+  const open = state.panels
+    .map((panel, index) => ({ panel, share: state.shares[index] ?? 0 }))
+    .filter(({ panel }) => !layout.closed.includes(panel));
+  const shares = normalizeSizes(
+    open.map(({ share }) => share),
+    open.length
+  );
+  return open.map((item, index) => ({ ...item, share: shares[index] }));
+}
+
+/** Shows a closable panel where it was last docked. */
+export function openPanel(
+  layout: WorkspaceLayout,
+  panel: PanelId
+): WorkspaceLayout {
+  if (!layout.closed.includes(panel)) return layout;
+  return { ...layout, closed: layout.closed.filter((item) => item !== panel) };
+}
+
+/** Hides a closable panel; it keeps its dock and share for the next open. */
+export function closePanel(
+  layout: WorkspaceLayout,
+  panel: PanelId
+): WorkspaceLayout {
+  if (!CLOSABLE_PANELS.includes(panel) || layout.closed.includes(panel))
+    return layout;
+  return { ...layout, closed: [...layout.closed, panel] };
 }
 
 export function panelDock(
@@ -98,7 +175,9 @@ export function panelDock(
 
 /**
  * Moves `panel` to `dock`, at `index` among the panels already there (the
- * end by default). Moving within its own dock reorders it.
+ * end by default). Moving within its own dock reorders it. The panels of the
+ * dock it joins share that dock equally; the dock it leaves keeps the others'
+ * proportions.
  */
 export function movePanel(
   layout: WorkspaceLayout,
@@ -109,11 +188,14 @@ export function movePanel(
   const docks = { ...layout.docks };
   for (const name of DOCKS) {
     const state = docks[name];
-    if (state.panels.includes(panel))
-      docks[name] = {
-        ...state,
-        panels: state.panels.filter((item) => item !== panel),
-      };
+    const at = state.panels.indexOf(panel);
+    if (at < 0) continue;
+    const shares = state.shares.filter((_, item) => item !== at);
+    docks[name] = {
+      ...state,
+      panels: state.panels.filter((item) => item !== panel),
+      shares: normalizeSizes(shares, shares.length),
+    };
   }
   const target = docks[dock];
   const panels = [...target.panels];
@@ -122,14 +204,40 @@ export function movePanel(
     0,
     panel
   );
-  docks[dock] = { ...target, panels, ratio: 0.5 };
+  docks[dock] = { ...target, panels, shares: equalShares(panels.length) };
   return { ...layout, docks };
+}
+
+/**
+ * Sets the shares of the open panels at `first` and `first + 1` (positions
+ * among the open panels of `dock`) so that the first takes `fraction` of
+ * what the two hold together. Closed panels keep their shares.
+ */
+export function resizeDockPanels(
+  layout: WorkspaceLayout,
+  dock: Dock,
+  first: number,
+  fraction: number
+): WorkspaceLayout {
+  const state = layout.docks[dock];
+  const open = state.panels
+    .map((panel, index) => ({ panel, index }))
+    .filter(({ panel }) => !layout.closed.includes(panel));
+  const a = open[first]?.index;
+  const b = open[first + 1]?.index;
+  if (a === undefined || b === undefined) return layout;
+  const shares = normalizeSizes(state.shares, state.panels.length);
+  const pair = shares[a] + shares[b];
+  const bounded = Math.min(0.95, Math.max(0.05, fraction));
+  shares[a] = pair * bounded;
+  shares[b] = pair - shares[a];
+  return resizeDock(layout, dock, { shares });
 }
 
 export function resizeDock(
   layout: WorkspaceLayout,
   dock: Dock,
-  change: Partial<Pick<DockState, 'size' | 'ratio'>>
+  change: Partial<Pick<DockState, 'size' | 'shares'>>
 ): WorkspaceLayout {
   return {
     ...layout,
@@ -521,7 +629,9 @@ function parseNode(
 /**
  * Reads a stored layout. Anything malformed, from another version, or that
  * misplaces a panel (`panels` lists the ones this workspace has) gives
- * undefined, and the caller starts from `defaultLayout`.
+ * undefined, and the caller starts from `defaultLayout`. Layouts saved before
+ * a panel of `ADDED_PANELS` existed get it at its default place, closed; the
+ * two-panel `ratio` of those layouts becomes `shares`.
  */
 export function parseLayout(
   text: string | null | undefined,
@@ -541,14 +651,15 @@ export function parseLayout(
   for (const dock of DOCKS) {
     const state = value.docks[dock];
     if (!isRecord(state)) return undefined;
-    const { size, ratio } = state;
+    const { size, ratio, shares } = state;
     if (
       typeof size !== 'number' ||
       !Number.isFinite(size) ||
       size < 40 ||
       size > 10_000 ||
-      typeof ratio !== 'number' ||
-      !(ratio > 0 && ratio < 1) ||
+      (ratio !== undefined &&
+        (typeof ratio !== 'number' || !(ratio > 0 && ratio < 1))) ||
+      (shares !== undefined && !Array.isArray(shares)) ||
       !Array.isArray(state.panels)
     )
       return undefined;
@@ -559,10 +670,55 @@ export function parseLayout(
       seen.add(panel as PanelId);
       list.push(panel as PanelId);
     }
-    docks[dock] = { size, ratio, panels: list };
+    const stored: unknown[] = Array.isArray(shares)
+      ? shares
+      : typeof ratio === 'number' && list.length === 2
+        ? [ratio, 1 - ratio]
+        : [];
+    if (
+      stored.some(
+        (share) =>
+          typeof share !== 'number' || !Number.isFinite(share) || share <= 0
+      )
+    )
+      return undefined;
+    docks[dock] = {
+      size,
+      panels: list,
+      shares: normalizeSizes(stored as number[], list.length),
+    };
   }
-  if (seen.size !== panels.length) return undefined;
+  const closed: PanelId[] = [];
+  if (value.closed !== undefined) {
+    if (!Array.isArray(value.closed)) return undefined;
+    for (const panel of value.closed as PanelId[])
+      if (
+        CLOSABLE_PANELS.includes(panel) &&
+        panels.includes(panel) &&
+        !closed.includes(panel)
+      )
+        closed.push(panel);
+  }
+  for (const panel of panels) {
+    if (seen.has(panel)) continue;
+    if (!ADDED_PANELS.includes(panel)) return undefined;
+    // Older layouts lack it: its default dock, closed, an equal share when it opens.
+    const dock = docks[DEFAULT_DOCKS[panel]];
+    const count = dock.panels.length;
+    dock.shares = normalizeSizes(
+      [...dock.shares.map((share) => share * count), 1],
+      count + 1
+    );
+    dock.panels = [...dock.panels, panel];
+    if (CLOSABLE_PANELS.includes(panel) && !closed.includes(panel))
+      closed.push(panel);
+  }
   const editors = parseNode(value.editors, 0, new Set());
   if (!editors) return undefined;
-  return { version: 1, docks, editors: normalize(editors) ?? emptyGroup() };
+  return {
+    version: 1,
+    docks,
+    closed,
+    editors: normalize(editors) ?? emptyGroup(),
+  };
 }

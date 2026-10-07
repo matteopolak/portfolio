@@ -157,6 +157,30 @@ const {
         <div class="ide-dock" data-dock="bottom" style="flex-basis: 176px">
           <CodeOutput />
         </div>
+        {
+          /* Closed until a program draws; the layout docks it (on the right by default). */
+          language === 'jai' && (
+            <section class="ide-render" data-code-render-pane aria-label="Render" hidden>
+              <div class="ide-pane-head" data-panel-handle>
+                <span>Render</span>
+                <span class="ide-render__size" data-code-render-size />
+                <span class="ide-pane-actions">
+                  <button type="button" class="ide-icon ide-icon--small" data-panel-close aria-label="Close render pane" title="Close">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9M14.5 5.5l-9 9"></path></svg>
+                  </button>
+                </span>
+              </div>
+              <div class="ide-render__stage" data-code-render data-state="idle">
+                <div class="ide-render__message" data-code-render-message>
+                  <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
+                  <p data-code-render-detail>
+                    A program that draws with WebGPU shows here.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )
+        }
       </div>
     </div>
     <ProjectDemoLoading seed={language} />
@@ -180,6 +204,14 @@ const {
       Output
       <span class="ide-tab-dot" aria-hidden="true"></span>
     </button>
+    {
+      language === 'jai' && (
+        <button type="button" data-pane-tab="render" aria-selected="false" hidden>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
+          Render
+        </button>
+      )
+    }
   </nav>
 </section>
 
@@ -849,6 +881,99 @@ const {
     font-weight: 700;
   }
 
+  /* Render pane: a WebGPU program's canvas, or why nothing is drawn. */
+  .ide-render {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--ide-sunken);
+  }
+
+  .ide-render[hidden] {
+    display: none;
+  }
+
+  .ide-render__size {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ide-faint);
+    font: 400 0.72rem/1 var(--ide-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ide-render__stage {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--ide-bg);
+  }
+
+  .ide-render__stage[data-state='drawing'] {
+    background: #000;
+  }
+
+  .ide-render__message {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0.35rem;
+    padding: 1.5rem;
+    color: var(--ide-muted);
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .ide-render__message p {
+    max-width: 22rem;
+    margin: 0;
+  }
+
+  .ide-render__message code {
+    color: var(--ide-fg);
+    font: 0.78rem var(--ide-mono);
+  }
+
+  .ide-render__stage[data-state='drawing'] .ide-render__message {
+    display: none;
+  }
+
+  .ide-render__stage[data-state='unsupported'] .ide-empty-title {
+    color: var(--yellow);
+  }
+
+  .ide-render__stage :global(canvas) {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: none;
+  }
+
+  .ide-render__stage:not([data-state='drawing']) :global(canvas) {
+    visibility: hidden;
+  }
+
+  /* Keys go to the program while the canvas has focus: say so with a ring over it. */
+  .ide-render__stage::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    pointer-events: none;
+  }
+
+  .ide-render__stage[data-state='drawing']:has(:global(canvas:focus))::after {
+    box-shadow: inset 0 0 0 1px var(--blue);
+  }
+
   /* The shared loader covers the body only, so close and retry stay usable. */
   .ide-body :global(.project-demo-loading) {
     z-index: 10;
@@ -1023,6 +1148,10 @@ const {
     .ide[data-output-unread='true'] .ide-tab-dot {
       display: block;
     }
+
+    .ide-tabs button[hidden] {
+      display: none;
+    }
   }
 </style>
 
@@ -1069,7 +1198,8 @@ const {
   }
 
   .ide .ide-dock > .ide-files,
-  .ide .ide-dock > .ide-output {
+  .ide .ide-dock > .ide-output,
+  .ide .ide-dock > .ide-render {
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;
@@ -1214,6 +1344,7 @@ const {
     .ide .ide-files,
     .ide .ide-group,
     .ide .ide-output,
+    .ide .ide-render,
     .ide .ide-editors > .ide-editor {
       grid-area: 1 / 1;
     }
@@ -1222,10 +1353,14 @@ const {
     .ide .ide-group:not([data-active]),
     .ide[data-pane='files'] .ide-group,
     .ide[data-pane='output'] .ide-group,
+    .ide[data-pane='render'] .ide-group,
     .ide[data-pane='files'] .ide-editors > .ide-editor,
     .ide[data-pane='output'] .ide-editors > .ide-editor,
+    .ide[data-pane='render'] .ide-editors > .ide-editor,
     .ide[data-pane='code'] .ide-output,
-    .ide[data-pane='files'] .ide-output {
+    .ide[data-pane='files'] .ide-output,
+    .ide[data-pane='render'] .ide-output,
+    .ide:not([data-pane='render']) .ide-render {
       display: none;
     }
 

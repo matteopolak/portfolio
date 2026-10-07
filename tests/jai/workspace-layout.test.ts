@@ -10,8 +10,13 @@ import {
   groupRects,
   groupsOf,
   insertionIndex,
+  closePanel,
+  isPanelOpen,
   movePanel,
   neighbourGroup,
+  openPanel,
+  openPanels,
+  resizeDockPanels,
   nextGroupId,
   normalize,
   panelDock,
@@ -49,10 +54,56 @@ test('default layout: tree on the left, output below the editors', () => {
   const single = defaultLayout(['output']);
   assert.equal(panelDock(single, 'files'), undefined);
   assert.deepEqual(single.docks.left.panels, []);
+  assert.deepEqual(single.closed, []);
+  // The Render pane waits, closed, on the right until a program draws.
+  assert.equal(panelDock(layout, 'render'), 'right');
+  assert.deepEqual(layout.closed, ['render']);
+  assert.equal(isPanelOpen(layout, 'render'), false);
+  assert.deepEqual(openPanels(layout, 'right'), []);
+});
+
+test('opening and closing the Render pane', () => {
+  let layout = movePanel(defaultLayout(), 'render', 'bottom');
+  assert.deepEqual(openPanels(layout, 'bottom'), [
+    { panel: 'output', share: 1 },
+  ]);
+  layout = openPanel(layout, 'render');
+  assert.equal(isPanelOpen(layout, 'render'), true);
+  assert.deepEqual(openPanels(layout, 'bottom'), [
+    { panel: 'output', share: 0.5 },
+    { panel: 'render', share: 0.5 },
+  ]);
+  // Resizing two open neighbours sets their split of what they hold.
+  layout = resizeDockPanels(layout, 'bottom', 0, 0.25);
+  const [output, render] = openPanels(layout, 'bottom');
+  assert.ok(close(output.share, 0.25) && close(render.share, 0.75));
+  // Closed, it keeps its dock and share for the next open.
+  const closed = closePanel(layout, 'render');
+  assert.equal(panelDock(closed, 'render'), 'bottom');
+  assert.deepEqual(openPanels(closed, 'bottom'), [
+    { panel: 'output', share: 1 },
+  ]);
+  const reopened = openPanels(openPanel(closed, 'render'), 'bottom');
+  assert.ok(close(reopened[1].share, 0.75));
+  // Only closable panels close.
+  assert.equal(closePanel(layout, 'output'), layout);
+});
+
+test('three panels in one dock', () => {
+  let layout = openPanel(defaultLayout(), 'render');
+  layout = movePanel(layout, 'files', 'right', 0);
+  layout = movePanel(layout, 'output', 'right');
+  assert.deepEqual(layout.docks.right.panels, ['files', 'render', 'output']);
+  assert.ok(layout.docks.right.shares.every((share) => close(share, 1 / 3)));
+  // files 1/2, render 1/6, output 1/3; leaving keeps the others' proportions.
+  layout = resizeDockPanels(layout, 'right', 0, 0.75);
+  const [render, output] = movePanel(layout, 'files', 'left').docks.right
+    .shares;
+  assert.ok(close(render, 1 / 3) && close(output, 2 / 3));
 });
 
 test('moving panels between docks', () => {
-  let layout = defaultLayout();
+  let layout = defaultLayout(['files', 'output']);
   layout = movePanel(layout, 'output', 'right');
   assert.equal(panelDock(layout, 'output'), 'right');
   assert.deepEqual(layout.docks.bottom.panels, []);
@@ -233,6 +284,47 @@ test('layouts round-trip through storage', () => {
     }),
   };
   assert.deepEqual(parseLayout(serializeLayout(layout)), layout);
+});
+
+test('layouts saved before the Render pane still load', () => {
+  // As stored before it existed: two-panel docks have a `ratio`, no `shares` or `closed`.
+  const old = JSON.stringify({
+    version: 1,
+    docks: {
+      left: { size: 260, panels: [], ratio: 0.5 },
+      right: { size: 300, panels: ['files', 'output'], ratio: 0.3 },
+      top: { size: 176, panels: [], ratio: 0.5 },
+      bottom: { size: 176, panels: [], ratio: 0.5 },
+    },
+    editors: group('g1', 'main.jai'),
+  });
+  const layout = parseLayout(old);
+  assert.ok(layout);
+  assert.equal(layout.docks.right.size, 300);
+  // The newcomer joins its default dock, closed; the others keep their split.
+  assert.deepEqual(layout.docks.right.panels, ['files', 'output', 'render']);
+  assert.deepEqual(layout.closed, ['render']);
+  const [files, output] = openPanels(layout, 'right');
+  assert.ok(close(files.share, 0.3) && close(output.share, 0.7));
+  // Opened, it takes about a third.
+  const shares = openPanels(openPanel(layout, 'render'), 'right');
+  assert.ok(close(shares[2].share, 1 / 3));
+  // Workspaces without the pane (Quasi, BaerScript) read it as before.
+  assert.deepEqual(parseLayout(old, ['files', 'output'])?.closed, []);
+  // An open Render pane round-trips.
+  const open = openPanel(layout, 'render');
+  assert.deepEqual(parseLayout(serializeLayout(open)), open);
+  // Files and output are never added: a layout without them was malformed.
+  assert.equal(
+    parseLayout(old.replace('"files",', ''), ['files', 'output', 'render']),
+    undefined
+  );
+  // `closed` lists only closable panels this workspace has.
+  const odd = JSON.parse(serializeLayout(open));
+  odd.closed = ['output', 'render', 'render', 'terminal'];
+  assert.deepEqual(parseLayout(JSON.stringify(odd))?.closed, ['render']);
+  odd.closed = 'render';
+  assert.equal(parseLayout(JSON.stringify(odd)), undefined);
 });
 
 test('stored layouts are validated', () => {

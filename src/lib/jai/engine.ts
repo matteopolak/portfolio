@@ -28,7 +28,30 @@ export interface RunOutput {
   diagnostics?: RunDiagnostic[];
 }
 
+/**
+ * Procedures the page offers a program beyond the sandbox (the bundle's
+ * webgpu_host.mjs builds them): arguments are the call's 64-bit slots,
+ * pointers are addresses in `memory.buffer`; a promise suspends the program
+ * (JSPI) until it settles.
+ */
+export interface HostMemory {
+  readonly buffer: ArrayBuffer;
+  alloc(size: number): number;
+  free(pointer: number, size: number): void;
+}
+export interface Host {
+  functions: Record<string, (args: bigint[], memory: HostMemory) => unknown>;
+  output?: (text: string, stream: 'stdout' | 'stderr') => void;
+}
+
 export interface Engine {
+  /** Whether programs can wait for the page (JSPI); needed by `playAsync`. */
+  jspi: boolean;
+  playAsync(
+    files: Record<string, string>,
+    main: string,
+    options?: Pick<RunOptions, 'budget'>
+  ): Promise<RunOutput>;
   lsp?: (message: JsonRpcMessage) => JsonRpcMessage[];
   /** Runs `main.jai` from `source` plus `options.files`. */
   run(source: string, options?: RunOptions): RunOutput;
@@ -41,12 +64,136 @@ export interface Engine {
 }
 
 // The browser and Node verification harness instantiate the exact same Rust compiler (jaic).
-export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
+export async function createEngine(
+  wasmBytes: BufferSource,
+  { host }: { host?: Host } = {}
+): Promise<Engine> {
   const module = await WebAssembly.compile(wasmBytes);
-  if (WebAssembly.Module.imports(module).length !== 0) {
+  if (WebAssembly.Module.imports(module).some((i) => i.module !== 'jai_host')) {
     throw new Error('This runtime build unexpectedly requires host imports.');
   }
-  const instance = await WebAssembly.instantiate(module, {});
+  // JavaScript Promise Integration: not yet in TypeScript's lib.
+  const wasm = WebAssembly as unknown as {
+    Suspending?: new (f: (...a: number[]) => Promise<number>) => unknown;
+    promising?: (f: Export) => (...a: number[]) => Promise<number>;
+  };
+  const jspi =
+    typeof wasm.Suspending === 'function' &&
+    typeof wasm.promising === 'function';
+  let pending: PromiseLike<unknown> | null = null;
+  let lastError = '';
+  /*
+   * The module is wasm32: a pointer or length arrives as an i32 JS number,
+   * negative from 2 GiB up. Every one is read back unsigned (`>>> 0`) and
+   * checked against the memory before it is used.
+   */
+  const bytes = () => (instance.exports.memory as WebAssembly.Memory).buffer;
+  const span = (pointer: number, length: number, what: string) => {
+    const start = pointer >>> 0;
+    const size = length >>> 0;
+    const limit = bytes().byteLength;
+    if (start + size > limit)
+      throw new RangeError(
+        `${what} (${size} bytes at ${start}) lies outside the module's ${limit}-byte memory`
+      );
+    return { start, size };
+  };
+  const view = (pointer: number, length: number, what: string) => {
+    const { start, size } = span(pointer, length, what);
+    return new Uint8Array(bytes(), start, size);
+  };
+  const memory: HostMemory = {
+    get buffer() {
+      return bytes();
+    },
+    alloc: (size) => (instance.exports.jai_host_alloc as Export)(size) >>> 0,
+    free: (pointer, size) =>
+      void (instance.exports.jai_host_free as Export)(pointer, size),
+  };
+  const text = new TextDecoder();
+  /** The call's 64-bit argument slots (8-byte little-endian, any alignment). */
+  const slots = (pointer: number, count: number) => {
+    const { start } = span(pointer, (count >>> 0) * 8, 'host call arguments');
+    const data = new DataView(bytes());
+    return Array.from({ length: count >>> 0 }, (_, index) =>
+      data.getBigUint64(start + index * 8, true)
+    );
+  };
+  const store = (results: number, count: number, value: unknown) => {
+    if (count >>> 0 === 0 || value === undefined || value === null) return;
+    let bits: bigint;
+    if (typeof value === 'bigint') bits = BigInt.asUintN(64, value);
+    else if (typeof value === 'boolean') bits = value ? 1n : 0n;
+    else if (typeof value === 'number' && Number.isInteger(value))
+      bits = BigInt.asUintN(64, BigInt(value));
+    else throw new TypeError(`host function returned ${String(value)}`);
+    const { start } = span(results, 8, 'host call result');
+    new DataView(bytes()).setBigUint64(start, bits, true);
+  };
+  const fail = (error: unknown) => {
+    lastError = error instanceof Error ? error.message : String(error);
+    return 2;
+  };
+  const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+    typeof (value as PromiseLike<unknown> | null)?.then === 'function';
+  const imports = {
+    jai_host: {
+      call(
+        name: number,
+        nameLength: number,
+        args: number,
+        count: number,
+        results: number,
+        resultCount: number
+      ) {
+        const functions = host?.functions;
+        if (!functions) return 1;
+        try {
+          const key = text.decode(view(name, nameLength, 'host call name'));
+          if (!Object.hasOwn(functions, key)) return 1;
+          const value = functions[key](slots(args, count), memory);
+          if (isThenable(value)) {
+            pending = value;
+            return 3;
+          }
+          store(results, resultCount, value);
+          return 0;
+        } catch (error) {
+          return fail(error);
+        }
+      },
+      wait: jspi
+        ? new wasm.Suspending!(async (results: number, resultCount: number) => {
+            const promise = pending;
+            pending = null;
+            try {
+              store(results, resultCount, await promise);
+              return 0;
+            } catch (error) {
+              return fail(error);
+            }
+          })
+        : () => fail('This browser cannot suspend WebAssembly (JSPI).'),
+      error(buffer: number, capacity: number) {
+        const message = new TextEncoder()
+          .encode(lastError)
+          .subarray(0, capacity >>> 0);
+        view(buffer, message.length, 'host error buffer').set(message);
+        return message.length;
+      },
+      output(data: number, length: number, toStderr: number) {
+        host?.output?.(
+          text.decode(view(data, length, 'program output')),
+          toStderr ? 'stderr' : 'stdout'
+        );
+      },
+      now_ms: () => performance.now(),
+    },
+  };
+  const instance = await WebAssembly.instantiate(
+    module,
+    imports as unknown as WebAssembly.Imports
+  );
   const exports = instance.exports;
   const fn = (name: string): Export => {
     const value = exports[name];
@@ -157,6 +304,13 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
           },
         }
       : {}),
+    jspi,
+    async playAsync(files, main, options = {}) {
+      prepare(files, main, options);
+      const run = jspi ? wasm.promising!(api.jai_play_run) : null;
+      check(run ? await run() : api.jai_play_run());
+      return JSON.parse(read('output')) as RunOutput;
+    },
     run(source, { files = {}, budget } = {}) {
       if (typeof source !== 'string')
         throw new TypeError('Source must be text.');
@@ -167,8 +321,17 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
   function play(
     files: Record<string, string>,
     main: string,
-    { budget }: Pick<RunOptions, 'budget'> = {}
+    options: Pick<RunOptions, 'budget'> = {}
   ): RunOutput {
+    prepare(files, main, options);
+    check(api.jai_play_run());
+    return JSON.parse(read('output')) as RunOutput;
+  }
+  function prepare(
+    files: Record<string, string>,
+    main: string,
+    { budget }: Pick<RunOptions, 'budget'> = {}
+  ) {
     if (typeof main !== 'string' || !files || typeof files !== 'object')
       throw new TypeError('Play needs a file map and a main path.');
     if (budget !== undefined && (!Number.isSafeInteger(budget) || budget <= 0))
@@ -190,7 +353,5 @@ export async function createEngine(wasmBytes: BufferSource): Promise<Engine> {
       check(api.jai_play_finish_file());
     }
     push(2, main);
-    check(api.jai_play_run());
-    return JSON.parse(read('output')) as RunOutput;
   }
 }
