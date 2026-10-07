@@ -141,6 +141,12 @@ other editor. The server's side is in the compiler's
 
 ### Lints and quick fixes
 
+New workspaces start with a root `jailint.toml` (`lintConfigStarter` in
+`language-client.ts`, added by `starter.ts`) that turns on the rules jailint
+leaves off by default (`float_equality`, `lossy_xx`), so the playground shows
+everything it can find. Edit that file to change levels; the server reads it as
+an open document.
+
 Servers with jailint publish its findings as ordinary diagnostics with
 `source: "jailint"`, the rule as `code` and `codeDescription.href` linking to
 that rule's section of the compiler's `docs/tools/jailint.md`. Each fix is a
