@@ -80,31 +80,62 @@ export async function createEngine(
   const jspi =
     typeof wasm.Suspending === 'function' &&
     typeof wasm.promising === 'function';
-  let pending: Promise<unknown> | null = null;
+  let pending: PromiseLike<unknown> | null = null;
   let lastError = '';
+  /*
+   * The module is wasm32: a pointer or length arrives as an i32 JS number,
+   * negative from 2 GiB up. Every one is read back unsigned (`>>> 0`) and
+   * checked against the memory before it is used.
+   */
+  const bytes = () => (instance.exports.memory as WebAssembly.Memory).buffer;
+  const span = (pointer: number, length: number, what: string) => {
+    const start = pointer >>> 0;
+    const size = length >>> 0;
+    const limit = bytes().byteLength;
+    if (start + size > limit)
+      throw new RangeError(
+        `${what} (${size} bytes at ${start}) lies outside the module's ${limit}-byte memory`
+      );
+    return { start, size };
+  };
+  const view = (pointer: number, length: number, what: string) => {
+    const { start, size } = span(pointer, length, what);
+    return new Uint8Array(bytes(), start, size);
+  };
   const memory: HostMemory = {
     get buffer() {
-      return (instance.exports.memory as WebAssembly.Memory).buffer;
+      return bytes();
     },
-    alloc: (size) => (instance.exports.jai_host_alloc as Export)(size),
+    alloc: (size) => (instance.exports.jai_host_alloc as Export)(size) >>> 0,
     free: (pointer, size) =>
       void (instance.exports.jai_host_free as Export)(pointer, size),
   };
   const text = new TextDecoder();
+  /** The call's 64-bit argument slots (8-byte little-endian, any alignment). */
+  const slots = (pointer: number, count: number) => {
+    const { start } = span(pointer, (count >>> 0) * 8, 'host call arguments');
+    const data = new DataView(bytes());
+    return Array.from({ length: count >>> 0 }, (_, index) =>
+      data.getBigUint64(start + index * 8, true)
+    );
+  };
   const store = (results: number, count: number, value: unknown) => {
-    if (count === 0 || value === undefined || value === null) return;
+    if (count >>> 0 === 0 || value === undefined || value === null) return;
     let bits: bigint;
     if (typeof value === 'bigint') bits = BigInt.asUintN(64, value);
     else if (typeof value === 'boolean') bits = value ? 1n : 0n;
     else if (typeof value === 'number' && Number.isInteger(value))
       bits = BigInt.asUintN(64, BigInt(value));
     else throw new TypeError(`host function returned ${String(value)}`);
-    new BigUint64Array(memory.buffer, results, count)[0] = bits;
+    const { start } = span(results, 8, 'host call result');
+    new DataView(bytes()).setBigUint64(start, bits, true);
   };
   const fail = (error: unknown) => {
     lastError = error instanceof Error ? error.message : String(error);
     return 2;
   };
+  const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+    typeof (value as PromiseLike<unknown> | null)?.then === 'function';
   const imports = {
     jai_host: {
       call(
@@ -117,16 +148,11 @@ export async function createEngine(
       ) {
         const functions = host?.functions;
         if (!functions) return 1;
-        const key = text.decode(
-          new Uint8Array(memory.buffer, name, nameLength)
-        );
-        if (!Object.hasOwn(functions, key)) return 1;
         try {
-          const value = functions[key](
-            Array.from(new BigUint64Array(memory.buffer, args, count)),
-            memory
-          );
-          if (value instanceof Promise) {
+          const key = text.decode(view(name, nameLength, 'host call name'));
+          if (!Object.hasOwn(functions, key)) return 1;
+          const value = functions[key](slots(args, count), memory);
+          if (isThenable(value)) {
             pending = value;
             return 3;
           }
@@ -149,13 +175,15 @@ export async function createEngine(
           })
         : () => fail('This browser cannot suspend WebAssembly (JSPI).'),
       error(buffer: number, capacity: number) {
-        const bytes = new TextEncoder().encode(lastError).subarray(0, capacity);
-        new Uint8Array(memory.buffer, buffer, bytes.length).set(bytes);
-        return bytes.length;
+        const message = new TextEncoder()
+          .encode(lastError)
+          .subarray(0, capacity >>> 0);
+        view(buffer, message.length, 'host error buffer').set(message);
+        return message.length;
       },
       output(data: number, length: number, toStderr: number) {
         host?.output?.(
-          text.decode(new Uint8Array(memory.buffer, data, length)),
+          text.decode(view(data, length, 'program output')),
           toStderr ? 'stderr' : 'stdout'
         );
       },
