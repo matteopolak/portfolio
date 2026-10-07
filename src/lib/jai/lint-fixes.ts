@@ -1,5 +1,8 @@
 /*
- * jailint findings and their quick fixes, as the language server sends them:
+ * jailint findings and their quick fixes, as the language server sends them
+ * (the compiler's own quick fixes, such as "Add `#import "Basic";`" on a
+ * `jai-check` error, are plain `quickfix` actions that the code action menu
+ * lists with the rest):
  * a diagnostic with `source: 'jailint'`, the rule as `code` and a link to it
  * as `codeDescription.href`; a `quickfix` code action per fix, titled in
  * sentence case (`Remove the unused variable`) with the rule as `data.rule`
@@ -155,9 +158,10 @@ function editsConflict(a: Range, b: Range): boolean {
 }
 
 /**
- * Every quick fix in `actions` merged into one edit, for "Fix all" with a
- * server that has no `source.fixAll.jailint` action. Fixes are
- * taken in order; one whose edits overlap an earlier fix's is left out
+ * Every lint quick fix in `actions` merged into one edit, for "Fix all" with a
+ * server that has no `source.fixAll.jailint` action. Other quick fixes (the
+ * compiler's "Add `#import`", which is a choice among modules) are not lint
+ * fixes and are left out. Fixes are taken in order; one whose edits overlap an earlier fix's is left out
  * (`skipped`), so the result never has overlapping edits. Only `changes`
  * edits are merged; anything else counts as skipped.
  */
@@ -172,7 +176,7 @@ export function combineFixes(
   let applied = 0,
     skipped = 0;
   for (const action of actions ?? []) {
-    if (!isQuickFix(action)) continue;
+    if (!isQuickFix(action) || !fixRule(action)) continue;
     const entries = editsOf(action.edit!);
     const fits =
       entries?.every(([uri, edits]) =>
