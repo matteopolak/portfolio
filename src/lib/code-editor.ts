@@ -1,8 +1,15 @@
-import { EditorState, Compartment, type Extension } from '@codemirror/state';
+import {
+  EditorState,
+  EditorSelection,
+  Compartment,
+  countColumn,
+  type Extension,
+} from '@codemirror/state';
 import { vim } from '@replit/codemirror-vim';
 import {
   EditorView,
   keymap,
+  type KeyBinding,
   lineNumbers,
   highlightActiveLineGutter,
   highlightSpecialChars,
@@ -19,7 +26,8 @@ import {
   defaultKeymap,
   historyKeymap,
   history,
-  indentWithTab,
+  indentLess,
+  indentMore,
 } from '@codemirror/commands';
 import {
   indentOnInput,
@@ -28,6 +36,7 @@ import {
   foldKeymap,
   syntaxHighlighting,
   HighlightStyle,
+  getIndentUnit,
   indentUnit,
   StreamLanguage,
   syntaxTree,
@@ -35,6 +44,7 @@ import {
 import {
   closeBrackets,
   closeBracketsKeymap,
+  acceptCompletion,
   autocompletion,
   completionKeymap,
   type CompletionContext,
@@ -702,6 +712,40 @@ const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
   return /\.(md|markdown)$/iu.test(path) ? markdownSyntax : [];
 };
 
+/**
+ * Tab accepts the open completion (as Enter does); otherwise it inserts spaces up to the next
+ * indent stop at each cursor, or indents the lines of a selection. Shift-Tab dedents.
+ */
+const tabKey: KeyBinding = {
+  key: 'Tab',
+  run: (view) => acceptCompletion(view) || insertIndent(view),
+  shift: indentLess,
+};
+
+function insertIndent(view: EditorView): boolean {
+  const { state } = view;
+  if (state.readOnly) return false;
+  if (state.selection.ranges.some((range) => !range.empty))
+    return indentMore(view);
+  const unit = getIndentUnit(state);
+  view.dispatch(
+    state.changeByRange((range) => {
+      const line = state.doc.lineAt(range.head);
+      const column = countColumn(
+        line.text.slice(0, range.head - line.from),
+        state.tabSize
+      );
+      const spaces = ' '.repeat(unit - (column % unit));
+      return {
+        changes: { from: range.head, insert: spaces },
+        range: EditorSelection.cursor(range.head + spaces.length),
+      };
+    }),
+    { scrollIntoView: true, userEvent: 'input.indent' }
+  );
+  return true;
+}
+
 export interface EditorOptions {
   text: string;
   /** `update` is the change's ViewUpdate (its transactions say who made it). */
@@ -1255,7 +1299,7 @@ export function createEditor(
           ...searchKeymap,
           ...foldKeymap,
           ...completionKeymap,
-          indentWithTab,
+          tabKey,
         ]),
         EditorView.contentAttributes.of({
           'aria-label': `${languageNames[language]} source editor`,
