@@ -73,6 +73,7 @@ import { OpenTabs, sameTab, tabLabel, type OpenTab } from './open-tabs.ts';
 import { NavHistory, type NavLocation, type NavOp } from './nav-history.ts';
 import { watchNavigationInput, type NavDirection } from './nav-input.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
+import { createRenderPane } from './render-pane.ts';
 import {
   createMarkdownPreview,
   type MarkdownPreview,
@@ -115,39 +116,20 @@ import type {
   ServerCapabilities,
   SymbolInformation,
   WorkspaceEdit,
-  CanvasInputEvent,
   WorkerRequest,
   WorkerResponse,
 } from './lsp-types.ts';
 
-/** Interpreter budget in basic blocks; runaway programs fail instead of hanging. */
+/**
+ * Interpreter budget in basic blocks; runaway programs fail instead of
+ * hanging. The interpreter refills it whenever a program waits for the page
+ * (a WebGPU frame, `webgpu_present`), so it bounds a whole run for ordinary
+ * programs and one frame for drawing ones. The same figure suits both: at
+ * the interpreter's speed it is several seconds of work, far beyond any
+ * frame worth drawing, so a frame loop that never yields still fails in
+ * seconds, while ordinary programs keep the room they always had.
+ */
 const BUDGET = 200_000_000;
-// Key_Code values of stdlib/Input for KeyboardEvent.key names (letters and
-// other single characters use their upper-case code point).
-const JAI_KEYS: Record<string, number> = {
-  Escape: 0,
-  ArrowUp: 2,
-  ArrowDown: 3,
-  ArrowLeft: 4,
-  ArrowRight: 5,
-  Backspace: 8,
-  Tab: 9,
-  Enter: 13,
-  ' ': 32,
-  Delete: 127,
-  PageUp: 132,
-  PageDown: 133,
-  Home: 134,
-  End: 135,
-  Insert: 136,
-  Pause: 137,
-  ScrollLock: 138,
-  Alt: 139,
-  Control: 140,
-  Shift: 141,
-  Meta: 142,
-  PrintScreen: 167,
-};
 /** Lints per file whose quick fixes are looked up for the tooltip's Fix buttons. */
 const MAX_LINT_FIXES = 50;
 
@@ -160,7 +142,10 @@ interface Published {
 
 interface CompilerWorker {
   worker: Worker;
-  capabilities: { languageServer: boolean };
+  capabilities: Extract<
+    WorkerResponse,
+    { type: 'init'; error?: undefined }
+  >['capabilities'];
 }
 
 const abortError = () => new DOMException('Closed', 'AbortError');
@@ -2284,106 +2269,13 @@ export async function createSession(
   }
   const post = (worker: Worker, message: WorkerRequest) =>
     worker.postMessage(message);
-  /*
-   * WebGPU programs draw into a canvas above the output. Its drawing surface
-   * belongs to the execution worker (transferControlToOffscreen), so each
-   * new execution worker gets a new canvas; keyboard, mouse and size changes
-   * are posted to the worker, where stdlib/Input reads them.
-   */
-  let canvas: HTMLCanvasElement | undefined;
-  const usesCanvas = (files: Record<string, string>, source: string) =>
-    [source, ...Object.values(files)].some((text) =>
-      /#import\s+"WebGPU"/.test(text)
-    );
-  function createCanvas(): OffscreenCanvas | undefined {
-    const outputElement =
-      panel.querySelector<HTMLElement>('[data-code-output]');
-    if (
-      !outputElement ||
-      !('transferControlToOffscreen' in HTMLCanvasElement.prototype)
-    )
-      return undefined;
-    canvas?.remove();
-    const element = document.createElement('canvas');
-    element.className = 'ide-output__canvas';
-    element.tabIndex = 0;
-    element.hidden = true;
-    element.style.cssText =
-      'display:block;width:100%;aspect-ratio:4/3;max-height:60%;background:#000;outline:none;';
-    outputElement.before(element);
-    canvas = element;
-    return element.transferControlToOffscreen();
-  }
-  function attachCanvas(worker: Worker, element: HTMLCanvasElement) {
-    const send = (event: CanvasInputEvent) =>
-      worker.postMessage({ type: 'input', event } satisfies WorkerRequest);
-    const modifiers = (e: KeyboardEvent | MouseEvent) =>
-      (e.shiftKey ? 1 : 0) |
-      (e.ctrlKey ? 2 : 0) |
-      (e.altKey ? 4 : 0) |
-      (e.metaKey ? 8 : 0);
-    const key = (e: KeyboardEvent) => {
-      const named = JAI_KEYS[e.key];
-      if (named !== undefined) return named;
-      const fn = /^F(\d+)$/.exec(e.key);
-      if (fn) return 142 + Number(fn[1]);
-      if (e.key.length === 1) return e.key.toUpperCase().codePointAt(0)!;
-      return 306;
-    };
-    const keyEvent = (pressed: boolean) => (e: KeyboardEvent) => {
-      e.preventDefault();
-      send({
-        type: 1,
-        key: key(e),
-        pressed,
-        modifiers: modifiers(e),
-        repeat: e.repeat,
-      });
-      if (pressed && [...e.key].length === 1 && !e.ctrlKey && !e.metaKey)
-        send({ type: 2, utf32: e.key.codePointAt(0) });
-    };
-    element.addEventListener('keydown', keyEvent(true));
-    element.addEventListener('keyup', keyEvent(false));
-    const scale = () => devicePixelRatio || 1;
-    const button = (pressed: boolean) => (e: MouseEvent) => {
-      if (pressed) element.focus();
-      send({
-        type: 1,
-        key: [1, 169, 170][e.button] ?? 306,
-        pressed,
-        modifiers: modifiers(e),
-      });
-    };
-    element.addEventListener('mousedown', button(true));
-    element.addEventListener('mouseup', button(false));
-    element.addEventListener('contextmenu', (e) => e.preventDefault());
-    element.addEventListener('mousemove', (e) =>
-      send({
-        type: 3,
-        x: Math.round(e.offsetX * scale()),
-        y: Math.round(e.offsetY * scale()),
-      })
-    );
-    element.addEventListener(
-      'wheel',
-      (e) => {
-        e.preventDefault();
-        send({ type: 4, y: Math.round(-e.deltaY) });
-      },
-      { passive: false }
-    );
-    element.addEventListener('focus', () => send({ type: 6, pressed: true }));
-    element.addEventListener('blur', () => send({ type: 6, pressed: false }));
-    new ResizeObserver(() => {
-      const width = Math.max(1, Math.round(element.clientWidth * scale()));
-      const height = Math.max(1, Math.round(element.clientHeight * scale()));
-      worker.postMessage({
-        type: 'resize',
-        width,
-        height,
-      } satisfies WorkerRequest);
-    }).observe(element);
-  }
+  // WebGPU programs draw in the Render pane (render-pane.ts).
+  const render = createRenderPane({
+    pane: layout?.element('render'),
+    open: (select) => layout?.open('render', { select }),
+  });
+  /** Set by Run and Ctrl+Enter for the run they start; edits run without it. */
+  let explicitRun = false;
   function initializeWorker(
     workerSignal = signal,
     offscreen?: OffscreenCanvas
@@ -2433,9 +2325,9 @@ export async function createSession(
       worker.postMessage(init, offscreen ? [offscreen] : []);
     });
   }
-  // Program output in write order (stderr marked), then diagnostics or the exit code.
-  function showResult(result: RunOutput) {
-    const nodes: (string | Node)[] = (result.output ?? [])
+  // Program writes in order, stderr marked.
+  const outputNodes = (chunks: NonNullable<RunOutput['output']>): Node[] =>
+    chunks
       .filter((chunk) => chunk.text)
       .map((chunk) => {
         const span = document.createElement('span');
@@ -2447,6 +2339,9 @@ export async function createSession(
         if (chunk.stream === 'stderr') span.dataset.stream = 'stderr';
         return span;
       });
+  // Program output, then diagnostics or the exit code.
+  function showResult(result: RunOutput) {
+    const nodes: (string | Node)[] = outputNodes(result.output ?? []);
     const written = nodes.map((node) => (node as Node).textContent).join('');
     const failed = result.exitCode === null;
     const errors: string[] = [];
@@ -2485,27 +2380,30 @@ export async function createSession(
     run.hidden = false;
     cancel.hidden = true;
   }
-  let streamed = '';
+  /** What the running program has written so far, when it waits for the page. */
+  let streamed: NonNullable<RunOutput['output']> = [];
   function connect(worker: Worker) {
     execution = worker;
     worker.addEventListener(
       'message',
       ({ data }: MessageEvent<WorkerResponse>) => {
-        // A program that waits for the page shows its output as it runs.
-        if (data.type === 'output' && worker === execution && running) {
-          streamed += data.text;
-          output.write(streamed, 'stdout');
+        if (signal.aborted || worker !== execution) return;
+        // A program that waits for the page (a frame loop) shows its output as it runs.
+        if (data.type === 'output' && running) {
+          const last = streamed.at(-1);
+          if (last?.stream === data.stream) last.text += data.text;
+          else streamed.push({ stream: data.stream, text: data.text });
+          output.progress(outputNodes(streamed));
           return;
         }
-        if (
-          signal.aborted ||
-          worker !== execution ||
-          data.type !== 'run' ||
-          data.id !== job
-        )
+        if (data.type === 'surface') {
+          if (running) render?.surface(data.size);
           return;
+        }
+        if (data.type !== 'run' || data.id !== job) return;
         if (data.error !== undefined) output.write(data.error, 'error');
         else showResult(data.result);
+        render?.ended();
         idle();
       }
     );
@@ -2514,6 +2412,7 @@ export async function createSession(
       showError(event.message || 'Execution failed');
       terminate(worker);
       execution = undefined;
+      render?.stopped();
       idle();
     });
   }
@@ -2524,6 +2423,8 @@ export async function createSession(
     }
     if (signal.aborted) return;
     const id = ++job;
+    const explicit = explicitRun;
+    explicitRun = false;
     running = true;
     run.disabled = true;
     run.hidden = true;
@@ -2534,19 +2435,25 @@ export async function createSession(
       if (!execution) {
         const controller = new AbortController();
         pendingExecution = controller;
-        const offscreen = createCanvas();
-        const { worker } = await initializeWorker(controller.signal, offscreen);
-        if (offscreen && canvas) attachCanvas(worker, canvas);
+        const offscreen = render?.canvas();
+        const { worker, capabilities } = await initializeWorker(
+          controller.signal,
+          offscreen
+        );
         if (pendingExecution === controller) pendingExecution = undefined;
         if (id !== job || signal.aborted) {
           terminate(worker);
           return;
         }
+        render?.attach(worker, capabilities);
         connect(worker);
       }
       if (!execution) return;
-      if (canvas) canvas.hidden = !usesCanvas(snapshot.files, snapshot.source);
-      streamed = '';
+      streamed = [];
+      render?.started(
+        [snapshot.source, ...Object.values(snapshot.files)],
+        explicit
+      );
       post(execution, {
         type: 'run',
         id,
@@ -2566,9 +2473,16 @@ export async function createSession(
     if (!running) return;
     terminate(execution);
     execution = undefined;
-    canvas?.remove();
-    canvas = undefined;
-    output.write('Stopped', 'error');
+    render?.stopped();
+    if (streamed.length) {
+      // A program stopped mid-animation keeps what it printed so far.
+      const nodes: (string | Node)[] = outputNodes(streamed);
+      if (!streamed.at(-1)!.text.endsWith('\n')) nodes.push('\n');
+      const stopped = document.createElement('span');
+      stopped.className = 'ide-output__exit';
+      stopped.textContent = 'Stopped';
+      output.write([...nodes, stopped], 'stdout', ['Stopped']);
+    } else output.write('Stopped', 'error');
     idle();
   }
   /*
@@ -2799,6 +2713,7 @@ export async function createSession(
     'click',
     () => {
       showPane(panel, 'output');
+      explicitRun = true;
       void runner.play();
     },
     { signal }
@@ -2838,6 +2753,7 @@ export async function createSession(
       ++job;
       clearTimeout(syncTimer);
       language?.dispose();
+      render?.dispose();
       for (const worker of workers) worker.terminate();
       workers.clear();
       // Back to the server-rendered group; the saved layout is kept for the next session.
@@ -2936,9 +2852,8 @@ export async function createSession(
     if (page) history.replaceState({ jaiNav: { session, id } }, '');
   }
   const driverLoaded = loadFormatter();
-  const bootCanvas = createCanvas();
-  const runtime = await initializeWorker(signal, bootCanvas);
-  if (bootCanvas && canvas) attachCanvas(runtime.worker, canvas);
+  const runtime = await initializeWorker(signal, render?.canvas());
+  render?.attach(runtime.worker, runtime.capabilities);
   connect(runtime.worker);
   if (runtime.capabilities.languageServer) {
     const server = await initializeWorker();

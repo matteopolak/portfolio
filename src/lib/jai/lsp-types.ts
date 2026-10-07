@@ -204,7 +204,7 @@ export interface JsonRpcMessage {
   error?: { code?: number; message: string };
 }
 
-/** Messages exchanged with the compiler worker. */
+/** A Render pane event for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
 export interface CanvasInputEvent {
   type: number;
   key?: number;
@@ -216,12 +216,16 @@ export interface CanvasInputEvent {
   repeat?: boolean;
 }
 
+/** Messages exchanged with the compiler worker. */
 export type WorkerRequest =
   | {
       type: 'init';
       id?: undefined;
       url: string;
-      /** The canvas WebGPU programs draw into, and the bundle's host for it. */
+      /**
+       * The canvas WebGPU programs draw into, and the bundle's host for it.
+       * The page sends them only where WebGPU and JSPI both exist.
+       */
       canvas?: OffscreenCanvas;
       hostUrl?: string;
     }
@@ -265,7 +269,25 @@ export type WorkerRequest =
 export type WorkerResponse =
   | {
       type: 'init';
-      capabilities: { languageServer: boolean };
+      capabilities: {
+        languageServer: boolean;
+        /**
+         * Present when the page sent a canvas: whether programs can draw on
+         * it (the bundle has a WebGPU host), and whether that host reports
+         * surface changes (`surface` messages).
+         */
+        canvas?: { drawing: boolean; surfaceEvents: boolean };
+      };
+      error?: undefined;
+    }
+  /**
+   * The running program configured its drawing surface at `size` (canvas
+   * pixels), or unconfigured it (null).
+   */
+  | {
+      type: 'surface';
+      id?: undefined;
+      size: { width: number; height: number } | null;
       error?: undefined;
     }
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }

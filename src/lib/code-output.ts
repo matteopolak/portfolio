@@ -5,6 +5,11 @@ export interface CodeOutput {
   clear(): void;
   /** Marks a run as in progress and starts its timer. */
   start(): void;
+  /**
+   * Shows what a still-running program has written so far (one that waits
+   * for the page, like an animation); the run and its timer go on.
+   */
+  progress(content: (string | Node)[]): void;
   /** Replaces the output with a finished result. */
   write(
     content: string | (string | Node)[],
@@ -76,6 +81,18 @@ export function createCodeOutput(panel: HTMLElement): CodeOutput {
         delete output.dataset.state;
         if (summary) summary.textContent = 'Running…';
       }, PLACEHOLDER_DELAY_MS);
+    },
+    progress(content) {
+      cancelPlaceholder();
+      delete output.dataset.state;
+      // Follow new lines unless the reader scrolled up.
+      const following =
+        output.scrollHeight - output.scrollTop - output.clientHeight < 24;
+      output.replaceChildren(...content);
+      output.dataset.kind = 'stdout';
+      if (following) output.scrollTop = output.scrollHeight;
+      if (summary) summary.textContent = 'Running…';
+      markUnread();
     },
     write(content, kind = 'stdout', details = []) {
       const elapsed =
