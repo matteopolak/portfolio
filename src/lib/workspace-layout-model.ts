@@ -348,6 +348,31 @@ export function splitAt(
   return current?.type === 'split' ? current : undefined;
 }
 
+/**
+ * The CSS `flex` of a node holding `share` of its split: it grows by its
+ * share from a zero basis, so the children of a split divide all of it in
+ * proportion whatever its size. The root (share 1) fills the editor area.
+ */
+export const shareFlex = (share = 1) => `${share} 1 0px`;
+
+/**
+ * The CSS `flex` of every node of the tree by its path (child indices joined
+ * by `/`; the root is `''`), as the editor area lays it out.
+ */
+export function editorFlexes(node: EditorNode): Map<string, string> {
+  const flexes = new Map<string, string>();
+  function visit(current: EditorNode, path: string, share: number) {
+    flexes.set(path, shareFlex(share));
+    if (current.type === 'group') return;
+    const shares = normalizeSizes(current.sizes, current.children.length);
+    current.children.forEach((child, index) =>
+      visit(child, path ? `${path}/${index}` : String(index), shares[index])
+    );
+  }
+  visit(node, '', 1);
+  return flexes;
+}
+
 /** Sets the shares of the split at `path`. */
 export function resizeSplit(
   node: EditorNode,

@@ -4,6 +4,7 @@ import {
   defaultLayout,
   dockZone,
   dropZone,
+  editorFlexes,
   emptyGroup,
   findGroup,
   groupDropZone,
@@ -169,6 +170,47 @@ test('normalize repairs bad shares and empty splits', () => {
   assert.ok(tidy.type === 'split');
   assert.ok(close(tidy.sizes[0], 0.5));
   assert.ok(close(tidy.sizes[1], 0.25));
+});
+
+test('splits fill the editor area in proportion at any size', () => {
+  // A split once laid out without a flex of its own kept its content width,
+  // so widening the window left a gap beside the groups.
+  let tree: EditorNode = group('g1', 'main.jai');
+  tree = splitGroup(tree, 'g1', 'right', group('g2', 'render'));
+  tree = splitGroup(tree, 'g2', 'bottom', group('g3', 'b.jai'));
+  tree = resizeSplit(tree, [], [0.25, 0.75]);
+  const flexes = editorFlexes(tree);
+  assert.deepEqual(
+    [...flexes],
+    [
+      ['', '1 1 0px'],
+      ['0', '0.25 1 0px'],
+      ['1', '0.75 1 0px'],
+      ['1/0', '0.5 1 0px'],
+      ['1/1', '0.5 1 0px'],
+    ]
+  );
+  // Every split's children grow by shares summing to 1 from a zero basis:
+  // they take all of the split's space, whatever the split's size.
+  const grow = (path: string) => Number(flexes.get(path)!.split(' ')[0]);
+  for (const [path, flex] of flexes) {
+    assert.match(flex, / 1 0px$/u);
+    const children = [...flexes.keys()].filter(
+      (key) =>
+        key.startsWith(path ? `${path}/` : '') &&
+        key !== path &&
+        !key.slice(path ? path.length + 1 : 0).includes('/')
+    );
+    if (children.length)
+      assert.ok(
+        close(
+          children.map(grow).reduce((a, b) => a + b, 0),
+          1
+        )
+      );
+  }
+  // A lone group fills the area too.
+  assert.deepEqual([...editorFlexes(group('g1'))], [['', '1 1 0px']]);
 });
 
 test('resizing a nested split and updating a group', () => {

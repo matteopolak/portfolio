@@ -3,6 +3,8 @@ import {
   defaultLayout,
   dockPanels,
   dockZone,
+  editorFlexes,
+  shareFlex,
   DOCKS,
   isSideDock,
   movePanel,
@@ -474,18 +476,24 @@ function initializeLayout(
   function renderEditors() {
     if (!groupElements) return;
     const lookup = groupElements;
+    // Proportional sizes all the way up: the root fills the editor area, so
+    // the groups cover it at any window size (ResizeObservers do the rest).
+    const flexes = editorFlexes(layout.editors);
     const build = (node: EditorNode, path: number[]): HTMLElement => {
+      const element = place(node, path);
+      element.style.flex = flexes.get(path.join('/')) ?? shareFlex();
+      return element;
+    };
+    const place = (node: EditorNode, path: number[]): HTMLElement => {
       if (node.type === 'group') return lookup(node.id)!;
       const split = document.createElement('div');
       split.className = 'ide-split';
       split.dataset.direction = node.direction;
       const row = node.direction === 'row';
       const minimum = row ? 120 : 72;
-      const children = node.children.map((child, index) => {
-        const element = build(child, [...path, index]);
-        element.style.flex = `${node.sizes[index]} 1 0`;
-        return element;
-      });
+      const children = node.children.map((child, index) =>
+        build(child, [...path, index])
+      );
       children.forEach((element, index) => {
         if (index > 0) {
           const before = children[index - 1];
@@ -512,8 +520,8 @@ function initializeLayout(
                     ...layout,
                     editors: resizeSplit(layout.editors, path, sizes),
                   };
-                  before.style.flex = `${sizes[index - 1]} 1 0`;
-                  element.style.flex = `${sizes[index]} 1 0`;
+                  before.style.flex = shareFlex(sizes[index - 1]);
+                  element.style.flex = shareFlex(sizes[index]);
                 },
                 done: save,
               },
@@ -525,9 +533,7 @@ function initializeLayout(
       });
       return split;
     };
-    const top = build(layout.editors, []);
-    if (layout.editors.type === 'group') top.style.flex = '';
-    editors.replaceChildren(top);
+    editors.replaceChildren(build(layout.editors, []));
   }
 
   function render() {
