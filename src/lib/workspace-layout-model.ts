@@ -486,6 +486,51 @@ export function viewGroup(
 }
 
 /**
+ * The narrowest editor area (CSS px) that splits off a group for the Render
+ * tab: two groups of 320px. Narrower areas take it as a tab instead.
+ */
+export const SPLIT_MIN_WIDTH = 640;
+
+/** Where a tab goes: into the group `group`, or a new group split off `split` on `side`. */
+export type TabPlace = { group: string } | { split: string; side: SplitSide };
+
+/** The group at the right edge of the editor area (the topmost of several). */
+export function rightmostGroup(node: EditorNode): string {
+  let best: [string, Rect] | undefined;
+  for (const [id, rect] of groupRects(node)) {
+    const right = rect.x + rect.width;
+    const bestRight = best ? best[1].x + best[1].width : -1;
+    if (
+      !best ||
+      right > bestRight + 1e-9 ||
+      (Math.abs(right - bestRight) < 1e-9 && rect.y < best[1].y)
+    )
+      best = [id, rect];
+  }
+  return best![0];
+}
+
+/**
+ * Where a view's tab opens when a program calls for it (the Render tab when
+ * it is closed and a program draws). On phones (`narrow`) it is a tab of the
+ * focused group `from`. An editor area with one group splits a new group off
+ * to its right when it is `wide` enough (and not `full`), else takes it as a
+ * tab; an area already split puts it in its rightmost group.
+ */
+export function viewPlacement(
+  node: EditorNode,
+  from: string,
+  { narrow, wide, full }: { narrow: boolean; wide: boolean; full: boolean }
+): TabPlace {
+  if (narrow) return { group: from };
+  if (node.type === 'group')
+    return wide && !full
+      ? { split: node.id, side: 'right' }
+      : { group: node.id };
+  return { group: rightmostGroup(node) };
+}
+
+/**
  * Where a tab dropped at (`x`, `y`) inside an editor group's content lands:
  * the outer third on a side splits that way (the nearer edge wins), the
  * middle opens the tab in the group itself.

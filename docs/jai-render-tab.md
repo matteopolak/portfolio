@@ -18,11 +18,17 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 
 **A view tab.** The Render tab is an `OpenTab` with `view: 'render'` (its `path` is the view id, never a file path, so a file called `render` is a different tab). The workspace has at most one: `openView` focuses it where it is, drags move it (dropping a group's only tab on its own side does not copy it), and `parseLayout` drops later copies. File operations (`move`, `retain`, editor states, diagnostics, Format, navigation history) skip it.
 
-**When it opens.** A run never rearranges what the user is looking at:
+**When it opens.** "Room for a split" means an editor area at least `SPLIT_MIN_WIDTH` (640px, two 320px groups) wide, outside the phone layout.
 
-- **First visit** (no tabs restored): the starter's tabs in one group and the Render tab split off to the right (`renderBeside`). Reset layout rebuilds the same arrangement. On phones the Render tab sits behind `main.jai` in the one group.
-- **Open anywhere, it stays put.** If a Render tab is open, even behind another tab, a drawing program leaves it there and moves no focus.
-- **Closed, and the program draws** (its first `surface` of the run): the tab opens in the group focused last and becomes its active tab (`openRender`). No new split. If the run came from an edit while the user is typing in that group, the tab opens behind the editor instead, so typing is not interrupted.
+- **First visit** (no tabs restored): the starter's tabs in one group and, with room, the Render tab split off to the right (`renderBeside`); without room (and on phones) the Render tab sits behind `main.jai` in the one group. Reset layout rebuilds the same arrangement.
+- **Open anywhere, it stays put.** If a Render tab is open, even behind another tab, a drawing program leaves it there: a run never rearranges the layout.
+- **Closed, and the program draws** (its first `surface` of the run), `openRender` opens it where `viewPlacement` says and makes it its group's active tab, so it is visible and sized:
+  - one group with room: a new group split off to the right;
+  - one group without room, or 16 groups already: a tab of that group;
+  - already split: a tab of the rightmost group (the topmost one at the right edge, `rightmostGroup`);
+  - phones: a tab of the focused group.
+
+  Other groups keep their active tabs, and keyboard focus stays where it was (an edit-triggered run keeps the cursor in the editor).
 - **Programs that do not draw never open it**, nor does a browser that cannot draw.
 - The toolbar's Render button (`[data-code-show-render]`) shows the tab where it is, or opens it in the focused group, and focuses the canvas while a program draws.
 
@@ -40,7 +46,7 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 
 ## How to change it
 
-- Where the tab opens: `renderBeside` (first visit, Reset layout) and `openRender` (a run draws) in `workspace-ui.ts`.
+- Where the tab opens: `viewPlacement` and `SPLIT_MIN_WIDTH` in the layout model (unit-tested), applied by `renderBeside` (first visit, Reset layout) and `openRender` (a run draws) in `workspace-ui.ts`.
 - Another non-file view: add its id to `ViewId`/`VIEWS` in the model and `VIEW_LABELS` in `open-tabs.ts`, give it an icon kind in `file-icons.ts`, and handle `tab.view === '<id>'` in `show` (what replaces the editor) and `renderActions`.
 - New Key_Code: extend `KEY`/`NAMED_KEYS` in `canvas-input.ts`; `tests/jai/canvas-input.test.ts` checks `KEY` against `stdlib/Input/module.jai` when `JAI_REPO` points at a Jai checkout.
 - Host API changes: `HostModule` in `worker.ts` and the `init`/`surface` messages in `lsp-types.ts`.
@@ -50,7 +56,7 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 ## Configuration
 
 - `BUDGET` (200M basic blocks) in `workspace-ui.ts`.
-- `MAX_GROUPS` (16) in the layout model: a full workspace puts the first-visit Render tab in the code's group instead of a split.
+- `SPLIT_MIN_WIDTH` (640px) and `MAX_GROUPS` (16) in the layout model: a narrower editor area or a full workspace takes the Render tab as a tab instead of a split.
 - Bundle files: `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` (optional in `scripts/sync-jai-web.ts`).
 
 ## Dependencies

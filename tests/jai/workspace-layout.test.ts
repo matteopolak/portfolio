@@ -25,6 +25,8 @@ import {
   splitGroup,
   updateGroup,
   viewGroup,
+  viewPlacement,
+  rightmostGroup,
   type EditorNode,
   type GroupNode,
 } from '../../src/lib/workspace-layout-model.ts';
@@ -349,6 +351,48 @@ test('layouts from the Render pane drop it and keep the rest', () => {
     assert.equal('closed' in layout, false);
     assert.deepEqual(parseLayout(serializeLayout(layout)), layout);
   }
+});
+
+test('where a closed Render tab opens when a program draws', () => {
+  const wide = { narrow: false, wide: true, full: false };
+  const single = group('g1', 'main.jai', 'tour.md');
+  // One group with room: a new group split off to its right.
+  assert.deepEqual(viewPlacement(single, 'g1', wide), {
+    split: 'g1',
+    side: 'right',
+  });
+  // One group without room, or no room for another group: a tab of it.
+  assert.deepEqual(viewPlacement(single, 'g1', { ...wide, wide: false }), {
+    group: 'g1',
+  });
+  assert.deepEqual(viewPlacement(single, 'g1', { ...wide, full: true }), {
+    group: 'g1',
+  });
+  // Already split: the rightmost group, whichever group was focused.
+  const split = splitGroup(single, 'g1', 'right', group('g2', 'b.jai'));
+  assert.deepEqual(viewPlacement(split, 'g1', wide), { group: 'g2' });
+  assert.deepEqual(viewPlacement(split, 'g2', wide), { group: 'g2' });
+  assert.deepEqual(viewPlacement(split, 'g1', { ...wide, wide: false }), {
+    group: 'g2',
+  });
+  // Phones: a tab of the focused group, split or not.
+  const narrow = { narrow: true, wide: false, full: false };
+  assert.deepEqual(viewPlacement(single, 'g1', narrow), { group: 'g1' });
+  assert.deepEqual(viewPlacement(split, 'g1', narrow), { group: 'g1' });
+});
+
+test('the rightmost group is the topmost at the right edge', () => {
+  let tree: EditorNode = group('g1');
+  assert.equal(rightmostGroup(tree), 'g1');
+  tree = splitGroup(tree, 'g1', 'right', group('g2'));
+  tree = splitGroup(tree, 'g2', 'bottom', group('g3'));
+  assert.equal(rightmostGroup(tree), 'g2');
+  // A group split off to the left of the right column does not reach the edge.
+  tree = splitGroup(tree, 'g3', 'left', group('g4'));
+  assert.equal(rightmostGroup(tree), 'g2');
+  // Stacked groups: the top one.
+  const stacked = splitGroup(group('g1'), 'g1', 'bottom', group('g2'));
+  assert.equal(rightmostGroup(stacked), 'g1');
 });
 
 test('the Render tab is saved with its group, once', () => {

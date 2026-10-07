@@ -30,6 +30,9 @@ import {
   splitGroup,
   updateGroup,
   viewGroup,
+  viewPlacement,
+  SPLIT_MIN_WIDTH,
+  type TabPlace,
   type DropZone,
   type EditorNode,
   type SplitSide,
@@ -1633,42 +1636,62 @@ export async function createSession(
       g.tabs.tabs.some((tab) => tab.view === 'render')
     );
   /**
-   * The Render tab beside group `g`, in a group of its own (in `g` itself,
-   * behind its active tab, on phones): the arrangement of a first visit and
-   * of Reset layout.
+   * Where the closed Render tab opens now (`viewPlacement`): a split needs
+   * an editor area of `SPLIT_MIN_WIDTH`, and phones take it as a tab.
+   */
+  function renderPlace(from: Group): TabPlace {
+    const width = layout?.editors.getBoundingClientRect().width ?? 0;
+    return viewPlacement(editorTree(), from.id, {
+      narrow: isNarrow(),
+      wide: width >= SPLIT_MIN_WIDTH,
+      full: groups.size >= MAX_GROUPS,
+    });
+  }
+  /**
+   * Opens the closed Render tab at `place`. It becomes its group's active
+   * tab, unless `behind` (a first visit's tab, behind `main.jai`); a new
+   * split always shows it. Focus and the other groups' tabs stay as they are.
+   */
+  function openRenderAt(place: TabPlace, behind = false) {
+    if ('split' in place) {
+      const created = createGroup(nextGroupId(editorTree()));
+      created.tabs.openView('render');
+      saveLayout(
+        splitGroup(
+          editorTree(),
+          place.split,
+          place.side,
+          emptyGroup(created.id)
+        )
+      );
+      show(created);
+      return;
+    }
+    const g = groups.get(place.group);
+    if (!g) return;
+    saveState(g);
+    g.tabs.openView('render', { focus: !behind });
+    show(g);
+  }
+  /**
+   * The arrangement of a first visit and of Reset layout: the Render tab
+   * split off beside the code where there is room, else behind its tab.
    */
   function renderBeside(g: Group) {
     if (!renderView || renderGroup()) return;
-    if (isNarrow() || groups.size >= MAX_GROUPS) {
-      g.tabs.openView('render', { focus: false });
-      show(g);
-      return;
-    }
-    const created = createGroup(nextGroupId(editorTree()));
-    created.tabs.openView('render');
-    saveLayout(splitGroup(editorTree(), g.id, 'right', emptyGroup(created.id)));
-    show(created);
+    const place = renderPlace(g);
+    openRenderAt(place, !('split' in place));
   }
   /**
    * A program started drawing. An open Render tab stays where it is, even
-   * behind another tab: a run never rearranges the layout or takes the
-   * screen. A closed one opens in the group focused last and shows there;
-   * if the run came from an edit while the user types in that group, it
-   * opens behind the editor instead.
+   * behind another tab: a run never rearranges the layout. A closed one
+   * opens and shows (`viewPlacement`): split off to the right of a single
+   * group with room, in the rightmost group of a split, else (and on phones)
+   * as a tab of the focused group.
    */
-  function openRender(explicit: boolean) {
+  function openRender() {
     if (signal.aborted || !groups.size || renderGroup()) return;
-    const g = group;
-    const typing = !explicit && g.element.contains(document.activeElement);
-    if (typing) {
-      g.tabs.openView('render', { focus: false });
-      renderTabs(g);
-      saveLayout();
-      return;
-    }
-    saveState(g);
-    g.tabs.openView('render');
-    show(g);
+    openRenderAt(renderPlace(group));
   }
   /** The toolbar's Render button: shows the Render tab where it is, or opens it in the focused group. */
   function showRender() {
@@ -2395,8 +2418,6 @@ export async function createSession(
   panel
     .querySelector<HTMLButtonElement>('[data-code-show-render]')
     ?.addEventListener('click', showRender, { signal });
-  /** Set by Run and Ctrl+Enter for the run they start; edits run without it. */
-  let explicitRun = false;
   function initializeWorker(
     workerSignal = signal,
     offscreen?: OffscreenCanvas
@@ -2544,8 +2565,6 @@ export async function createSession(
     }
     if (signal.aborted) return;
     const id = ++job;
-    const explicit = explicitRun;
-    explicitRun = false;
     running = true;
     run.disabled = true;
     run.hidden = true;
@@ -2571,10 +2590,7 @@ export async function createSession(
       }
       if (!execution) return;
       streamed = [];
-      render?.started(
-        [snapshot.source, ...Object.values(snapshot.files)],
-        explicit
-      );
+      render?.started([snapshot.source, ...Object.values(snapshot.files)]);
       post(execution, {
         type: 'run',
         id,
@@ -2834,7 +2850,6 @@ export async function createSession(
     'click',
     () => {
       showPane(panel, 'output');
-      explicitRun = true;
       void runner.play();
     },
     { signal }

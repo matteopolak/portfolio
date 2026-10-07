@@ -78,11 +78,8 @@ export const importsWebGPU = (sources: Iterable<string>) =>
 export interface RenderPaneOptions {
   /** The view (`[data-code-render-view]`), wherever it is in the document. */
   view: HTMLElement | undefined;
-  /**
-   * A run started drawing: show the Render tab if it is closed. `explicit`
-   * when the user asked for the run (Run, Ctrl+Enter), not an edit.
-   */
-  open(explicit: boolean): void;
+  /** A run started drawing: show the Render tab if it is closed. */
+  open(): void;
 }
 
 export interface RenderPane {
@@ -92,8 +89,8 @@ export interface RenderPane {
   canvas(): OffscreenCanvas | undefined;
   /** Connects the canvas `canvas()` made to the worker that received it. */
   attach(worker: Worker, capabilities: InitCapabilities): void;
-  /** A run starts: `explicit` when the user asked (Run, Ctrl+Enter), not an edit. */
-  started(sources: Iterable<string>, explicit: boolean): void;
+  /** A run of `sources` starts. */
+  started(sources: Iterable<string>): void;
   /** The program configured its surface at `size`, or unconfigured it. */
   surface(size: { width: number; height: number } | null): void;
   /** The run ended; the canvas stays with its worker for the next run. */
@@ -133,8 +130,8 @@ export function createRenderPane({
         surfaceEvents: boolean;
       }
     | undefined;
-  /** This run: whether the user started it, and whether it has drawn yet. */
-  let run = { explicit: false, shown: false };
+  /** Whether this run has drawn yet. */
+  let shown = false;
   let pixels = { width: 0, height: 0 };
 
   function setState(state: 'idle' | 'drawing' | 'unsupported') {
@@ -183,9 +180,9 @@ export function createRenderPane({
 
   /** The run draws: once per run, the Render tab is asked to show. */
   function show() {
-    if (run.shown) return;
-    run.shown = true;
-    open(run.explicit);
+    if (shown) return;
+    shown = true;
+    open();
   }
 
   return {
@@ -220,8 +217,8 @@ export function createRenderPane({
       forwardCanvasInput(current.element, send, current.listeners.signal);
       if (pixels.width) post({ type: 'resize', ...pixels });
     },
-    started(sources, explicit) {
-      run = { explicit, shown: false };
+    started(sources) {
+      shown = false;
       if (stage.dataset.state === 'drawing') setState('idle');
       // Without drawing nothing opens; the tab, where open, says why.
       if (!support.ok) return;
