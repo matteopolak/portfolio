@@ -2,7 +2,7 @@
 
 ## What it is
 
-The code workspace arranges its panels like VS Code. The file tree and the output pane are dockable panels: drag one by its header to the left, right, top or bottom of the editor area. In the Jai workspace the editor area can also be split into editor groups: drag a tab (or a file from the tree) to one side of a group to open it beside that group, or onto a tab strip to move it there. The arrangement is saved per language and survives reloads; the Reset layout button in the header restores the default.
+The code workspace arranges its panels like VS Code. The file tree, the output pane and (Jai only) the Render pane are dockable panels: drag one by its header to the left, right, top or bottom of the editor area. In the Jai workspace the editor area can also be split into editor groups: drag a tab (or a file from the tree) to one side of a group to open it beside that group, or onto a tab strip to move it there. The arrangement is saved per language and survives reloads; the Reset layout button in the header restores the default.
 
 Phones (below `42rem`) keep the one-pane-at-a-time layout with the Files / Code / Output tab bar; docks and splits are ignored there and only the active group is shown.
 
@@ -15,9 +15,10 @@ Phones (below `42rem`) keep the one-pane-at-a-time layout with the Files / Code 
 | `src/lib/jai/workspace-ui.ts` | Editor groups: one CodeMirror editor and tab strip per group, tab/tree drag and drop, keeping groups in sync |
 | `src/components/CodeWorkspace.astro` | Markup (`[data-code-layout]`, docks, `[data-code-editors]`, the template group) and the global layout styles |
 
-**Model.** A `WorkspaceLayout` is `{ version: 1, docks, editors }`.
+**Model.** A `WorkspaceLayout` is `{ version: 1, docks, closed, editors }`.
 
-- `docks.left|right|top|bottom` is `{ size, panels, ratio }`: its size in px, the panels it holds in order (`files`, `output`), and the first panel's share when it holds two.
+- `docks.left|right|top|bottom` is `{ size, panels, shares }`: its size in px, the panels it holds in order (`files`, `output`, `render`), and each panel's share (parallel to `panels`). Open panels split the dock in proportion to their shares; `resizeDockPanels` moves the split between two neighbours.
+- `closed` lists closable panels (`CLOSABLE_PANELS`: `render`) that keep their dock but are not shown. `openPanel`/`closePanel` toggle it; `openPanels(layout, dock)` gives what to render. The Render pane starts closed on the right and opens when a program draws ([jai-render-pane.md](./jai-render-pane.md)); its head has a close button (`[data-panel-close]`).
 - `editors` is a tree: a `GroupNode` (`{ type: 'group', id: 'g1', tabs, active }`, each tab `{ path, kind: 'file' | 'markdown' }`) or a `SplitNode` (`{ type: 'split', direction: 'row' | 'column', children, sizes }`, sizes summing to 1).
 
 Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split in the parent's direction adds a sibling and halves the target's share; the other direction nests), `removeGroup` (siblings take its share in proportion; one-child splits collapse and same-direction splits flatten), `resizeSplit`, `neighbourGroup`. `dropZone` picks `left/right/top/bottom` in a group's outer thirds (the nearer edge wins in corners), else `center`; `dockZone` picks left/right in the body's outer quarters, else top or bottom.
@@ -35,19 +36,19 @@ Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split 
 - **Language features** (diagnostics, hover, completion, lint, format, go to definition) run in every group's editor; published diagnostics are applied to every group that shows the file.
 - **Reset layout** merges every group's tabs into one group.
 
-**Persistence.** `localStorage["code-workspace-layout:<language>"]` holds `serializeLayout(layout)`, written 250ms after a change and when the session ends. `parseLayout(text, panels)` rejects anything malformed (wrong version, missing or duplicate panels, bad sizes, unknown node types, duplicate group ids, more than 16 groups or 8 levels) so a bad value falls back to the default; duplicate tabs and an out-of-range active index are repaired. Storage errors are caught. On startup the Jai workspace reopens the saved groups and tabs, dropping tabs of files that no longer exist and groups left empty.
+**Persistence.** `localStorage["code-workspace-layout:<language>"]` holds `serializeLayout(layout)`, written 250ms after a change and when the session ends. `parseLayout(text, panels)` reads older layouts too: a two-panel `ratio` becomes `shares`, and a panel of `ADDED_PANELS` (`render`) missing from a saved layout is added at its default dock, closed. It rejects anything else malformed (wrong version, missing or duplicate panels, bad sizes, unknown node types, duplicate group ids, more than 16 groups or 8 levels) so a bad value falls back to the default; duplicate tabs and an out-of-range active index are repaired. Storage errors are caught. On startup the Jai workspace reopens the saved groups and tabs, dropping tabs of files that no longer exist and groups left empty.
 
 **Header alignment.** The editor tools align with the editor column: the controller writes the left dock's width to `--ide-editor-offset` (a `ResizeObserver`) and sets `data-left-dock` on the section only while the left dock is shown.
 
 **Output collapse.** The output's collapse toggle is shown only while the output is alone in the top or bottom dock; collapsed, that dock shrinks to the pane head.
 
-**Phones.** Under `NARROW_QUERY` the layout, dock, editors and split containers are `display: contents`, every pane sits in grid area 1/1, and `data-pane` (Files / Code / Output) picks one; only `.ide-group[data-active]` is shown. Panel and tab dragging is off.
+**Phones.** Under `NARROW_QUERY` the layout, dock, editors and split containers are `display: contents`, every pane sits in grid area 1/1, and `data-pane` (Files / Code / Output / Render, the last shown only while the Render pane is open) picks one; only `.ide-group[data-active]` is shown. Panel and tab dragging is off.
 
 ## How to change it
 
 - **New layout operation:** add it to `workspace-layout-model.ts` with a test; keep it immutable and call `normalize` on trees you build.
 - **Stored shape changes:** bump `version` (old values then fall back to the default) or extend `parseLayout` to accept both.
-- **A new dockable panel:** add its id to `PanelId` and `defaultLayout`, give its head `data-panel-handle`, and register its element in `initializeWorkspaceLayout`.
+- **A new dockable panel:** add its id to `PanelId`, `PANELS` and `DEFAULT_DOCKS` (and to `ADDED_PANELS` so saved layouts keep loading, `CLOSABLE_PANELS` if it can close), give its head `data-panel-handle`, and register its element in `initializeWorkspaceLayout`.
 - **Drop behaviour:** zone geometry is in the model (`dropZone`, `dockZone`); what a drop does is `dropTab` in `workspace-ui.ts` and the panel `drop` in `code-workspace-layout.ts`.
 - **Styles:** layout, dock, split, divider and drop-overlay rules are in the `<style is:global>` block at the end of `CodeWorkspace.astro`, anchored at `.ide`, because those elements are created in script. Use `--ide-*` tokens; the drop highlight uses `--blue`.
 - Code that needs the current editor should go through `editor`/`group` after `activateGroup`, not cache a view.
