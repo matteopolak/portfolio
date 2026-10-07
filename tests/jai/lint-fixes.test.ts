@@ -222,6 +222,19 @@ test('fix all merges quick fixes and leaves overlapping ones for the next run', 
     fix('rename to `_` (unused_variable)', range(4, 7, 4, 9), '_'),
     // Inserts where another fix already inserts: order would be ambiguous.
     fix('a (r)', range(2, 0, 2, 0), 'x'),
+    // The compiler's import fix is not a lint fix: neither applied nor skipped.
+    {
+      ...fix('Add `#import "Math";`', range(1, 0, 1, 0), '#import "Math";\n'),
+      diagnostics: [
+        {
+          range: range(4, 21, 4, 25),
+          severity: 1,
+          source: 'jai',
+          code: 'jai-check',
+          message: 'unknown identifier `sqrt`',
+        },
+      ],
+    },
   ]);
   assert.equal(applied, 2);
   assert.equal(skipped, 2);
@@ -413,5 +426,43 @@ test(
       );
       assert.deepEqual(found, [], label);
     }
+  }
+);
+
+test(
+  'an unknown name gets a quick fix that adds the import declaring it',
+  { skip: !local && 'set JAI_WASM_DIR' },
+  async () => {
+    const { send } = await server();
+    const text = '// Hello.\n\nmain :: () {\n    print("hi\\n");\n}\n';
+    const opened = send(
+      'textDocument/didOpen',
+      { textDocument: { uri: URI, languageId: 'jai', version: 1, text } },
+      true
+    );
+    const diagnostics =
+      published(opened).find((p) => p.uri === URI)?.diagnostics ?? [];
+    const error = diagnostics.find((d) => d.code === 'jai-check')!;
+    assert.equal(error.source, 'jai');
+    assert.equal(lintRule(error), undefined);
+    // What the lightbulb asks for: the diagnostics at the cursor, any kind.
+    const reply = send('textDocument/codeAction', {
+      textDocument: { uri: URI },
+      range: { start: error.range.start, end: error.range.start },
+      context: { diagnostics: diagnosticsAt(diagnostics, error.range) },
+    });
+    const actions = reply.find((m) => m.id !== undefined)
+      ?.result as CodeAction[];
+    const [add] = actions.filter((a) => a.kind === 'quickfix');
+    assert.equal(add.title, 'Add `#import "Basic";`');
+    assert.equal(add.isPreferred, true);
+    assert.equal(fixRule(add), undefined);
+    assert.equal(
+      planWorkspaceEdit([{ path: 'main.jai', version: 1, text }], add.edit!)[0]
+        .text,
+      '// Hello.\n\n#import "Basic";\n\nmain :: () {\n    print("hi\\n");\n}\n'
+    );
+    // Not a lint fix: "Fix all lints" leaves it alone.
+    assert.equal(combineFixes(actions).applied, 0);
   }
 );

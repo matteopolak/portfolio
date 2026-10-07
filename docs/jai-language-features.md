@@ -105,6 +105,14 @@ other editor. The server's side is in the compiler's
   through `applyWorkspaceEdit`. A `jai.showExpansion` command runs through
   `workspace/executeCommand` and opens the returned text in the preview tab.
   Requests send the published diagnostics they touch as `context.diagnostics`.
+- **Missing imports.** On a compile error for an unknown name that a module
+  declares (`print` without `#import "Basic";`), the server sends one plain
+  `quickfix` per module, titled ``Add `#import "Basic";` ``, carrying the
+  `jai-check` diagnostic (`source: "jai"`). They need no client code of their
+  own: the lightbulb and the `Cmd/Ctrl+.` list show them like any action, and
+  applying one inserts the line after the file's imports. They have no lint
+  rule, so they get no Fix button and `combineFixes` leaves them out of Fix
+  all (choosing a module is not a lint fix).
 - **Lints.** See [Lints and quick fixes](#lints-and-quick-fixes) below.
 - **Read-only previews.** Definition targets, links and symbols outside
   `file:///jai-script/` map via `resourceFromUri`:
@@ -183,8 +191,8 @@ problems`) applies every safe fix in the file. The client advertises
   the whole file and applies its one edit; the server leaves out fixes that
   overlap an earlier one, as `jailint --fix` does, and the status line says to
   run it again when fewer lints were fixed than were fixable. Older servers
-  fall back to `combineFixes`, which merges the file's quick fixes the same
-  way on the client. In the `Cmd/Ctrl+.` list the server's action shows as
+  fall back to `combineFixes`, which merges the file's lint quick fixes (those
+  with a rule) the same way on the client. In the `Cmd/Ctrl+.` list the server's action shows as
   "Fix N lint problems"; the client adds its own "Fix all lints in this
   file" only when the server sent none.
 - **Settings.** The browser server has no disk, so `LanguageClient.sync`
