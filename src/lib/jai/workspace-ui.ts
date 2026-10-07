@@ -115,12 +115,39 @@ import type {
   ServerCapabilities,
   SymbolInformation,
   WorkspaceEdit,
+  CanvasInputEvent,
   WorkerRequest,
   WorkerResponse,
 } from './lsp-types.ts';
 
 /** Interpreter budget in basic blocks; runaway programs fail instead of hanging. */
 const BUDGET = 200_000_000;
+// Key_Code values of stdlib/Input for KeyboardEvent.key names (letters and
+// other single characters use their upper-case code point).
+const JAI_KEYS: Record<string, number> = {
+  Escape: 0,
+  ArrowUp: 2,
+  ArrowDown: 3,
+  ArrowLeft: 4,
+  ArrowRight: 5,
+  Backspace: 8,
+  Tab: 9,
+  Enter: 13,
+  ' ': 32,
+  Delete: 127,
+  PageUp: 132,
+  PageDown: 133,
+  Home: 134,
+  End: 135,
+  Insert: 136,
+  Pause: 137,
+  ScrollLock: 138,
+  Alt: 139,
+  Control: 140,
+  Shift: 141,
+  Meta: 142,
+  PrintScreen: 167,
+};
 /** Lints per file whose quick fixes are looked up for the tooltip's Fix buttons. */
 const MAX_LINT_FIXES = 50;
 
@@ -2257,7 +2284,110 @@ export async function createSession(
   }
   const post = (worker: Worker, message: WorkerRequest) =>
     worker.postMessage(message);
-  function initializeWorker(workerSignal = signal): Promise<CompilerWorker> {
+  /*
+   * WebGPU programs draw into a canvas above the output. Its drawing surface
+   * belongs to the execution worker (transferControlToOffscreen), so each
+   * new execution worker gets a new canvas; keyboard, mouse and size changes
+   * are posted to the worker, where stdlib/Input reads them.
+   */
+  let canvas: HTMLCanvasElement | undefined;
+  const usesCanvas = (files: Record<string, string>, source: string) =>
+    [source, ...Object.values(files)].some((text) =>
+      /#import\s+"WebGPU"/.test(text)
+    );
+  function createCanvas(): OffscreenCanvas | undefined {
+    const outputElement =
+      panel.querySelector<HTMLElement>('[data-code-output]');
+    if (
+      !outputElement ||
+      !('transferControlToOffscreen' in HTMLCanvasElement.prototype)
+    )
+      return undefined;
+    canvas?.remove();
+    const element = document.createElement('canvas');
+    element.className = 'ide-output__canvas';
+    element.tabIndex = 0;
+    element.hidden = true;
+    element.style.cssText =
+      'display:block;width:100%;aspect-ratio:4/3;max-height:60%;background:#000;outline:none;';
+    outputElement.before(element);
+    canvas = element;
+    return element.transferControlToOffscreen();
+  }
+  function attachCanvas(worker: Worker, element: HTMLCanvasElement) {
+    const send = (event: CanvasInputEvent) =>
+      worker.postMessage({ type: 'input', event } satisfies WorkerRequest);
+    const modifiers = (e: KeyboardEvent | MouseEvent) =>
+      (e.shiftKey ? 1 : 0) |
+      (e.ctrlKey ? 2 : 0) |
+      (e.altKey ? 4 : 0) |
+      (e.metaKey ? 8 : 0);
+    const key = (e: KeyboardEvent) => {
+      const named = JAI_KEYS[e.key];
+      if (named !== undefined) return named;
+      const fn = /^F(\d+)$/.exec(e.key);
+      if (fn) return 142 + Number(fn[1]);
+      if (e.key.length === 1) return e.key.toUpperCase().codePointAt(0)!;
+      return 306;
+    };
+    const keyEvent = (pressed: boolean) => (e: KeyboardEvent) => {
+      e.preventDefault();
+      send({
+        type: 1,
+        key: key(e),
+        pressed,
+        modifiers: modifiers(e),
+        repeat: e.repeat,
+      });
+      if (pressed && [...e.key].length === 1 && !e.ctrlKey && !e.metaKey)
+        send({ type: 2, utf32: e.key.codePointAt(0) });
+    };
+    element.addEventListener('keydown', keyEvent(true));
+    element.addEventListener('keyup', keyEvent(false));
+    const scale = () => devicePixelRatio || 1;
+    const button = (pressed: boolean) => (e: MouseEvent) => {
+      if (pressed) element.focus();
+      send({
+        type: 1,
+        key: [1, 169, 170][e.button] ?? 306,
+        pressed,
+        modifiers: modifiers(e),
+      });
+    };
+    element.addEventListener('mousedown', button(true));
+    element.addEventListener('mouseup', button(false));
+    element.addEventListener('contextmenu', (e) => e.preventDefault());
+    element.addEventListener('mousemove', (e) =>
+      send({
+        type: 3,
+        x: Math.round(e.offsetX * scale()),
+        y: Math.round(e.offsetY * scale()),
+      })
+    );
+    element.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        send({ type: 4, y: Math.round(-e.deltaY) });
+      },
+      { passive: false }
+    );
+    element.addEventListener('focus', () => send({ type: 6, pressed: true }));
+    element.addEventListener('blur', () => send({ type: 6, pressed: false }));
+    new ResizeObserver(() => {
+      const width = Math.max(1, Math.round(element.clientWidth * scale()));
+      const height = Math.max(1, Math.round(element.clientHeight * scale()));
+      worker.postMessage({
+        type: 'resize',
+        width,
+        height,
+      } satisfies WorkerRequest);
+    }).observe(element);
+  }
+  function initializeWorker(
+    workerSignal = signal,
+    offscreen?: OffscreenCanvas
+  ): Promise<CompilerWorker> {
     if (workerSignal.aborted) return Promise.reject(abortError());
     const worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
@@ -2293,7 +2423,14 @@ export async function createSession(
       worker.addEventListener('message', message);
       worker.addEventListener('error', error);
       workerSignal.addEventListener('abort', aborted, { once: true });
-      post(worker, { type: 'init', url: `/jai/${revision}/jai_wasm.wasm` });
+      const init: WorkerRequest = {
+        type: 'init',
+        url: `/jai/${revision}/jai_wasm.wasm`,
+        ...(offscreen
+          ? { canvas: offscreen, hostUrl: `/jai/${revision}/webgpu_host.mjs` }
+          : {}),
+      };
+      worker.postMessage(init, offscreen ? [offscreen] : []);
     });
   }
   // Program output in write order (stderr marked), then diagnostics or the exit code.
@@ -2348,11 +2485,18 @@ export async function createSession(
     run.hidden = false;
     cancel.hidden = true;
   }
+  let streamed = '';
   function connect(worker: Worker) {
     execution = worker;
     worker.addEventListener(
       'message',
       ({ data }: MessageEvent<WorkerResponse>) => {
+        // A program that waits for the page shows its output as it runs.
+        if (data.type === 'output' && worker === execution && running) {
+          streamed += data.text;
+          output.write(streamed, 'stdout');
+          return;
+        }
         if (
           signal.aborted ||
           worker !== execution ||
@@ -2390,7 +2534,9 @@ export async function createSession(
       if (!execution) {
         const controller = new AbortController();
         pendingExecution = controller;
-        const { worker } = await initializeWorker(controller.signal);
+        const offscreen = createCanvas();
+        const { worker } = await initializeWorker(controller.signal, offscreen);
+        if (offscreen && canvas) attachCanvas(worker, canvas);
         if (pendingExecution === controller) pendingExecution = undefined;
         if (id !== job || signal.aborted) {
           terminate(worker);
@@ -2399,6 +2545,8 @@ export async function createSession(
         connect(worker);
       }
       if (!execution) return;
+      if (canvas) canvas.hidden = !usesCanvas(snapshot.files, snapshot.source);
+      streamed = '';
       post(execution, {
         type: 'run',
         id,
@@ -2418,6 +2566,8 @@ export async function createSession(
     if (!running) return;
     terminate(execution);
     execution = undefined;
+    canvas?.remove();
+    canvas = undefined;
     output.write('Stopped', 'error');
     idle();
   }
@@ -2786,7 +2936,9 @@ export async function createSession(
     if (page) history.replaceState({ jaiNav: { session, id } }, '');
   }
   const driverLoaded = loadFormatter();
-  const runtime = await initializeWorker();
+  const bootCanvas = createCanvas();
+  const runtime = await initializeWorker(signal, bootCanvas);
+  if (bootCanvas && canvas) attachCanvas(runtime.worker, canvas);
   connect(runtime.worker);
   if (runtime.capabilities.languageServer) {
     const server = await initializeWorker();

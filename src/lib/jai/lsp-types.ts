@@ -205,8 +205,29 @@ export interface JsonRpcMessage {
 }
 
 /** Messages exchanged with the compiler worker. */
+export interface CanvasInputEvent {
+  type: number;
+  key?: number;
+  pressed?: boolean;
+  modifiers?: number;
+  x?: number;
+  y?: number;
+  utf32?: number;
+  repeat?: boolean;
+}
+
 export type WorkerRequest =
-  | { type: 'init'; id?: undefined; url: string }
+  | {
+      type: 'init';
+      id?: undefined;
+      url: string;
+      /** The canvas WebGPU programs draw into, and the bundle's host for it. */
+      canvas?: OffscreenCanvas;
+      hostUrl?: string;
+    }
+  /** Canvas events for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
+  | { type: 'input'; id?: undefined; event: CanvasInputEvent }
+  | { type: 'resize'; id?: undefined; width: number; height: number }
   | { type: 'lsp'; id: number; message: JsonRpcMessage }
   | {
       type: 'run';
@@ -249,6 +270,14 @@ export type WorkerResponse =
     }
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }
   | { type: 'run'; id: number; result: RunOutput; error?: undefined }
+  /** Output a running program wrote so far (it waited for the page). */
+  | {
+      type: 'output';
+      id?: undefined;
+      stream: 'stdout' | 'stderr';
+      text: string;
+      error?: undefined;
+    }
   | { type: 'play'; id: number; result: RunOutput; error?: undefined }
   | { type: 'jaifmt-load'; id: number; available: boolean; error?: undefined }
   | {

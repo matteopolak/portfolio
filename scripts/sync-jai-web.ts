@@ -58,6 +58,8 @@ if (local) {
   const optional: Record<string, string> = {
     'jaifmt-playground.jai': 'Format stays hidden',
     'jaifmt.wasm': 'Format runs the slower engine driver (build with --jaic)',
+    'webgpu_host.mjs': 'WebGPU programs cannot draw',
+    'webgpu_bindings.generated.mjs': 'WebGPU programs cannot draw',
   };
   for (const name of ['jai_wasm.wasm', ...Object.keys(optional)]) {
     try {
