@@ -133,6 +133,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /** jailint's settings file, which the server reads from any folder of the workspace. */
 export const LINT_SETTINGS = 'jailint.toml';
+/**
+ * Default `jailint.toml` for new workspaces: every rule at its default level,
+ * plus the opt-in ones turned on, so the playground shows everything jailint can find.
+ */
+export const lintConfigStarter = `# Settings for jailint, whose findings show in the editor.
+# Levels: "allow" (off), "warn" or "deny". A jailint.toml in a subfolder
+# overrides this one for the files under it.
+
+[rules]
+# Off by default outside the playground:
+float_equality = "warn"  # \`==\` or \`!=\` between two computed floats
+lossy_xx = "warn"        # \`xx\` that narrows a number to a smaller type
+# Turn any rule off by name, e.g.:
+# unused_parameter = "allow"
+`;
+
 export const isLintSettings = (path: string) =>
   path === LINT_SETTINGS || path.endsWith(`/${LINT_SETTINGS}`);
 
