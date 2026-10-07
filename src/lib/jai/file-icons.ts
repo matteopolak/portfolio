@@ -8,7 +8,8 @@ export type FileIconKind =
   | 'file'
   | 'folder'
   | 'folder-open'
-  | 'lock';
+  | 'lock'
+  | 'render';
 
 /**
  * One shape of a glyph. `fill` paints it solid in the icon colour; otherwise
@@ -72,6 +73,13 @@ const glyphs: Record<FileIconKind, Shape[]> = {
       d: 'M4.1 7.25h10.9a.6.6 0 0 1 .56.82l-2.1 5.2a1 1 0 0 1-.93.63H2.1a.6.6 0 0 1-.56-.82z',
       fill: true,
     },
+  ],
+  // The Render tab: a frame around a little landscape.
+  render: [
+    {
+      d: 'M2.5 2.75h11a1.25 1.25 0 0 1 1.25 1.25v8a1.25 1.25 0 0 1-1.25 1.25h-11A1.25 1.25 0 0 1 1.25 12V4A1.25 1.25 0 0 1 2.5 2.75z',
+    },
+    { d: 'M3.75 11l3-3.5 2 2 1.5-1.5 2 3z', fill: true },
   ],
   lock: [
     { d: 'M5.25 7.5V5a2.75 2.75 0 0 1 5.5 0v2.5' },

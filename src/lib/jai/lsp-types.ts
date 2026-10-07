@@ -204,7 +204,7 @@ export interface JsonRpcMessage {
   error?: { code?: number; message: string };
 }
 
-/** A Render pane event for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
+/** A Render tab event for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
 export interface CanvasInputEvent {
   type: number;
   key?: number;

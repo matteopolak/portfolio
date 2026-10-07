@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { OpenTabs, tabLabel } from '../../src/lib/jai/open-tabs.ts';
+import {
+  OpenTabs,
+  sameTab,
+  tabLabel,
+  viewTab,
+} from '../../src/lib/jai/open-tabs.ts';
 
 const paths = (tabs: OpenTabs) =>
   tabs.tabs.map((tab) => (tab.preview ? `~${tab.path}` : tab.path));
@@ -142,4 +147,37 @@ test('place reorders, adopts tabs from other groups and keeps one preview', () =
   tabs.place({ path: 'lib/y.jai', preview: true }, 0);
   assert.deepEqual(paths(tabs), ['~lib/y.jai', 'd', 'c', 'a', 'b']);
   assert.equal(tabs.close(tabs.active!)?.path, 'b');
+});
+
+test('the Render tab is a view: one per group, apart from files', () => {
+  const tabs = new OpenTabs();
+  const names = () => tabs.tabs.map((tab) => tab.view ?? tab.path);
+  tabs.open('main.jai');
+  // A file that happens to be called `render` is another tab.
+  tabs.open('render');
+  tabs.activate(tabs.tabs[0]);
+  // Added behind the active tab, which stays active.
+  const render = tabs.openView('render', { focus: false });
+  assert.equal(tabs.active?.path, 'main.jai');
+  assert.deepEqual(names(), ['main.jai', 'render', 'render']);
+  assert.equal(tabs.tabs[1], render);
+  assert.equal(render.view, 'render');
+  // Opening it again focuses the same tab.
+  assert.equal(tabs.openView('render'), render);
+  assert.equal(tabs.active, render);
+  assert.equal(tabs.tabs.length, 3);
+  assert.equal(sameTab(render, viewTab('render')), true);
+  assert.equal(sameTab(render, tabs.tabs[2]), false);
+  assert.deepEqual(tabLabel(render, tabs.tabs), { name: 'Render', folder: '' });
+  // Renames and deletes are about files; the view stays.
+  tabs.move(new Map([['render', 'draw.jai']]));
+  assert.deepEqual(names(), ['main.jai', 'render', 'draw.jai']);
+  tabs.retain(new Set(['main.jai']));
+  assert.deepEqual(names(), ['main.jai', 'render']);
+  // Placed from another group, it replaces this group's copy.
+  tabs.place(viewTab('render'), 0);
+  assert.deepEqual(names(), ['render', 'main.jai']);
+  // Into an empty group, it becomes the active tab even unfocused.
+  const empty = new OpenTabs();
+  assert.equal(empty.openView('render', { focus: false }), empty.active);
 });

@@ -2,7 +2,7 @@
 
 ## What it is
 
-The code workspace arranges its panels like VS Code. The file tree, the output pane and (Jai only) the Render pane are dockable panels: drag one by its header to the left, right, top or bottom of the editor area. In the Jai workspace the editor area can also be split into editor groups: drag a tab (or a file from the tree) to one side of a group to open it beside that group, or onto a tab strip to move it there. The arrangement is saved per language and survives reloads; the Reset layout button in the header restores the default.
+The code workspace arranges its panels like VS Code. The file tree and the output pane are dockable panels: drag one by its header to the left, right, top or bottom of the editor area. In the Jai workspace the editor area can also be split into editor groups: drag a tab (or a file from the tree) to one side of a group to open it beside that group, or onto a tab strip to move it there. Tabs are files, Markdown previews, the read-only preview, and the Render tab where WebGPU programs draw ([jai-render-tab.md](./jai-render-tab.md)). The arrangement is saved per language and survives reloads; the Reset layout button in the header restores the default.
 
 Phones (below `42rem`) keep the one-pane-at-a-time layout with the Files / Code / Output tab bar; docks and splits are ignored there and only the active group is shown.
 
@@ -15,11 +15,10 @@ Phones (below `42rem`) keep the one-pane-at-a-time layout with the Files / Code 
 | `src/lib/jai/workspace-ui.ts` | Editor groups: one CodeMirror editor and tab strip per group, tab/tree drag and drop, keeping groups in sync |
 | `src/components/CodeWorkspace.astro` | Markup (`[data-code-layout]`, docks, `[data-code-editors]`, the template group) and the global layout styles |
 
-**Model.** A `WorkspaceLayout` is `{ version: 1, docks, closed, editors }`.
+**Model.** A `WorkspaceLayout` is `{ version: 1, docks, editors }`.
 
-- `docks.left|right|top|bottom` is `{ size, panels, shares }`: its size in px, the panels it holds in order (`files`, `output`, `render`), and each panel's share (parallel to `panels`). Open panels split the dock in proportion to their shares; `resizeDockPanels` moves the split between two neighbours.
-- `closed` lists closable panels (`CLOSABLE_PANELS`: `render`) that keep their dock but are not shown. `openPanel`/`closePanel` toggle it; `openPanels(layout, dock)` gives what to render. The Render pane starts closed on the right and opens when a program draws ([jai-render-pane.md](./jai-render-pane.md)); its head has a close button (`[data-panel-close]`).
-- `editors` is a tree: a `GroupNode` (`{ type: 'group', id: 'g1', tabs, active }`, each tab `{ path, kind: 'file' | 'markdown' }`) or a `SplitNode` (`{ type: 'split', direction: 'row' | 'column', children, sizes }`, sizes summing to 1).
+- `docks.left|right|top|bottom` is `{ size, panels, shares }`: its size in px, the panels it holds in order (`files`, `output`), and each panel's share (parallel to `panels`). The panels split the dock in proportion to their shares (`dockPanels`); `resizeDockPanels` moves the split between two neighbours.
+- `editors` is a tree: a `GroupNode` (`{ type: 'group', id: 'g1', tabs, active }`, each tab `{ path, kind: 'file' | 'markdown' | 'view' }`) or a `SplitNode` (`{ type: 'split', direction: 'row' | 'column', children, sizes }`, sizes summing to 1). A `view` tab is no file: its `path` is a `ViewId` (`render`), and there is at most one per view in the whole tree (`viewGroup` finds it).
 
 Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split in the parent's direction adds a sibling and halves the target's share; the other direction nests), `removeGroup` (siblings take its share in proportion; one-child splits collapse and same-direction splits flatten), `resizeSplit`, `neighbourGroup`. `dropZone` picks `left/right/top/bottom` in a group's outer thirds (the nearer edge wins in corners), else `center`; `dockZone` picks left/right in the body's outer quarters, else top or bottom.
 
@@ -34,21 +33,23 @@ Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split 
 - **One file, many groups.** The workspace text is the source of truth. An edit in one editor is mirrored to every other editor and saved state showing that file as a minimal change, annotated `mirrored` and kept out of their undo history. Editors never share `EditorState` objects (a state carries its editor's extensions), so moving or copying a tab builds a fresh state with the same selection (`adopt`).
 - **Drops.** On a group's side: split it and open the tab in the new group (moved; copied when it is the source group's only tab and dropped on its own side). In the centre or on a strip: move the tab there (insertion point from `insertionIndex`). A group with no tabs, or a workspace already at `MAX_GROUPS`, only takes centre drops (`groupDropZone`). A tree file row (`[data-tree-kind="file"]` in `[data-code-files]`) drags the same way: on a strip it opens at the insertion point, in the centre or an empty group it opens there, on a side it opens in a new split. A plain click still opens it, and the tree's own menu and rename keys are untouched. The listener is on the tree element, which the layout moves between docks without recreating, so dragging works wherever the Files panel is docked. Closing a group's last tab removes the group.
 - **Language features** (diagnostics, hover, completion, lint, format, go to definition) run in every group's editor; published diagnostics are applied to every group that shows the file.
-- **Reset layout** merges every group's tabs into one group.
+- **View tabs** (the Render tab) carry `view` on their `OpenTab`. `show` hides the editor for them and the view's own element moves into the group (see [jai-render-tab.md](./jai-render-tab.md)); they move between groups like files but are never copied, and a first visit opens the Render tab in a group beside the code.
+- **Reset layout** merges every group's tabs into one group, with the Render tab split off beside it again.
 
-**Persistence.** `localStorage["code-workspace-layout:<language>"]` holds `serializeLayout(layout)`, written 250ms after a change and when the session ends. `parseLayout(text, panels)` reads older layouts too: a two-panel `ratio` becomes `shares`, and a panel of `ADDED_PANELS` (`render`) missing from a saved layout is added at its default dock, closed. It rejects anything else malformed (wrong version, missing or duplicate panels, bad sizes, unknown node types, duplicate group ids, more than 16 groups or 8 levels) so a bad value falls back to the default; duplicate tabs and an out-of-range active index are repaired. Storage errors are caught. On startup the Jai workspace reopens the saved groups and tabs, dropping tabs of files that no longer exist and groups left empty.
+**Persistence.** `localStorage["code-workspace-layout:<language>"]` holds `serializeLayout(layout)`, written 250ms after a change and when the session ends. `parseLayout(text, panels)` reads older layouts too: a two-panel `ratio` becomes `shares`, and the retired Render pane (`RETIRED_PANELS`, from when Render was a dockable panel, with its `closed` list) is dropped, the dock's other panels keeping their proportions. It rejects anything else malformed (wrong version, missing or duplicate panels, bad sizes, unknown node types or views, duplicate group ids, more than 16 groups or 8 levels) so a bad value falls back to the default; duplicate tabs, a second tab of one view and an out-of-range active index are repaired. Storage errors are caught. On startup the Jai workspace reopens the saved groups and tabs, dropping tabs of files that no longer exist and groups left empty.
 
 **Header alignment.** The editor tools align with the editor column: the controller writes the left dock's width to `--ide-editor-offset` (a `ResizeObserver`) and sets `data-left-dock` on the section only while the left dock is shown.
 
 **Output collapse.** The output's collapse toggle is shown only while the output is alone in the top or bottom dock; collapsed, that dock shrinks to the pane head.
 
-**Phones.** Under `NARROW_QUERY` the layout, dock, editors and split containers are `display: contents`, every pane sits in grid area 1/1, and `data-pane` (Files / Code / Output / Render, the last shown only while the Render pane is open) picks one; only `.ide-group[data-active]` is shown. Panel and tab dragging is off.
+**Phones.** Under `NARROW_QUERY` the layout, dock, editors and split containers are `display: contents`, every pane sits in grid area 1/1, and `data-pane` (Files / Code / Output) picks one; only `.ide-group[data-active]` is shown, so the Render tab is just another tab of the Code pane. Panel and tab dragging is off.
 
 ## How to change it
 
 - **New layout operation:** add it to `workspace-layout-model.ts` with a test; keep it immutable and call `normalize` on trees you build.
 - **Stored shape changes:** bump `version` (old values then fall back to the default) or extend `parseLayout` to accept both.
-- **A new dockable panel:** add its id to `PanelId`, `PANELS` and `DEFAULT_DOCKS` (and to `ADDED_PANELS` so saved layouts keep loading, `CLOSABLE_PANELS` if it can close), give its head `data-panel-handle`, and register its element in `initializeWorkspaceLayout`.
+- **A new dockable panel:** add its id to `PanelId`, `PANELS` and `DEFAULT_DOCKS`, give its head `data-panel-handle`, and register its element in `initializeWorkspaceLayout`. Saved layouts without it fail to parse and fall back to the default, so teach `parseLayout` to add it if that matters.
+- **A new non-file view:** prefer a view tab over a panel; see [jai-render-tab.md](./jai-render-tab.md).
 - **Drop behaviour:** zone geometry is in the model (`dropZone`, `dockZone`); what a drop does is `dropTab` in `workspace-ui.ts` and the panel `drop` in `code-workspace-layout.ts`.
 - **Styles:** layout, dock, split, divider and drop-overlay rules are in the `<style is:global>` block at the end of `CodeWorkspace.astro`, anchored at `.ide`, because those elements are created in script. Use `--ide-*` tokens; the drop highlight uses `--blue`.
 - Code that needs the current editor should go through `editor`/`group` after `activateGroup`, not cache a view.

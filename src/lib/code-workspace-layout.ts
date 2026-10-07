@@ -1,14 +1,11 @@
 import { clearOutput } from './code-output.ts';
 import {
-  closePanel,
   defaultLayout,
+  dockPanels,
   dockZone,
   DOCKS,
-  isPanelOpen,
   isSideDock,
   movePanel,
-  openPanel,
-  openPanels,
   panelDock,
   parseLayout,
   resizeDock,
@@ -22,9 +19,9 @@ import {
   type WorkspaceLayout,
 } from './workspace-layout-model.ts';
 
-export type WorkspacePane = 'files' | 'code' | 'output' | 'render';
+export type WorkspacePane = 'files' | 'code' | 'output';
 
-const panes: readonly WorkspacePane[] = ['files', 'code', 'output', 'render'];
+const panes: readonly WorkspacePane[] = ['files', 'code', 'output'];
 
 /** Below this width the workspace is one pane at a time, picked by the bottom tabs. */
 export const NARROW_QUERY = '(max-width: 42rem)';
@@ -298,16 +295,6 @@ export interface WorkspaceLayoutController {
   ): void;
   /** Calls `listener` on Reset layout (after the panels are back) until `until` aborts. */
   onReset(listener: () => void, until: AbortSignal): void;
-  /** A panel's element; a closed one is out of the document. */
-  element(panel: PanelId): HTMLElement | undefined;
-  /** Whether a closable panel (the Render pane) is shown. */
-  isOpen(panel: PanelId): boolean;
-  /**
-   * Shows a closable panel where it was last docked. On phones, where one
-   * pane shows at a time, `select` also makes it the visible pane.
-   */
-  open(panel: PanelId, options?: { select?: boolean }): void;
-  close(panel: PanelId): void;
 }
 
 const controllers = new WeakMap<HTMLElement, WorkspaceLayoutController>();
@@ -341,13 +328,11 @@ function storeLayout(panel: HTMLElement, layout: WorkspaceLayout | undefined) {
 const panelNames: Record<PanelId, string> = {
   files: 'file tree',
   output: 'output',
-  render: 'render',
 };
 
 const panelLabels: Record<PanelId, string> = {
   files: 'Files',
   output: 'Output',
-  render: 'Render',
 };
 
 type Box = { left: number; top: number; width: number; height: number };
@@ -367,15 +352,8 @@ function initializeLayout(
   const elements: Partial<Record<PanelId, HTMLElement>> = {};
   const files = panel.querySelector<HTMLElement>('[data-code-files-pane]');
   const output = panel.querySelector<HTMLElement>('[data-code-output-pane]');
-  const renderPane = panel.querySelector<HTMLElement>(
-    '[data-code-render-pane]'
-  );
   if (files) elements.files = files;
   if (output) elements.output = output;
-  if (renderPane) elements.render = renderPane;
-  const renderTab = panel.querySelector<HTMLElement>(
-    '[data-pane-tab="render"]'
-  );
   const available = (Object.keys(elements) as PanelId[]).sort();
   let layout = loadLayout(panel, available) ?? defaultLayout(available);
   let groupElements: ((id: string) => HTMLElement | undefined) | undefined;
@@ -408,7 +386,7 @@ function initializeLayout(
   }
 
   const outputCollapsed = (dock: Dock) => {
-    const open = openPanels(layout, dock);
+    const open = dockPanels(layout, dock);
     return (
       !isSideDock(dock) &&
       open.length === 1 &&
@@ -419,7 +397,7 @@ function initializeLayout(
 
   function dockElement(dock: Dock) {
     const state = layout.docks[dock];
-    const open = openPanels(layout, dock);
+    const open = dockPanels(layout, dock);
     const element = document.createElement('div');
     element.className = 'ide-dock';
     element.dataset.dock = dock;
@@ -452,7 +430,7 @@ function initializeLayout(
                   index - 1,
                   size / pair()
                 );
-                for (const item of openPanels(layout, dock))
+                for (const item of dockPanels(layout, dock))
                   elements[item.panel]!.style.flex = `${item.share} 1 0`;
               },
               done: save,
@@ -468,7 +446,7 @@ function initializeLayout(
 
   function dockDivider(dock: Dock, element: HTMLElement) {
     const side = isSideDock(dock);
-    const names = openPanels(layout, dock).map(
+    const names = dockPanels(layout, dock).map(
       ({ panel: id }) => panelNames[id]
     );
     const handle = divider(
@@ -558,12 +536,8 @@ function initializeLayout(
         after: HTMLElement[] = [],
         above: HTMLElement[] = [],
         below: HTMLElement[] = [];
-      // Closed panels leave the document until they open again.
-      for (const id of available)
-        if (!isPanelOpen(layout, id)) elements[id]!.remove();
-        else elements[id]!.hidden = false;
       for (const dock of DOCKS) {
-        if (!openPanels(layout, dock).length) continue;
+        if (!layout.docks[dock].panels.length) continue;
         const element = dockElement(dock);
         const rule = dockDivider(dock, element);
         if (dock === 'left') before.push(element, rule);
@@ -581,12 +555,7 @@ function initializeLayout(
     const collapsible =
       outputDock !== undefined &&
       !isSideDock(outputDock) &&
-      openPanels(layout, outputDock).length === 1;
-    if (renderTab) {
-      const shown = isPanelOpen(layout, 'render');
-      renderTab.hidden = !shown;
-      if (!shown && panel.dataset.pane === 'render') showPane(panel, 'code');
-    }
+      layout.docks[outputDock].panels.length === 1;
     if (toggle) {
       toggle.hidden = !collapsible;
       if (!collapsible && panel.dataset.outputCollapsed === 'true')
@@ -594,7 +563,7 @@ function initializeLayout(
     }
     panel.toggleAttribute(
       'data-left-dock',
-      openPanels(layout, 'left').length > 0
+      layout.docks.left.panels.length > 0
     );
     measureEditorStart();
   }
@@ -645,7 +614,7 @@ function initializeLayout(
     const from = panelDock(layout, id);
     // A side dock this panel would leave empty gives its room back.
     const leaving = (side: Dock) =>
-      from === side && openPanels(layout, side).length === 1;
+      from === side && layout.docks[side].panels.length === 1;
     const left = leaving('left') ? box.left : center.left;
     const right = leaving('right') ? box.right : center.right;
     const size = Math.min(
@@ -726,45 +695,17 @@ function initializeLayout(
         once: true,
       });
     },
-    element: (id) => elements[id],
-    isOpen: (id) => isPanelOpen(layout, id),
-    open(id, { select = false } = {}) {
-      if (!elements[id]) return;
-      if (!isPanelOpen(layout, id)) {
-        layout = openPanel(layout, id);
-        render();
-        save();
-      }
-      if (select && isNarrow()) showPane(panel, id);
-    },
-    close(id) {
-      if (!isPanelOpen(layout, id)) return;
-      layout = closePanel(layout, id);
-      render();
-      save();
-    },
   };
-
-  /* A closable panel's close button. */
-  for (const id of available)
-    elements[id]!.querySelector<HTMLButtonElement>(
-      '[data-panel-close]'
-    )?.addEventListener('click', () => controller.close(id), { signal });
 
   panel
     .querySelector<HTMLButtonElement>('[data-code-reset-layout]')
     ?.addEventListener(
       'click',
       () => {
-        // Panels go back to their places; an open Render pane stays open.
-        layout = {
-          ...defaultLayout(available),
-          closed: layout.closed,
-          editors: layout.editors,
-        };
+        layout = { ...defaultLayout(available), editors: layout.editors };
         setCollapsed(false);
         render();
-        // Listeners merge the editor groups back into one.
+        // Listeners rebuild the editor groups' default arrangement.
         for (const listener of resetListeners) listener();
         save();
       },
@@ -779,12 +720,6 @@ function initializeLayout(
       clearTimeout(saveTimer);
       storeLayout(panel, layout);
       controllers.delete(panel);
-      // A closed panel goes back into the document, hidden, for the next session to find.
-      for (const id of available)
-        if (!elements[id]!.isConnected) {
-          elements[id]!.hidden = true;
-          root.append(elements[id]!);
-        }
     },
     { once: true }
   );

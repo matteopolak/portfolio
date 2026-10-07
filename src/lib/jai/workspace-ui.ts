@@ -29,6 +29,7 @@ import {
   removeGroup,
   splitGroup,
   updateGroup,
+  viewGroup,
   type DropZone,
   type EditorNode,
   type SplitSide,
@@ -69,7 +70,13 @@ import {
   EditorView,
   type ViewUpdate,
 } from '@codemirror/view';
-import { OpenTabs, sameTab, tabLabel, type OpenTab } from './open-tabs.ts';
+import {
+  OpenTabs,
+  sameTab,
+  tabLabel,
+  VIEW_LABELS,
+  type OpenTab,
+} from './open-tabs.ts';
 import { NavHistory, type NavLocation, type NavOp } from './nav-history.ts';
 import { watchNavigationInput, type NavDirection } from './nav-input.ts';
 import { fileIcon, fileIconKind } from './file-icons.ts';
@@ -319,7 +326,7 @@ export async function createSession(
   // `preview` holds the read-only file in the (single) preview tab.
   let preview: Preview | undefined;
   const tabKey = (tab: OpenTab) =>
-    (tab.preview ? '~' : tab.markdown ? '#' : '') + tab.path;
+    (tab.view ? '@' : tab.preview ? '~' : tab.markdown ? '#' : '') + tab.path;
   /** A file's text in the workspace (the truth every group's editor follows). */
   const fileText = (path: string) =>
     workspace.documents.find((document) => document.path === path)?.text;
@@ -982,7 +989,12 @@ export async function createSession(
   /** Where the editor is now, for the navigation history; undefined with no tab open. */
   function here(): Place | undefined {
     const tab = tabs.active;
-    if (!tab || tab.markdown || (tab.preview && preview?.path !== tab.path))
+    if (
+      !tab ||
+      tab.markdown ||
+      tab.view ||
+      (tab.preview && preview?.path !== tab.path)
+    )
       return undefined;
     const { view } = editor;
     const { anchor, head } = view.state.selection.main;
@@ -1480,8 +1492,13 @@ export async function createSession(
     g.file = undefined;
     // The `.md` file rendered in this group, if any.
     let rendered: string | undefined;
-    const text = tab && !tab.preview ? fileText(tab.path) : undefined;
-    if (tab?.preview && preview?.path === tab.path) {
+    const text =
+      tab && !tab.preview && !tab.view ? fileText(tab.path) : undefined;
+    if (tab?.view) {
+      // A view (the Render tab) shows its own element instead of the editor.
+      g.editor.setState(g.editor.createState(''));
+      g.editor.setEditable(false);
+    } else if (tab?.preview && preview?.path === tab.path) {
       g.viewing = tab.path;
       const made = g.editor.createState(
         preview.text,
@@ -1525,7 +1542,7 @@ export async function createSession(
     }
     const open = Boolean(g.file || g.viewing || rendered);
     g.host.hidden = !open;
-    g.empty.hidden = open;
+    g.empty.hidden = open || Boolean(tab?.view);
     forgetClosedScrolls(g);
     g.scrollOwner = undefined;
     if (g === group) settled = undefined;
@@ -1533,6 +1550,7 @@ export async function createSession(
     if (scroll) g.editor.view.dispatch({ effects: scroll });
     else g.editor.view.scrollDOM.scrollTo(0, 0);
     g.markdown.show(rendered);
+    placeRenderView();
     renderTabs(g);
     renderActions(g);
     if (g === group) {
@@ -1581,6 +1599,88 @@ export async function createSession(
   const markdownTab = (path: string): OpenTab =>
     Object.freeze({ path, preview: false, markdown: true });
 
+  /*
+   * The Render tab (render-pane.ts owns its contents). Its element moves into
+   * the group whose active tab it is, and back to its place outside the
+   * editor area, hidden, while no group shows it. The canvas inside stays
+   * with the running program either way, so closing the tab never takes the
+   * canvas from a program: showing the tab again shows the same drawing.
+   */
+  const renderView =
+    panel.querySelector<HTMLElement>('[data-code-render-view]') ?? undefined;
+  const renderHome = renderView?.parentElement ?? undefined;
+  function parkRenderView() {
+    if (!renderView || !renderHome) return;
+    renderView.hidden = true;
+    if (renderView.parentElement !== renderHome) renderHome.append(renderView);
+  }
+  function placeRenderView() {
+    if (!renderView) return;
+    const shown = [...groups.values()].find(
+      (g) => g.tabs.active?.view === 'render'
+    );
+    if (!shown) {
+      parkRenderView();
+      return;
+    }
+    if (renderView.parentElement !== shown.element)
+      shown.host.after(renderView);
+    renderView.hidden = false;
+  }
+  /** The group holding the Render tab, if it is open. */
+  const renderGroup = () =>
+    [...groups.values()].find((g) =>
+      g.tabs.tabs.some((tab) => tab.view === 'render')
+    );
+  /**
+   * The Render tab beside group `g`, in a group of its own (in `g` itself,
+   * behind its active tab, on phones): the arrangement of a first visit and
+   * of Reset layout.
+   */
+  function renderBeside(g: Group) {
+    if (!renderView || renderGroup()) return;
+    if (isNarrow() || groups.size >= MAX_GROUPS) {
+      g.tabs.openView('render', { focus: false });
+      show(g);
+      return;
+    }
+    const created = createGroup(nextGroupId(editorTree()));
+    created.tabs.openView('render');
+    saveLayout(splitGroup(editorTree(), g.id, 'right', emptyGroup(created.id)));
+    show(created);
+  }
+  /**
+   * A program started drawing. An open Render tab stays where it is, even
+   * behind another tab: a run never rearranges the layout or takes the
+   * screen. A closed one opens in the group focused last and shows there;
+   * if the run came from an edit while the user types in that group, it
+   * opens behind the editor instead.
+   */
+  function openRender(explicit: boolean) {
+    if (signal.aborted || !groups.size || renderGroup()) return;
+    const g = group;
+    const typing = !explicit && g.element.contains(document.activeElement);
+    if (typing) {
+      g.tabs.openView('render', { focus: false });
+      renderTabs(g);
+      saveLayout();
+      return;
+    }
+    saveState(g);
+    g.tabs.openView('render');
+    show(g);
+  }
+  /** The toolbar's Render button: shows the Render tab where it is, or opens it in the focused group. */
+  function showRender() {
+    const g = renderGroup() ?? group;
+    activateGroup(g);
+    saveState(g);
+    g.tabs.openView('render');
+    show(g);
+    showPane(panel, 'code');
+    focusGroup(g);
+  }
+
   /** The split tree with each group's tabs filled in, as the layout saves it. */
   function treeWithTabs(node: EditorNode = editorTree()) {
     let filled = node;
@@ -1591,7 +1691,7 @@ export async function createSession(
         ...item,
         tabs: saved.map((tab) => ({
           path: tab.path,
-          kind: tab.markdown ? 'markdown' : 'file',
+          kind: tab.view ? 'view' : tab.markdown ? 'markdown' : 'file',
         })),
         active: Math.max(0, active),
       }));
@@ -1607,15 +1707,22 @@ export async function createSession(
     else ownTree = next;
   }
 
-  /** Reset layout: every group's tabs move into the focused group, which is left alone. */
+  /**
+   * Reset layout: every group's tabs move into the focused group, which is
+   * left alone, and the Render tab goes back beside it.
+   */
   function mergeGroups() {
     const keep = group;
-    const active = keep.tabs.active;
+    const active = keep.tabs.active?.view ? undefined : keep.tabs.active;
     saveState(keep);
+    parkRenderView();
+    const render = keep.tabs.tabs.find((tab) => tab.view);
+    if (render) keep.tabs.close(render);
     for (const g of [...groups.values()]) {
       if (g === keep) continue;
       saveState(g);
       for (const tab of g.tabs.tabs) {
+        if (tab.view) continue;
         if (keep.tabs.tabs.some((item) => sameTab(item, tab))) continue;
         const state = g.states.get(tab.path);
         if (state && !keep.states.has(tab.path))
@@ -1631,6 +1738,8 @@ export async function createSession(
     if (active) keep.tabs.activate(active);
     saveLayout(emptyGroup(keep.id));
     show(keep);
+    renderBeside(keep);
+    activateGroup(keep);
   }
 
   /** Closes an empty group; its space goes to its neighbours. */
@@ -1639,6 +1748,7 @@ export async function createSession(
     if (!next || !groups.has(g.id)) return;
     groups.delete(g.id);
     focusOrder = focusOrder.filter((item) => item !== g);
+    if (renderView && g.element.contains(renderView)) parkRenderView();
     g.life.abort();
     g.editor.destroy();
     g.element.remove();
@@ -1713,9 +1823,11 @@ export async function createSession(
     focusGroup(group);
   }
 
-  /** Focuses what a group shows: its rendered Markdown, else its editor. */
+  /** Focuses what a group shows: the drawing, its rendered Markdown, else its editor. */
   function focusGroup(g: Group) {
-    if (g.markdown.path) g.markdown.focus();
+    if (g.tabs.active?.view) {
+      if (!render?.focus()) focusActiveTab(g);
+    } else if (g.markdown.path) g.markdown.focus();
     else g.editor.focus();
   }
 
@@ -1742,7 +1854,9 @@ export async function createSession(
   function renderActions(g: Group) {
     const tab = g.tabs.active;
     const items: HTMLElement[] = [];
-    if (tab?.markdown) {
+    if (tab?.view === 'render' && render) {
+      items.push(render.size);
+    } else if (tab?.markdown) {
       const side = actionButton(
         'Open source to the side',
         actionIcons.source,
@@ -1803,6 +1917,7 @@ export async function createSession(
         if (active) item.dataset.active = 'true';
         if (tab.preview) item.dataset.preview = 'true';
         if (tab.markdown) item.dataset.markdown = 'true';
+        if (tab.view) item.dataset.view = tab.view;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'ide-filetab-open';
@@ -1815,13 +1930,15 @@ export async function createSession(
           preview.kind === 'expansion'
             ? preview
             : undefined;
-        button.title = expansion
-          ? `${expansion.title ?? tab.path} (read-only)`
-          : tab.preview
-            ? `${tab.path} (read-only)`
-            : tab.markdown
-              ? `Preview of ${tab.path}`
-              : tab.path;
+        button.title = tab.view
+          ? 'Where a program that draws with WebGPU shows its frames'
+          : expansion
+            ? `${expansion.title ?? tab.path} (read-only)`
+            : tab.preview
+              ? `${tab.path} (read-only)`
+              : tab.markdown
+                ? `Preview of ${tab.path}`
+                : tab.path;
         // The visible spans run together in the computed name; spell it out.
         button.setAttribute(
           'aria-label',
@@ -1838,7 +1955,9 @@ export async function createSession(
         label.textContent = tab.markdown ? `Preview ${name}` : name;
         button.append(
           fileIcon(
-            fileIconKind(expansion ? 'expansion.jai' : tab.path),
+            tab.view
+              ? 'render'
+              : fileIconKind(expansion ? 'expansion.jai' : tab.path),
             'ide-filetab-icon'
           ),
           label
@@ -1925,6 +2044,7 @@ export async function createSession(
 
   /* Drag and drop of tabs (and tree files) between and around groups. */
   const tabName = (tab: OpenTab) => {
+    if (tab.view) return VIEW_LABELS[tab.view];
     const name = tab.path.slice(tab.path.lastIndexOf('/') + 1);
     return tab.markdown ? `Preview ${name}` : name;
   };
@@ -2026,7 +2146,7 @@ export async function createSession(
     closePicker();
     if (from) saveState(from);
     const state =
-      from && !tab.preview && !tab.markdown
+      from && !tab.preview && !tab.markdown && !tab.view
         ? from.states.get(tab.path)
         : undefined;
     if (tab.preview && !from) return;
@@ -2048,7 +2168,8 @@ export async function createSession(
       show(dest);
     } else {
       const copy = from === dest && dest.tabs.tabs.length === 1;
-      if (copy && tab.preview) return;
+      // The preview and the Render tab exist once: they move, never copy.
+      if (copy && (tab.preview || tab.view)) return;
       if (from && !copy) detach(from, tab);
       splitWith(dest, target.zone, tab, state, from?.scrolls.get(tabKey(tab)));
     }
@@ -2269,11 +2390,11 @@ export async function createSession(
   }
   const post = (worker: Worker, message: WorkerRequest) =>
     worker.postMessage(message);
-  // WebGPU programs draw in the Render pane (render-pane.ts).
-  const render = createRenderPane({
-    pane: layout?.element('render'),
-    open: (select) => layout?.open('render', { select }),
-  });
+  // WebGPU programs draw in the Render tab (render-pane.ts).
+  const render = createRenderPane({ view: renderView, open: openRender });
+  panel
+    .querySelector<HTMLButtonElement>('[data-code-show-render]')
+    ?.addEventListener('click', showRender, { signal });
   /** Set by Run and Ctrl+Enter for the run they start; edits run without it. */
   let explicitRun = false;
   function initializeWorker(
@@ -2754,6 +2875,7 @@ export async function createSession(
       clearTimeout(syncTimer);
       language?.dispose();
       render?.dispose();
+      parkRenderView();
       for (const worker of workers) worker.terminate();
       workers.clear();
       // Back to the server-rendered group; the saved layout is kept for the next session.
@@ -2795,6 +2917,10 @@ export async function createSession(
   for (const node of groupsOf(restored)) {
     const g = createGroup(node.id);
     for (const item of node.tabs) {
+      if (item.kind === 'view') {
+        if (renderView && item.path === 'render') g.tabs.openView('render');
+        continue;
+      }
       if (!names.has(item.path)) continue;
       if (item.kind === 'file') g.tabs.open(item.path);
       else if (isMarkdownPath(item.path)) g.tabs.openMarkdown(item.path);
@@ -2805,7 +2931,8 @@ export async function createSession(
       g.tabs.tabs.find(
         (open) =>
           open.path === active.path &&
-          Boolean(open.markdown) === (active.kind === 'markdown')
+          Boolean(open.markdown) === (active.kind === 'markdown') &&
+          Boolean(open.view) === (active.kind === 'view')
       );
     if (tab) g.tabs.activate(tab);
   }
@@ -2818,7 +2945,9 @@ export async function createSession(
     g.element.remove();
   }
   activateGroup(groups.get(groupsOf(restored)[0].id)!);
-  if (![...groups.values()].some((g) => g.tabs.tabs.length)) {
+  // A first visit (nothing restored) starts with the code and the Render tab side by side.
+  const fresh = ![...groups.values()].some((g) => g.tabs.tabs.length);
+  if (fresh) {
     // The starter's tabs: main.jai, and the tour's guide rendered.
     const opening = starter.open.filter((path) => names.has(path));
     for (const path of opening)
@@ -2832,6 +2961,11 @@ export async function createSession(
   saveLayout(restored);
   for (const g of groups.values()) if (g !== group) show(g);
   show();
+  if (fresh && !viewGroup(restored, 'render')) {
+    const code = group;
+    renderBeside(code);
+    activateGroup(code);
+  }
   // Crossing into the phone layout swaps `.md` source tabs for their preview, and back.
   matchMedia(NARROW_QUERY).addEventListener(
     'change',
