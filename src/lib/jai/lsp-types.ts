@@ -31,6 +31,11 @@ export interface CompletionItem {
   documentation?: MarkupText;
   insertText?: string;
   insertTextFormat?: number;
+  /** `description`: where an auto-import comes from (`Basic`). */
+  labelDetails?: { detail?: string; description?: string };
+  sortText?: string;
+  /** Edits elsewhere made on accepting, such as an auto-import's `#import`. */
+  additionalTextEdits?: TextEdit[];
 }
 
 export interface CompletionList {

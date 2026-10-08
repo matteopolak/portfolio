@@ -64,6 +64,7 @@ import {
 import { tags, highlightTree } from '@lezer/highlight';
 import DOMPurify from 'dompurify';
 import { markdownHover, renderHoverMarkdown } from './hover-markdown.ts';
+import { completionOption } from './jai/completion-items.ts';
 import {
   jaiTokenizer,
   jaiLanguage,
@@ -685,15 +686,6 @@ function highlightedHover(
   return nodes;
 }
 
-const completionType = (kind: number | undefined) =>
-  kind === 3
-    ? 'function'
-    : kind === 7
-      ? 'class'
-      : kind === 14
-        ? 'keyword'
-        : 'variable';
-
 const languageFor = (language: EditorLanguage) =>
   language === 'baerscript'
     ? baerscriptLanguage
@@ -1183,13 +1175,7 @@ export function createEditor(
         from: word?.from ?? context.pos,
         options: items
           .filter((item) => item.insertTextFormat !== 2)
-          .map((item) => ({
-            label: item.label,
-            detail: item.detail,
-            info: textContent(item.documentation) || undefined,
-            type: completionType(item.kind),
-            apply: item.insertText ?? item.label,
-          })),
+          .map((item) => completionOption(item, textContent)),
       };
     } catch {
       return null;
