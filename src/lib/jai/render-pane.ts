@@ -1,13 +1,14 @@
 /*
- * The Render pane: where a Jai program that draws with WebGPU shows its
- * frames. The layout docks the pane like the output (it starts closed); this
- * module owns what is inside it.
+ * The Render tab's contents: where a Jai program that draws with WebGPU
+ * shows its frames. workspace-ui.ts hosts the view in an editor tab (moving
+ * the element into whichever group shows the tab); this module owns what is
+ * inside it.
  *
  * A program draws in the execution worker, on a canvas whose drawing surface
  * was transferred there (`transferControlToOffscreen`), so every execution
- * worker needs a canvas of its own: the pane element stays, and the canvas
+ * worker needs a canvas of its own: the view element stays, and the canvas
  * inside it is replaced per worker. Keyboard, mouse and focus events of the
- * canvas and size changes of the pane are posted to the worker, where the
+ * canvas and size changes of the view are posted to the worker, where the
  * bundle's webgpu_host.mjs queues them for stdlib/Input.
  */
 import { forwardCanvasInput } from './canvas-input.ts';
@@ -75,43 +76,45 @@ export const importsWebGPU = (sources: Iterable<string>) =>
   );
 
 export interface RenderPaneOptions {
-  /** The pane (`[data-code-render-pane]`), in the document or not. */
-  pane: HTMLElement | undefined;
-  /**
-   * Shows the pane where the layout last docked it; `select` also brings it
-   * to the front on phones.
-   */
-  open(select: boolean): void;
+  /** The view (`[data-code-render-view]`), wherever it is in the document. */
+  view: HTMLElement | undefined;
+  /** A run started drawing: show the Render tab if it is closed. */
+  open(): void;
 }
 
 export interface RenderPane {
+  /** The drawing's size (`640 × 480`), for the tab's group head; empty when idle. */
+  readonly size: HTMLElement;
   /** A fresh canvas for a new execution worker: its surface, to transfer at init. */
   canvas(): OffscreenCanvas | undefined;
   /** Connects the canvas `canvas()` made to the worker that received it. */
   attach(worker: Worker, capabilities: InitCapabilities): void;
-  /** A run starts: `explicit` when the user asked (Run, Ctrl+Enter), not an edit. */
-  started(sources: Iterable<string>, explicit: boolean): void;
+  /** A run of `sources` starts. */
+  started(sources: Iterable<string>): void;
   /** The program configured its surface at `size`, or unconfigured it. */
   surface(size: { width: number; height: number } | null): void;
   /** The run ended; the canvas stays with its worker for the next run. */
   ended(): void;
   /** The worker was terminated (Stop, an edit): its canvas goes with it. */
   stopped(): void;
+  /** Focuses the drawing, so keys go to the program; false when nothing draws. */
+  focus(): boolean;
   dispose(): void;
 }
 
-/** Default drawing size before the pane was ever laid out. */
+/** Default drawing size before the view was ever laid out. */
 const FALLBACK = { width: 640, height: 480 };
 
 export function createRenderPane({
-  pane,
+  view,
   open,
 }: RenderPaneOptions): RenderPane | undefined {
-  const stage = pane?.querySelector<HTMLElement>('[data-code-render]');
-  if (!pane || !stage) return undefined;
-  const sizeLabel = pane.querySelector<HTMLElement>('[data-code-render-size]');
-  const title = pane.querySelector<HTMLElement>('[data-code-render-title]');
-  const detail = pane.querySelector<HTMLElement>('[data-code-render-detail]');
+  const stage = view?.querySelector<HTMLElement>('[data-code-render]');
+  if (!view || !stage) return undefined;
+  const sizeLabel = document.createElement('span');
+  sizeLabel.className = 'ide-render-size';
+  const title = view.querySelector<HTMLElement>('[data-code-render-title]');
+  const detail = view.querySelector<HTMLElement>('[data-code-render-detail]');
   const idleTitle = title?.textContent ?? '';
   const idleDetail = [...(detail?.childNodes ?? [])].map((node) =>
     node.cloneNode(true)
@@ -127,14 +130,13 @@ export function createRenderPane({
         surfaceEvents: boolean;
       }
     | undefined;
-  /** This run: whether the user started it, and whether it has shown the pane. */
-  let run = { explicit: false, shown: false };
-  let unsupportedShown = false;
+  /** Whether this run has drawn yet. */
+  let shown = false;
   let pixels = { width: 0, height: 0 };
 
   function setState(state: 'idle' | 'drawing' | 'unsupported') {
     stage!.dataset.state = state;
-    if (state !== 'drawing' && sizeLabel) sizeLabel.textContent = '';
+    if (state !== 'drawing') sizeLabel.textContent = '';
   }
   if (!support.ok) {
     setState('unsupported');
@@ -148,7 +150,7 @@ export function createRenderPane({
   const post = (message: WorkerRequest) =>
     current?.drawing && current.worker?.postMessage(message);
 
-  // The pane's size in device pixels; the worker learns every change.
+  // The view's size in device pixels; the worker learns every change.
   const observer = new ResizeObserver(([entry]) => {
     const device = entry.devicePixelContentBoxSize?.[0];
     const scale = devicePixelRatio || 1;
@@ -158,7 +160,7 @@ export function createRenderPane({
     const height = Math.round(
       device ? device.blockSize : entry.contentRect.height * scale
     );
-    // A closed pane (or a hidden phone pane) has no size: keep the last one.
+    // A closed or background tab (or a hidden phone pane) has no size: keep the last one.
     if (!width || !height) return;
     if (width === pixels.width && height === pixels.height) return;
     pixels = { width, height };
@@ -176,26 +178,15 @@ export function createRenderPane({
     current = undefined;
   }
 
-  const editing = () =>
-    Boolean(
-      (document.activeElement as HTMLElement | null)?.closest?.(
-        '.cm-editor, input, textarea, select, [contenteditable="true"]'
-      )
-    );
-
-  /**
-   * Shows the pane for this run, once. Keyboard focus (and, on phones, the
-   * screen) follows unless the run came from an edit while the user types.
-   */
+  /** The run draws: once per run, the Render tab is asked to show. */
   function show() {
-    if (run.shown) return;
-    run.shown = true;
-    const take = run.explicit || !editing();
-    open(take);
-    if (current && take) current.element.focus({ preventScroll: true });
+    if (shown) return;
+    shown = true;
+    open();
   }
 
   return {
+    size: sizeLabel,
     canvas() {
       release();
       if (!support.ok) return undefined;
@@ -226,17 +217,11 @@ export function createRenderPane({
       forwardCanvasInput(current.element, send, current.listeners.signal);
       if (pixels.width) post({ type: 'resize', ...pixels });
     },
-    started(sources, explicit) {
-      run = { explicit, shown: false };
+    started(sources) {
+      shown = false;
       if (stage.dataset.state === 'drawing') setState('idle');
-      if (!support.ok) {
-        // Say why nothing draws, once, when the user ran a drawing program.
-        if (explicit && !unsupportedShown && importsWebGPU(sources)) {
-          unsupportedShown = true;
-          open(true);
-        }
-        return;
-      }
+      // Without drawing nothing opens; the tab, where open, says why.
+      if (!support.ok) return;
       // A host without surface events: draw as soon as the program imports WebGPU.
       if (
         current?.drawing &&
@@ -254,7 +239,7 @@ export function createRenderPane({
         return;
       }
       setState('drawing');
-      if (sizeLabel) sizeLabel.textContent = `${size.width} × ${size.height}`;
+      sizeLabel.textContent = `${size.width} × ${size.height}`;
       show();
     },
     ended() {
@@ -263,6 +248,11 @@ export function createRenderPane({
     stopped() {
       release();
       if (support.ok) setState('idle');
+    },
+    focus() {
+      if (!current?.drawing || stage.dataset.state !== 'drawing') return false;
+      current.element.focus({ preventScroll: true });
+      return true;
     },
     dispose() {
       observer.disconnect();

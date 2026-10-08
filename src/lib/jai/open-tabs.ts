@@ -1,20 +1,34 @@
+import type { ViewId } from '../workspace-layout-model.ts';
+
 /**
- * One editor tab: a workspace file, a read-only preview (a stdlib file), or
- * the rendered view of a workspace `.md` file (`markdown`).
+ * One editor tab: a workspace file, a read-only preview (a stdlib file), the
+ * rendered view of a workspace `.md` file (`markdown`), or a view that is no
+ * file at all (`view`, the Render tab; its `path` is the view's id).
  */
 export interface OpenTab {
   readonly path: string;
   readonly preview: boolean;
   readonly markdown?: boolean;
+  readonly view?: ViewId;
 }
+
+/** What a view's tab is called. */
+export const VIEW_LABELS: Readonly<Record<ViewId, string>> = {
+  render: 'Render',
+};
+
+/** The tab of `view`. */
+export const viewTab = (view: ViewId): OpenTab =>
+  Object.freeze({ path: view, preview: false, view });
 
 /** Two tabs that show the same thing (a group never holds both). */
 export const sameTab = (a: OpenTab, b: OpenTab) =>
   a.path === b.path &&
   a.preview === b.preview &&
-  Boolean(a.markdown) === Boolean(b.markdown);
+  Boolean(a.markdown) === Boolean(b.markdown) &&
+  a.view === b.view;
 
-const isFile = (tab: OpenTab) => !tab.preview && !tab.markdown;
+const isFile = (tab: OpenTab) => !tab.preview && !tab.markdown && !tab.view;
 
 /**
  * The open-file tabs of the Jai workspace, without any DOM. At most one
@@ -68,6 +82,20 @@ export class OpenTabs {
   }
 
   /**
+   * Focuses the tab of `view`, opening it after the active tab if needed;
+   * `focus: false` adds it without changing the active tab.
+   */
+  openView(view: ViewId, { focus = true } = {}): OpenTab {
+    let tab = this.#tabs.find((item) => item.view === view);
+    if (!tab) {
+      tab = viewTab(view);
+      this.#insert(tab);
+    }
+    if (focus || !this.#active) this.#focus(tab);
+    return tab;
+  }
+
+  /**
    * Puts `tab` (from another group, or this one to reorder it) at `index`
    * (after the active tab by default) and focuses it. A tab already here
    * that shows the same thing makes way; so does any other preview tab.
@@ -114,10 +142,10 @@ export class OpenTabs {
     return this.#active;
   }
 
-  /** Follows renamed files (`from` → `to`). Preview tabs are not workspace files. */
+  /** Follows renamed files (`from` → `to`). Preview and view tabs are not workspace files. */
   move(moves: ReadonlyMap<string, string>) {
     this.#tabs = this.#tabs.map((tab) => {
-      const target = tab.preview ? undefined : moves.get(tab.path);
+      const target = tab.preview || tab.view ? undefined : moves.get(tab.path);
       if (target === undefined) return tab;
       const moved: OpenTab = Object.freeze(
         tab.markdown
@@ -140,6 +168,7 @@ export class OpenTabs {
         this.#tabs.filter(
           (tab) =>
             !tab.preview &&
+            !tab.view &&
             (!names.has(tab.path) ||
               (tab.markdown && !/\.(md|markdown)$/iu.test(tab.path)))
         )
@@ -174,10 +203,12 @@ export class OpenTabs {
 
 /** The tab's label: the file name, plus its folder when another tab shares the name. */
 export function tabLabel(tab: OpenTab, tabs: readonly OpenTab[]) {
+  if (tab.view) return { name: VIEW_LABELS[tab.view], folder: '' };
   const base = (path: string) => path.slice(path.lastIndexOf('/') + 1);
   const name = base(tab.path);
   const shared = tabs.some(
-    (other) => other.path !== tab.path && base(other.path) === name
+    (other) =>
+      !other.view && other.path !== tab.path && base(other.path) === name
   );
   const folder = tab.path.slice(0, Math.max(0, tab.path.lastIndexOf('/')));
   return { name, folder: shared ? folder : '' };

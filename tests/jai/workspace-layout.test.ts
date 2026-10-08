@@ -4,18 +4,16 @@ import {
   defaultLayout,
   dockZone,
   dropZone,
+  editorFlexes,
   emptyGroup,
   findGroup,
   groupDropZone,
   groupRects,
   groupsOf,
   insertionIndex,
-  closePanel,
-  isPanelOpen,
+  dockPanels,
   movePanel,
   neighbourGroup,
-  openPanel,
-  openPanels,
   resizeDockPanels,
   nextGroupId,
   normalize,
@@ -26,6 +24,9 @@ import {
   serializeLayout,
   splitGroup,
   updateGroup,
+  viewGroup,
+  viewPlacement,
+  rightmostGroup,
   type EditorNode,
   type GroupNode,
 } from '../../src/lib/workspace-layout-model.ts';
@@ -54,52 +55,26 @@ test('default layout: tree on the left, output below the editors', () => {
   const single = defaultLayout(['output']);
   assert.equal(panelDock(single, 'files'), undefined);
   assert.deepEqual(single.docks.left.panels, []);
-  assert.deepEqual(single.closed, []);
-  // The Render pane waits, closed, on the right until a program draws.
-  assert.equal(panelDock(layout, 'render'), 'right');
-  assert.deepEqual(layout.closed, ['render']);
-  assert.equal(isPanelOpen(layout, 'render'), false);
-  assert.deepEqual(openPanels(layout, 'right'), []);
+  // Only the tree and the output dock; the Render tab is an editor tab.
+  assert.deepEqual(layout.docks.right.panels, []);
 });
 
-test('opening and closing the Render pane', () => {
-  let layout = movePanel(defaultLayout(), 'render', 'bottom');
-  assert.deepEqual(openPanels(layout, 'bottom'), [
-    { panel: 'output', share: 1 },
-  ]);
-  layout = openPanel(layout, 'render');
-  assert.equal(isPanelOpen(layout, 'render'), true);
-  assert.deepEqual(openPanels(layout, 'bottom'), [
+test('two panels in one dock share it', () => {
+  let layout = movePanel(defaultLayout(), 'files', 'bottom', 0);
+  assert.deepEqual(dockPanels(layout, 'bottom'), [
+    { panel: 'files', share: 0.5 },
     { panel: 'output', share: 0.5 },
-    { panel: 'render', share: 0.5 },
   ]);
-  // Resizing two open neighbours sets their split of what they hold.
+  // Resizing two neighbours sets their split of what they hold.
   layout = resizeDockPanels(layout, 'bottom', 0, 0.25);
-  const [output, render] = openPanels(layout, 'bottom');
-  assert.ok(close(output.share, 0.25) && close(render.share, 0.75));
-  // Closed, it keeps its dock and share for the next open.
-  const closed = closePanel(layout, 'render');
-  assert.equal(panelDock(closed, 'render'), 'bottom');
-  assert.deepEqual(openPanels(closed, 'bottom'), [
+  const [files, output] = dockPanels(layout, 'bottom');
+  assert.ok(close(files.share, 0.25) && close(output.share, 0.75));
+  // Out of range: nothing changes.
+  assert.equal(resizeDockPanels(layout, 'bottom', 1, 0.5), layout);
+  // Leaving gives the rest the whole dock.
+  assert.deepEqual(dockPanels(movePanel(layout, 'files', 'left'), 'bottom'), [
     { panel: 'output', share: 1 },
   ]);
-  const reopened = openPanels(openPanel(closed, 'render'), 'bottom');
-  assert.ok(close(reopened[1].share, 0.75));
-  // Only closable panels close.
-  assert.equal(closePanel(layout, 'output'), layout);
-});
-
-test('three panels in one dock', () => {
-  let layout = openPanel(defaultLayout(), 'render');
-  layout = movePanel(layout, 'files', 'right', 0);
-  layout = movePanel(layout, 'output', 'right');
-  assert.deepEqual(layout.docks.right.panels, ['files', 'render', 'output']);
-  assert.ok(layout.docks.right.shares.every((share) => close(share, 1 / 3)));
-  // files 1/2, render 1/6, output 1/3; leaving keeps the others' proportions.
-  layout = resizeDockPanels(layout, 'right', 0, 0.75);
-  const [render, output] = movePanel(layout, 'files', 'left').docks.right
-    .shares;
-  assert.ok(close(render, 1 / 3) && close(output, 2 / 3));
 });
 
 test('moving panels between docks', () => {
@@ -199,6 +174,47 @@ test('normalize repairs bad shares and empty splits', () => {
   assert.ok(close(tidy.sizes[1], 0.25));
 });
 
+test('splits fill the editor area in proportion at any size', () => {
+  // A split once laid out without a flex of its own kept its content width,
+  // so widening the window left a gap beside the groups.
+  let tree: EditorNode = group('g1', 'main.jai');
+  tree = splitGroup(tree, 'g1', 'right', group('g2', 'render'));
+  tree = splitGroup(tree, 'g2', 'bottom', group('g3', 'b.jai'));
+  tree = resizeSplit(tree, [], [0.25, 0.75]);
+  const flexes = editorFlexes(tree);
+  assert.deepEqual(
+    [...flexes],
+    [
+      ['', '1 1 0px'],
+      ['0', '0.25 1 0px'],
+      ['1', '0.75 1 0px'],
+      ['1/0', '0.5 1 0px'],
+      ['1/1', '0.5 1 0px'],
+    ]
+  );
+  // Every split's children grow by shares summing to 1 from a zero basis:
+  // they take all of the split's space, whatever the split's size.
+  const grow = (path: string) => Number(flexes.get(path)!.split(' ')[0]);
+  for (const [path, flex] of flexes) {
+    assert.match(flex, / 1 0px$/u);
+    const children = [...flexes.keys()].filter(
+      (key) =>
+        key.startsWith(path ? `${path}/` : '') &&
+        key !== path &&
+        !key.slice(path ? path.length + 1 : 0).includes('/')
+    );
+    if (children.length)
+      assert.ok(
+        close(
+          children.map(grow).reduce((a, b) => a + b, 0),
+          1
+        )
+      );
+  }
+  // A lone group fills the area too.
+  assert.deepEqual([...editorFlexes(group('g1'))], [['', '1 1 0px']]);
+});
+
 test('resizing a nested split and updating a group', () => {
   let tree: EditorNode = splitGroup(group('g1'), 'g1', 'right', group('g2'));
   tree = splitGroup(tree, 'g2', 'bottom', group('g3'));
@@ -286,45 +302,127 @@ test('layouts round-trip through storage', () => {
   assert.deepEqual(parseLayout(serializeLayout(layout)), layout);
 });
 
-test('layouts saved before the Render pane still load', () => {
-  // As stored before it existed: two-panel docks have a `ratio`, no `shares` or `closed`.
+test('older stored layouts still load', () => {
+  // Before `shares`: two-panel docks have a `ratio`.
+  const docks = {
+    left: { size: 260, panels: [], ratio: 0.5 },
+    right: { size: 300, panels: ['files', 'output'], ratio: 0.3 },
+    top: { size: 176, panels: [], ratio: 0.5 },
+    bottom: { size: 176, panels: [], ratio: 0.5 },
+  };
   const old = JSON.stringify({
     version: 1,
-    docks: {
-      left: { size: 260, panels: [], ratio: 0.5 },
-      right: { size: 300, panels: ['files', 'output'], ratio: 0.3 },
-      top: { size: 176, panels: [], ratio: 0.5 },
-      bottom: { size: 176, panels: [], ratio: 0.5 },
-    },
+    docks,
     editors: group('g1', 'main.jai'),
   });
   const layout = parseLayout(old);
   assert.ok(layout);
   assert.equal(layout.docks.right.size, 300);
-  // The newcomer joins its default dock, closed; the others keep their split.
-  assert.deepEqual(layout.docks.right.panels, ['files', 'output', 'render']);
-  assert.deepEqual(layout.closed, ['render']);
-  const [files, output] = openPanels(layout, 'right');
+  const [files, output] = dockPanels(layout, 'right');
   assert.ok(close(files.share, 0.3) && close(output.share, 0.7));
-  // Opened, it takes about a third.
-  const shares = openPanels(openPanel(layout, 'render'), 'right');
-  assert.ok(close(shares[2].share, 1 / 3));
-  // Workspaces without the pane (Quasi, BaerScript) read it as before.
-  assert.deepEqual(parseLayout(old, ['files', 'output'])?.closed, []);
-  // An open Render pane round-trips.
-  const open = openPanel(layout, 'render');
-  assert.deepEqual(parseLayout(serializeLayout(open)), open);
   // Files and output are never added: a layout without them was malformed.
-  assert.equal(
-    parseLayout(old.replace('"files",', ''), ['files', 'output', 'render']),
-    undefined
+  assert.equal(parseLayout(old.replace('"files",', '')), undefined);
+});
+
+test('layouts from the Render pane drop it and keep the rest', () => {
+  // The Render pane was a panel, closed through `closed`, before it became a tab.
+  const stored = (closed: string[]) =>
+    JSON.stringify({
+      version: 1,
+      docks: {
+        left: { size: 240, panels: [], shares: [] },
+        right: {
+          size: 400,
+          panels: ['files', 'render', 'output'],
+          shares: [0.2, 0.5, 0.3],
+        },
+        top: { size: 176, panels: [], shares: [] },
+        bottom: { size: 176, panels: [], shares: [] },
+      },
+      closed,
+      editors: group('g1', 'main.jai'),
+    });
+  for (const closed of [['render'], []]) {
+    const layout = parseLayout(stored(closed));
+    assert.ok(layout);
+    assert.deepEqual(layout.docks.right.panels, ['files', 'output']);
+    const [files, output] = dockPanels(layout, 'right');
+    assert.ok(close(files.share, 0.4) && close(output.share, 0.6));
+    assert.equal('closed' in layout, false);
+    assert.deepEqual(parseLayout(serializeLayout(layout)), layout);
+  }
+});
+
+test('where a closed Render tab opens when a program draws', () => {
+  const wide = { narrow: false, wide: true, full: false };
+  const single = group('g1', 'main.jai', 'tour.md');
+  // One group with room: a new group split off to its right.
+  assert.deepEqual(viewPlacement(single, 'g1', wide), {
+    split: 'g1',
+    side: 'right',
+  });
+  // One group without room, or no room for another group: a tab of it.
+  assert.deepEqual(viewPlacement(single, 'g1', { ...wide, wide: false }), {
+    group: 'g1',
+  });
+  assert.deepEqual(viewPlacement(single, 'g1', { ...wide, full: true }), {
+    group: 'g1',
+  });
+  // Already split: the rightmost group, whichever group was focused.
+  const split = splitGroup(single, 'g1', 'right', group('g2', 'b.jai'));
+  assert.deepEqual(viewPlacement(split, 'g1', wide), { group: 'g2' });
+  assert.deepEqual(viewPlacement(split, 'g2', wide), { group: 'g2' });
+  assert.deepEqual(viewPlacement(split, 'g1', { ...wide, wide: false }), {
+    group: 'g2',
+  });
+  // Phones: a tab of the focused group, split or not.
+  const narrow = { narrow: true, wide: false, full: false };
+  assert.deepEqual(viewPlacement(single, 'g1', narrow), { group: 'g1' });
+  assert.deepEqual(viewPlacement(split, 'g1', narrow), { group: 'g1' });
+});
+
+test('the rightmost group is the topmost at the right edge', () => {
+  let tree: EditorNode = group('g1');
+  assert.equal(rightmostGroup(tree), 'g1');
+  tree = splitGroup(tree, 'g1', 'right', group('g2'));
+  tree = splitGroup(tree, 'g2', 'bottom', group('g3'));
+  assert.equal(rightmostGroup(tree), 'g2');
+  // A group split off to the left of the right column does not reach the edge.
+  tree = splitGroup(tree, 'g3', 'left', group('g4'));
+  assert.equal(rightmostGroup(tree), 'g2');
+  // Stacked groups: the top one.
+  const stacked = splitGroup(group('g1'), 'g1', 'bottom', group('g2'));
+  assert.equal(rightmostGroup(stacked), 'g1');
+});
+
+test('the Render tab is saved with its group, once', () => {
+  const render = { path: 'render', kind: 'view' } as const;
+  const editors: EditorNode = splitGroup(
+    group('g1', 'main.jai'),
+    'g1',
+    'right',
+    { type: 'group', id: 'g2', tabs: [render], active: 0 }
   );
-  // `closed` lists only closable panels this workspace has.
-  const odd = JSON.parse(serializeLayout(open));
-  odd.closed = ['output', 'render', 'render', 'terminal'];
-  assert.deepEqual(parseLayout(JSON.stringify(odd))?.closed, ['render']);
-  odd.closed = 'render';
-  assert.equal(parseLayout(JSON.stringify(odd)), undefined);
+  assert.equal(viewGroup(editors, 'render')?.id, 'g2');
+  assert.equal(viewGroup(group('g1', 'main.jai'), 'render'), undefined);
+  // A file named like a view is still a file.
+  assert.equal(viewGroup(group('g1', 'render'), 'render'), undefined);
+  const layout = { ...defaultLayout(), editors };
+  assert.deepEqual(parseLayout(serializeLayout(layout)), layout);
+  // A second Render tab is dropped (the first in reading order stays).
+  const twice = JSON.parse(serializeLayout(layout));
+  twice.editors.children[0].tabs.push(render);
+  const parsed = parseLayout(JSON.stringify(twice));
+  assert.ok(parsed);
+  assert.deepEqual(groupsOf(parsed.editors)[0].tabs, [
+    { path: 'main.jai', kind: 'file' },
+    render,
+  ]);
+  assert.deepEqual(groupsOf(parsed.editors)[1].tabs, []);
+  // Unknown views are malformed.
+  const unknown = JSON.parse(serializeLayout(layout));
+  unknown.editors.children[1].tabs = [{ path: 'terminal', kind: 'view' }];
+  assert.equal(parseLayout(JSON.stringify(unknown)), undefined);
 });
 
 test('stored layouts are validated', () => {

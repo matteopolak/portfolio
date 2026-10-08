@@ -1,5 +1,5 @@
 /*
- * Keyboard, mouse and focus events of the Render pane's canvas, as the
+ * Keyboard, mouse and focus events of the Render tab's canvas, as the
  * Canvas_Event records stdlib/Input/wasm.jai reads (via the bundle's
  * webgpu_host.mjs): type 1 key or button, 2 text, 3 pointer move, 4 wheel,
  * 5 resize, 6 focus, 7 quit; modifiers 1 shift, 2 ctrl, 4 alt, 8 meta. Key

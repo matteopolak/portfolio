@@ -65,6 +65,13 @@ const {
           ></path>
         </svg>
       </button>
+      {
+        language === 'jai' && files && (
+          <button type="button" class="ide-icon ide-tool" data-code-show-render aria-label="Show the Render tab" title="Render">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
+          </button>
+        )
+      }
       <button type="button" class="ide-icon ide-tool ide-tool--layout" data-code-reset-layout aria-label="Reset layout" title="Reset layout">
         {/* Panels back to the default layout: a window with a side bar and a bottom panel. */}
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3.5h14v13H3zM7.5 3.5v13M7.5 12h9.5"></path></svg>
@@ -157,32 +164,26 @@ const {
         <div class="ide-dock" data-dock="bottom" style="flex-basis: 176px">
           <CodeOutput />
         </div>
-        {
-          /* Closed until a program draws; the layout docks it (on the right by default). */
-          language === 'jai' && (
-            <section class="ide-render" data-code-render-pane aria-label="Render" hidden>
-              <div class="ide-pane-head" data-panel-handle>
-                <span>Render</span>
-                <span class="ide-render__size" data-code-render-size />
-                <span class="ide-pane-actions">
-                  <button type="button" class="ide-icon ide-icon--small" data-panel-close aria-label="Close render pane" title="Close">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9M14.5 5.5l-9 9"></path></svg>
-                  </button>
-                </span>
-              </div>
-              <div class="ide-render__stage" data-code-render data-state="idle">
-                <div class="ide-render__message" data-code-render-message>
-                  <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
-                  <p data-code-render-detail>
-                    A program that draws with WebGPU shows here.
-                  </p>
-                </div>
-              </div>
-            </section>
-          )
-        }
       </div>
     </div>
+    {
+      /*
+       * The Render tab's contents. workspace-ui.ts moves it into the editor
+       * group whose active tab is Render, and back here (hidden) otherwise.
+       */
+      language === 'jai' && files && (
+        <section class="ide-render" data-code-render-view aria-label="Render" hidden>
+          <div class="ide-render__stage" data-code-render data-state="idle">
+            <div class="ide-render__message" data-code-render-message>
+              <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
+              <p data-code-render-detail>
+                A program that draws with WebGPU shows here.
+              </p>
+            </div>
+          </div>
+        </section>
+      )
+    }
     <ProjectDemoLoading seed={language} />
   </div>
 
@@ -204,14 +205,6 @@ const {
       Output
       <span class="ide-tab-dot" aria-hidden="true"></span>
     </button>
-    {
-      language === 'jai' && (
-        <button type="button" data-pane-tab="render" aria-selected="false" hidden>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
-          Render
-        </button>
-      )
-    }
   </nav>
 </section>
 
@@ -881,28 +874,18 @@ const {
     font-weight: 700;
   }
 
-  /* Render pane: a WebGPU program's canvas, or why nothing is drawn. */
+  /* The Render tab: a WebGPU program's canvas, or why nothing is drawn. */
   .ide-render {
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: var(--ide-sunken);
+    background: var(--ide-bg);
   }
 
   .ide-render[hidden] {
     display: none;
-  }
-
-  .ide-render__size {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--ide-faint);
-    font: 400 0.72rem/1 var(--ide-mono);
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ide-render__stage {
@@ -1149,9 +1132,6 @@ const {
       display: block;
     }
 
-    .ide-tabs button[hidden] {
-      display: none;
-    }
   }
 </style>
 
@@ -1198,11 +1178,23 @@ const {
   }
 
   .ide .ide-dock > .ide-files,
-  .ide .ide-dock > .ide-output,
-  .ide .ide-dock > .ide-render {
+  .ide .ide-dock > .ide-output {
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;
+  }
+
+  /* The drawing size, at the right of the Render tab's group head. */
+  .ide .ide-render-size {
+    align-self: center;
+    padding: 0 0.6rem;
+    color: var(--ide-faint);
+    font: 400 0.72rem/1 var(--ide-mono);
+    white-space: nowrap;
+  }
+
+  .ide .ide-render-size:empty {
+    display: none;
   }
 
   .ide .ide-split {
@@ -1344,7 +1336,6 @@ const {
     .ide .ide-files,
     .ide .ide-group,
     .ide .ide-output,
-    .ide .ide-render,
     .ide .ide-editors > .ide-editor {
       grid-area: 1 / 1;
     }
@@ -1353,14 +1344,10 @@ const {
     .ide .ide-group:not([data-active]),
     .ide[data-pane='files'] .ide-group,
     .ide[data-pane='output'] .ide-group,
-    .ide[data-pane='render'] .ide-group,
     .ide[data-pane='files'] .ide-editors > .ide-editor,
     .ide[data-pane='output'] .ide-editors > .ide-editor,
-    .ide[data-pane='render'] .ide-editors > .ide-editor,
     .ide[data-pane='code'] .ide-output,
-    .ide[data-pane='files'] .ide-output,
-    .ide[data-pane='render'] .ide-output,
-    .ide:not([data-pane='render']) .ide-render {
+    .ide[data-pane='files'] .ide-output {
       display: none;
     }
 
