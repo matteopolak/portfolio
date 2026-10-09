@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
-import { createEngine, type Engine } from './engine.ts';
+import { createEngine, type Engine, type Host } from './engine.ts';
+import { StdinChannel } from './stdin-channel.ts';
 import { formatWithWasm, loadJaifmt } from './jaifmt-wasm.ts';
 import type {
   CanvasInputEvent,
@@ -28,10 +29,14 @@ let canvasHost: CanvasHost | undefined;
  * Without both, a program cannot draw: it then gets no host at all, so
  * `jai_webgpu_available` says no and it can print why instead of failing.
  */
-const canDraw = () =>
-  'gpu' in navigator &&
+const hasJspi = () =>
   typeof (WebAssembly as { Suspending?: unknown }).Suspending === 'function' &&
   typeof (WebAssembly as { promising?: unknown }).promising === 'function';
+const canDraw = () => 'gpu' in navigator && hasJspi();
+// The program's standard input: it waits here, suspended, for the terminal's next line.
+const stdin = new StdinChannel({
+  request: () => scope.postMessage({ type: 'stdin-request' }),
+});
 // Compiled once per worker; every format run gets a fresh instance.
 let jaifmt: WebAssembly.Module | undefined;
 let queue = Promise.resolve();
@@ -43,6 +48,7 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
   if (data.type === 'input') return canvasHost?.input(data.event);
   if (data.type === 'resize')
     return canvasHost?.resize(data.width, data.height);
+  if (data.type === 'stdin') return stdin.push(data.text);
   queue = queue.then(async () => {
     try {
       if (data.type === 'init') {
@@ -72,12 +78,13 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
           };
         }
         engine = await createEngine(await response.arrayBuffer(), {
-          host: canvasHost,
+          host: programHost(),
         });
         reply({
           type: 'init',
           capabilities: {
             languageServer: typeof engine.lsp === 'function',
+            io: engine.io,
             ...(canvas ? { canvas } : {}),
           },
         });
@@ -129,16 +136,15 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
         });
       } else {
         const files = { ...data.options.files, 'main.jai': data.source };
+        stdin.reset();
+        const { budget, args } = data.options;
         reply({
           type: 'run',
           id: data.id,
-          // A program may wait for the page (WebGPU, animation frames).
-          result:
-            canvasHost && engine.jspi
-              ? await engine.playAsync(files, 'main.jai', {
-                  budget: data.options.budget,
-                })
-              : engine.run(data.source, data.options),
+          // A program may wait for the page: input, WebGPU, animation frames.
+          result: engine.jspi
+            ? await engine.playAsync(files, 'main.jai', { budget, args })
+            : engine.run(data.source, data.options),
         });
       }
     } catch (error) {
@@ -150,6 +156,32 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
     }
   });
 };
+
+/*
+ * What programs may ask the page for: the canvas host's functions, standard
+ * input (where the module can be suspended to wait for it) and, since the
+ * module streams output while it waits, the terminal's output.
+ */
+function programHost(): Host {
+  const readStdin: Host['functions'][string] = (
+    [pointer, capacity],
+    memory
+  ) => {
+    const copy = (bytes: Uint8Array) => {
+      new Uint8Array(memory.buffer, Number(pointer), bytes.length).set(bytes);
+      return bytes.length;
+    };
+    const bytes = stdin.read(Number(capacity));
+    return bytes instanceof Promise ? bytes.then(copy) : copy(bytes);
+  };
+  return {
+    functions: {
+      ...canvasHost?.functions,
+      ...(hasJspi() ? { jai_stdin_read: readStdin } : {}),
+    },
+    output: (text, stream) => reply({ type: 'output', stream, text }),
+  };
+}
 
 /*
  * The bundle's webgpu_host.mjs and the bindings it imports, loaded from blob

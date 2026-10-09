@@ -42,7 +42,7 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 
 **Input.** Keys map to stdlib/Input `Key_Code` (named keys, `F1`=143.., printable keys as their upper-case character, Alt-composed characters by physical key); buttons 0/1/2 map to 1/169/170; wheel is in `WHEEL_DELTA` (120) units, positive up. While the canvas has focus, keys are `preventDefault`ed except Ctrl/Cmd shortcuts, function keys and Tab, so the page does not scroll but browser shortcuts and Run (Ctrl+Enter) still work. A run does not move focus to the canvas; clicking the canvas, the tab or the Render button does.
 
-**Output and budget.** Programs that wait stream output after every wait (`output` messages, stderr kept marked) through `CodeOutput.progress`; the final result replaces it. Stop keeps the streamed text. The interpreter budget (`BUDGET` in `workspace-ui.ts`) refills on every wait, so for drawing programs it is a per-frame budget.
+**Output and budget.** Programs that wait stream output after every wait (`output` messages, stderr kept marked) into the terminal ([Jai terminal](jai-terminal.md)); the final result adds only what was not streamed. Stop keeps the streamed text. The interpreter budget (`BUDGET` in `workspace-ui.ts`) refills on every wait, so for drawing programs it is a per-frame budget.
 
 ## How to change it
 

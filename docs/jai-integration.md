@@ -28,7 +28,7 @@ fresh. Astro navigation also disposes the session. Run uses a fixed
 200-million-block budget, so a runaway program fails with a runtime error instead of
 hanging; Stop also terminates the execution worker. The `jai_play_*` bridge returns
 program stdout/stderr in write order, rendered diagnostics, and `main`'s exit code;
-the output pane shows writes (stderr tinted), then diagnostics or `Exit code: N`.
+the output pane is a terminal ([Jai terminal](jai-terminal.md)): it shows writes (stderr in red), diagnostics, and `[exited with code N]` for a non-zero exit, and gives programs `argv` and standard input.
 The session opens with the compiler's language tour and runs it once when ready.
 `loadStarter` (`src/lib/jai/starter.ts`) fetches `/jai/<full-commit>/tour.json`
 (`{ schema_version: 1, main: "main.jai", files: [...] }`), then every listed file from

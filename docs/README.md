@@ -23,6 +23,7 @@
 | [BaerScript web playground](./baerscript-web-playground.md)                                         | How the sandboxed BaerScript interpreter is built, published, and executed           |
 | [Jai integration](./jai-integration.md)                                                            | Immutable compiler releases and the embedded browser workspace contract             |
 | [Jai Render tab](./jai-render-tab.md) | WebGPU programs in the Render editor tab: when it opens, canvas per worker, input mapping, surface events |
+| [Jai terminal](./jai-terminal.md) | The Jai output pane as an xterm.js terminal: mini shell, `run` arguments, stdin, history, re-run semantics |
 | [Jai editor language features](./jai-language-features.md)                                         | Inlay hints, semantic tokens, code actions, jailint lints and quick fixes, stdlib previews, links, rename, references and more in the Jai editor |
 | [Resume technical skills design](./superpowers/specs/2026-07-11-resume-technical-skills-design.md) | Design for the modernized technical skills section                                   |
 | [Resume technical skills plan](./superpowers/plans/2026-07-11-resume-technical-skills.md)          | Implementation plan for the technical skills refresh                                 |
