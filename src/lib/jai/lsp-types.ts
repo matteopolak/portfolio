@@ -237,12 +237,19 @@ export type WorkerRequest =
   /** Canvas events for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
   | { type: 'input'; id?: undefined; event: CanvasInputEvent }
   | { type: 'resize'; id?: undefined; width: number; height: number }
+  /** A line the terminal read for the program's standard input; `null` ends the input. */
+  | { type: 'stdin'; id?: undefined; text: string | null }
   | { type: 'lsp'; id: number; message: JsonRpcMessage }
   | {
       type: 'run';
       id: number;
       source: string;
-      options: { files: Record<string, string>; budget: number };
+      options: {
+        files: Record<string, string>;
+        budget: number;
+        /** The program's argv, its name first. */
+        args?: string[];
+      };
     }
   | {
       /** Runs `main` from a whole `/workspace` file map (the formatter driver). */
@@ -276,6 +283,8 @@ export type WorkerResponse =
       type: 'init';
       capabilities: {
         languageServer: boolean;
+        /** Whether programs get arguments and can read standard input. */
+        io: boolean;
         /**
          * Present when the page sent a canvas: whether programs can draw on
          * it (the bundle has a WebGPU host), and whether that host reports
@@ -297,6 +306,8 @@ export type WorkerResponse =
     }
   | { type: 'lsp'; id: number; messages: JsonRpcMessage[]; error?: undefined }
   | { type: 'run'; id: number; result: RunOutput; error?: undefined }
+  /** The running program waits for a line of standard input. */
+  | { type: 'stdin-request'; id?: undefined; error?: undefined }
   /** Output a running program wrote so far (it waited for the page). */
   | {
       type: 'output';

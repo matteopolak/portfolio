@@ -1,4 +1,3 @@
-import { ansiNodes, hasAnsi } from '../ansi.ts';
 import {
   Annotation,
   EditorSelection,
@@ -9,7 +8,9 @@ import {
 } from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor, type Editor } from '../code-editor.ts';
-import { createCodeOutput } from '../code-output.ts';
+import { createRunSummary } from './run-summary.ts';
+import { Shell } from './terminal-shell.ts';
+import { createTerminal, type JaiTerminal } from './terminal.ts';
 import {
   isNarrow,
   NARROW_QUERY,
@@ -299,7 +300,7 @@ export async function createSession(
 ) {
   const find = <T extends HTMLElement = HTMLElement>(name: string) =>
     panel.querySelector<T>(`[data-code-${name}]`)!;
-  const output = createCodeOutput(panel);
+  const summary = createRunSummary(panel);
   const run = find<HTMLButtonElement>('run'),
     cancel = find<HTMLButtonElement>('cancel'),
     formatButton = panel.querySelector<HTMLButtonElement>('[data-code-format]'),
@@ -379,7 +380,73 @@ export async function createSession(
   let formatJob = 0;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const showError = (message: string) => output.write(message, 'error');
+  /*
+   * The output pane is a terminal (terminal.ts) with a mini shell on it
+   * (terminal-shell.ts). xterm loads while the compiler boots; errors that
+   * arrive before it is up wait in `early`.
+   */
+  const plainOutput = find('output');
+  const terminalHost = find('terminal');
+  plainOutput.hidden = true;
+  terminalHost.hidden = false;
+  let terminal: JaiTerminal | undefined;
+  let shell: Shell | undefined;
+  const early: string[] = [];
+  // What stops the run being killed: an edit (another run follows), Stop, or Ctrl+C.
+  let stopCause: 'edit' | 'stop' | 'interrupt' = 'edit';
+  // The run was asked for (Run, Ctrl+Enter, a typed command), not started by an edit.
+  let explicit = false;
+  // The current run was asked for (see `explicit`).
+  let runAsked = false;
+  // Whether the compiler build passes arguments and standard input to programs.
+  let programIo = true;
+  const showError = (message: string) =>
+    shell ? shell.error(message) : early.push(message);
+  const terminalReady = createTerminal(terminalHost, signal).then((created) => {
+    terminal = created;
+    let storage: Storage | undefined;
+    try {
+      storage = localStorage;
+    } catch {
+      /* Blocked storage: the history lasts for this page. */
+    }
+    const made = new Shell(
+      created,
+      {
+        run: () => {
+          explicit = true;
+          showPane(panel, 'output');
+          void runner.play();
+        },
+        interrupt: () => {
+          stopCause = 'interrupt';
+          runner.pause();
+        },
+        input: (text) => {
+          if (execution) post(execution, { type: 'stdin', text });
+        },
+      },
+      {
+        storage,
+        key: `jai-terminal-history:${panel.dataset.codeLanguage ?? 'jai'}`,
+      }
+    );
+    shell = made;
+    created.onData((data) => made.data(data));
+    for (const message of early.splice(0)) made.error(message);
+    made.prompt();
+  });
+  // Surfaces when the session awaits it; an aborted session needs no report.
+  terminalReady.catch(() => {});
+  panel.addEventListener(
+    'code-output-clear',
+    (event) => {
+      event.preventDefault();
+      shell?.clearScreen();
+      summary.clear();
+    },
+    { signal }
+  );
   // Function declarations below are hoisted; the runner only calls them later.
   const runner: AutoRunner = createAutoRunner(execute, cancelExecution);
 
@@ -2467,24 +2534,20 @@ export async function createSession(
       worker.postMessage(init, offscreen ? [offscreen] : []);
     });
   }
-  // Program writes in order, stderr marked.
-  const outputNodes = (chunks: NonNullable<RunOutput['output']>): Node[] =>
-    chunks
-      .filter((chunk) => chunk.text)
-      .map((chunk) => {
-        const span = document.createElement('span');
-        // Colour codes the program printed are drawn; uncoloured stderr stays marked.
-        if (hasAnsi(chunk.text)) {
-          span.append(...ansiNodes(chunk.text));
-          span.dataset.ansi = '';
-        } else span.textContent = chunk.text;
-        if (chunk.stream === 'stderr') span.dataset.stream = 'stderr';
-        return span;
-      });
-  // Program output, then diagnostics or the exit code.
+  /** Characters of each stream already on the screen (the worker streams output while it waits). */
+  let shown = { stdout: 0, stderr: 0 };
+  const showOutput = (stream: 'stdout' | 'stderr', text: string) => {
+    shell?.output(stream, text);
+    summary.unread();
+  };
+  // What the run wrote after it last waited, then diagnostics; the shell adds the exit note.
   function showResult(result: RunOutput) {
-    const nodes: (string | Node)[] = outputNodes(result.output ?? []);
-    const written = nodes.map((node) => (node as Node).textContent).join('');
+    const seen = { ...shown };
+    for (const chunk of result.output ?? []) {
+      const skip = Math.min(seen[chunk.stream], chunk.text.length);
+      seen[chunk.stream] -= skip;
+      showOutput(chunk.stream, chunk.text.slice(skip));
+    }
     const failed = result.exitCode === null;
     const errors: string[] = [];
     if (result.rendered) errors.push(result.rendered.trimEnd());
@@ -2495,26 +2558,19 @@ export async function createSession(
             ? `${d.file}:${d.line}:${d.column}: ${d.severity}: ${d.message}`
             : `${d.severity}: ${d.message}`
         );
-    if (written && !written.endsWith('\n')) nodes.push('\n');
     if (errors.length) {
       const text = errors.join('\n') + '\n';
       // The compiler colours its own errors (styled bundles); plain ones show in the error colour.
-      if (hasAnsi(text)) {
-        const span = document.createElement('span');
-        span.dataset.ansi = '';
-        span.append(...ansiNodes(text));
-        nodes.push(span);
-      } else nodes.push(text);
+      shell?.endLine();
+      showOutput(text.includes('\x1b[') ? 'stdout' : 'stderr', text);
     }
     // Compile and runtime failures carry no exit code; the summary says Failed.
-    if (!failed) {
-      const exit = document.createElement('span');
-      exit.className = 'ide-output__exit';
-      exit.textContent = `Exit code: ${result.exitCode}`;
-      nodes.push(exit);
-    } else if (!errors.length)
-      nodes.push('The program failed without diagnostics.');
-    output.write(nodes, failed ? 'error' : 'stdout');
+    if (failed && !errors.length) {
+      shell?.endLine();
+      showOutput('stderr', 'The program failed without diagnostics.\n');
+    }
+    summary.finish(failed ? ['Failed'] : []);
+    shell?.finish(result.exitCode);
   }
   function idle() {
     running = false;
@@ -2522,20 +2578,23 @@ export async function createSession(
     run.hidden = false;
     cancel.hidden = true;
   }
-  /** What the running program has written so far, when it waits for the page. */
-  let streamed: NonNullable<RunOutput['output']> = [];
   function connect(worker: Worker) {
     execution = worker;
     worker.addEventListener(
       'message',
       ({ data }: MessageEvent<WorkerResponse>) => {
         if (signal.aborted || worker !== execution) return;
-        // A program that waits for the page (a frame loop) shows its output as it runs.
+        // A program that waits (for input, the page, a frame) shows its output as it runs.
         if (data.type === 'output' && running) {
-          const last = streamed.at(-1);
-          if (last?.stream === data.stream) last.text += data.text;
-          else streamed.push({ stream: data.stream, text: data.text });
-          output.progress(outputNodes(streamed));
+          shown[data.stream] += data.text.length;
+          showOutput(data.stream, data.text);
+          return;
+        }
+        if (data.type === 'stdin-request') {
+          if (!running) return;
+          shell?.requestInput();
+          // Only a run asked for may take the keyboard; an edit's re-run leaves the cursor in the editor.
+          if (runAsked) terminal?.focus();
           return;
         }
         if (data.type === 'surface') {
@@ -2543,8 +2602,11 @@ export async function createSession(
           return;
         }
         if (data.type !== 'run' || data.id !== job) return;
-        if (data.error !== undefined) output.write(data.error, 'error');
-        else showResult(data.result);
+        if (data.error !== undefined) {
+          showError(data.error);
+          summary.finish(['Failed']);
+          shell?.finish(null);
+        } else showResult(data.result);
         render?.ended();
         idle();
       }
@@ -2552,6 +2614,8 @@ export async function createSession(
     worker.addEventListener('error', (event) => {
       if (worker !== execution || signal.aborted) return;
       showError(event.message || 'Execution failed');
+      summary.finish(['Failed']);
+      shell?.finish(null);
       terminate(worker);
       execution = undefined;
       render?.stopped();
@@ -2566,10 +2630,14 @@ export async function createSession(
     if (signal.aborted) return;
     const id = ++job;
     running = true;
+    shown = { stdout: 0, stderr: 0 };
+    runAsked = explicit;
+    explicit = false;
+    shell?.beginRun(shell.lastArgs);
+    summary.start();
     run.disabled = true;
     run.hidden = true;
     cancel.hidden = false;
-    output.start();
     try {
       const snapshot = workspace.snapshot();
       if (!execution) {
@@ -2586,16 +2654,23 @@ export async function createSession(
           return;
         }
         render?.attach(worker, capabilities);
+        programIo = capabilities.io;
         connect(worker);
       }
       if (!execution) return;
-      streamed = [];
+      const args = shell?.lastArgs ?? [];
+      if (!programIo && args.length)
+        shell?.note('This compiler build does not pass arguments to programs.');
       render?.started([snapshot.source, ...Object.values(snapshot.files)]);
       post(execution, {
         type: 'run',
         id,
         source: snapshot.source,
-        options: { files: snapshot.files, budget: BUDGET },
+        options: {
+          files: snapshot.files,
+          budget: BUDGET,
+          args: ['main', ...args],
+        },
       });
     } catch (error) {
       if (id !== job || signal.aborted) return;
@@ -2607,19 +2682,17 @@ export async function createSession(
     ++job;
     pendingExecution?.abort();
     pendingExecution = undefined;
+    const cause = stopCause;
+    stopCause = 'edit';
     if (!running) return;
     terminate(execution);
     execution = undefined;
     render?.stopped();
-    if (streamed.length) {
-      // A program stopped mid-animation keeps what it printed so far.
-      const nodes: (string | Node)[] = outputNodes(streamed);
-      if (!streamed.at(-1)!.text.endsWith('\n')) nodes.push('\n');
-      const stopped = document.createElement('span');
-      stopped.className = 'ide-output__exit';
-      stopped.textContent = 'Stopped';
-      output.write([...nodes, stopped], 'stdout', ['Stopped']);
-    } else output.write('Stopped', 'error');
+    // A program stopped mid-run keeps what it printed. An edit starts the next run at once.
+    shell?.abandonInput();
+    shell?.stopped(cause);
+    if (cause === 'edit') summary.clear();
+    else summary.finish(['Stopped']);
     idle();
   }
   /*
@@ -2849,12 +2922,20 @@ export async function createSession(
   run.addEventListener(
     'click',
     () => {
+      explicit = true;
       showPane(panel, 'output');
       void runner.play();
     },
     { signal }
   );
-  cancel.addEventListener('click', () => runner.pause(), { signal });
+  cancel.addEventListener(
+    'click',
+    () => {
+      stopCause = 'stop';
+      runner.pause();
+    },
+    { signal }
+  );
   panel.addEventListener(
     'keydown',
     (event) => {
@@ -2911,7 +2992,9 @@ export async function createSession(
       template.style.flex = '';
       layout?.editors.replaceChildren(template);
       find('files').replaceChildren();
-      output.clear();
+      summary.clear();
+      plainOutput.hidden = false;
+      terminalHost.hidden = true;
       nav.clear();
       clearTimeout(traversing);
       preview = undefined;
@@ -3036,6 +3119,7 @@ export async function createSession(
         g.editor.view.dispatch({ effects: refreshLanguage.of(null) });
   }
   await driverLoaded;
+  await terminalReady;
   if (signal.aborted) throw abortError();
   ready = true;
   idle();

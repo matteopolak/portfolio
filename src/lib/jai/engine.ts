@@ -7,6 +7,8 @@ export interface RunOptions {
   files?: Record<string, string>;
   /** Interpreter budget in basic blocks, so a runaway program fails instead of hanging. */
   budget?: number;
+  /** The program's `argv`, its name first. Ignored by builds that cannot pass arguments. */
+  args?: string[];
 }
 
 export interface RunDiagnostic {
@@ -47,10 +49,12 @@ export interface Host {
 export interface Engine {
   /** Whether programs can wait for the page (JSPI); needed by `playAsync`. */
   jspi: boolean;
+  /** Whether the build passes `args` to programs and asks the host for `jai_stdin_read`. */
+  io: boolean;
   playAsync(
     files: Record<string, string>,
     main: string,
-    options?: Pick<RunOptions, 'budget'>
+    options?: Pick<RunOptions, 'budget' | 'args'>
   ): Promise<RunOutput>;
   lsp?: (message: JsonRpcMessage) => JsonRpcMessage[];
   /** Runs `main.jai` from `source` plus `options.files`. */
@@ -59,7 +63,7 @@ export interface Engine {
   play(
     files: Record<string, string>,
     main: string,
-    options?: Pick<RunOptions, 'budget'>
+    options?: Pick<RunOptions, 'budget' | 'args'>
   ): RunOutput;
 }
 
@@ -214,6 +218,8 @@ export async function createEngine(
   const api = Object.fromEntries(required.map((name) => [name, fn(name)])) as {
     [K in (typeof required)[number]]: Export;
   };
+  // Builds from before programs got arguments and input reject the channel.
+  const io = typeof exports.jai_play_accepts_arguments === 'function';
   const setBudget =
     typeof exports.jai_play_set_budget === 'function'
       ? (exports.jai_play_set_budget as Export)
@@ -305,23 +311,27 @@ export async function createEngine(
         }
       : {}),
     jspi,
+    io,
     async playAsync(files, main, options = {}) {
       prepare(files, main, options);
       const run = jspi ? wasm.promising!(api.jai_play_run) : null;
       check(run ? await run() : api.jai_play_run());
       return JSON.parse(read('output')) as RunOutput;
     },
-    run(source, { files = {}, budget } = {}) {
+    run(source, { files = {}, budget, args } = {}) {
       if (typeof source !== 'string')
         throw new TypeError('Source must be text.');
-      return play({ ...files, 'main.jai': source }, 'main.jai', { budget });
+      return play({ ...files, 'main.jai': source }, 'main.jai', {
+        budget,
+        args,
+      });
     },
     play,
   };
   function play(
     files: Record<string, string>,
     main: string,
-    options: Pick<RunOptions, 'budget'> = {}
+    options: Pick<RunOptions, 'budget' | 'args'> = {}
   ): RunOutput {
     prepare(files, main, options);
     check(api.jai_play_run());
@@ -330,7 +340,7 @@ export async function createEngine(
   function prepare(
     files: Record<string, string>,
     main: string,
-    { budget }: Pick<RunOptions, 'budget'> = {}
+    { budget, args }: Pick<RunOptions, 'budget' | 'args'> = {}
   ) {
     if (typeof main !== 'string' || !files || typeof files !== 'object')
       throw new TypeError('Play needs a file map and a main path.');
@@ -353,5 +363,12 @@ export async function createEngine(
       check(api.jai_play_finish_file());
     }
     push(2, main);
+    // Each argument ends with a NUL byte (none pushed passes no `argv`).
+    if (io && args)
+      for (const arg of args) {
+        if (arg.includes('\0'))
+          throw new TypeError('An argument cannot contain a NUL character.');
+        push(3, arg + '\0');
+      }
   }
 }

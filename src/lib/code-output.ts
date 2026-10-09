@@ -25,6 +25,13 @@ const formatDuration = (milliseconds: number) =>
 
 /** Empties a workspace's output pane and its run summary. */
 export function clearOutput(panel: HTMLElement) {
+  // A workspace with its own output view (the Jai terminal) clears that instead.
+  if (
+    !panel.dispatchEvent(
+      new CustomEvent('code-output-clear', { cancelable: true })
+    )
+  )
+    return;
   const output = panel.querySelector<HTMLElement>('[data-code-output]');
   if (output) {
     output.textContent = '';

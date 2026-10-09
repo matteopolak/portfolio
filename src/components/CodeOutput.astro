@@ -10,6 +10,8 @@
     </button>
   </div>
   <pre data-code-output data-empty="Run the program to see its output." aria-label="Program output" aria-live="polite" tabindex="0"></pre>
+  <!-- The Jai playground shows an xterm.js terminal here instead of the pre (src/lib/jai/terminal.ts). -->
+  <div class="ide-terminal" data-code-terminal role="group" aria-label="Program terminal" hidden></div>
 </section>
 
 <style>
@@ -72,8 +74,38 @@
     transform: rotate(180deg);
   }
 
-  :global(.ide[data-output-collapsed='true']) pre {
+  :global(.ide[data-output-collapsed='true']) :is(pre, .ide-terminal) {
     display: none;
+  }
+
+  .ide-terminal {
+    flex: 1;
+    min-height: 0;
+    padding: 0.25rem 0 0.25rem 1rem;
+    overflow: hidden;
+    background: var(--ide-sunken);
+  }
+
+  .ide-terminal[hidden] {
+    display: none;
+  }
+
+  /* xterm paints its own background and scrolls its own viewport. */
+  .ide-terminal :global(.xterm) {
+    height: 100%;
+  }
+
+  .ide-terminal :global(.xterm-viewport) {
+    background-color: var(--ide-sunken) !important;
+    overscroll-behavior: contain;
+  }
+
+  .ide-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+    width: 0.6rem;
+  }
+
+  .ide-terminal :global(.xterm-viewport::-webkit-scrollbar-thumb) {
+    background: var(--ide-rule);
   }
 
   pre {
