@@ -6,6 +6,9 @@
  */
 import type { ITheme, Terminal } from '@xterm/xterm';
 import type { FitAddon } from '@xterm/addon-fit';
+// A static import: Astro bundles it into the page's CSS. A dynamic one left a preload for a
+// stylesheet the build never wrote (`Unable to preload CSS for /_astro/xterm.*.css`).
+import '@xterm/xterm/css/xterm.css';
 import { advanceColumn, type EditorHost } from './shell.ts';
 import type { ShellIO } from './terminal-shell.ts';
 
@@ -77,7 +80,6 @@ export async function createTerminal(
   const [{ Terminal }, { FitAddon }] = await Promise.all([
     import('@xterm/xterm'),
     import('@xterm/addon-fit'),
-    import('@xterm/xterm/css/xterm.css'),
   ]);
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   const term: Terminal = new Terminal({
