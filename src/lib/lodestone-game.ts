@@ -175,8 +175,10 @@ class LodestoneGameElement extends HTMLElement {
             #fffdf7;
         }
         :host([mode='modal']) .shell {
+          width: 100%;
           height: 100%;
           min-height: 0;
+          aspect-ratio: auto;
           border: 0;
           border-left: 0;
         }
