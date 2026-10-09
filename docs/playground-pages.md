@@ -2,7 +2,7 @@
 
 ## What it is
 
-`/playground/jai`, `/playground/quasi` and `/playground/baerscript` show the same code workspace as the Projects-page modals, filling the whole viewport: the editor, the file tree (Jai only) and the output pane. `/playground` lists all three. Each page has its own title, description and OpenGraph/Twitter tags, so a shared link previews well.
+`/playground/jai`, `/playground/quasi` and `/playground/baerscript` show the same code workspace as the Projects-page modals, filling the whole viewport: the editor, the file tree (Jai only) and the output pane. `/playground/minecraft` fills the viewport with the Lodestone game. Every project with a "Try in browser" button has a route, named after its project slug. `/playground` lists all four. Each page has its own title, description and OpenGraph/Twitter tags, so a shared link previews well.
 
 ## How it works
 
@@ -19,6 +19,8 @@
 - **Deep link.** `/playground/jai#lib/math.jai` opens that workspace file: the page sets `data-code-open` on the workspace, and `createSession` selects that file if it exists. Quasi and BaerScript have a single file and ignore the hash. After that the hash follows the file on screen: the jai navigation history pushes a browser entry per navigation, so the browser's Back and Forward move between files and definition jumps (see [Navigation history](code-workspace.md#navigation-history)).
 - **Phones.** The workspace's narrow layout (below `42rem`) applies unchanged: the header, the Code/Output (and Files) tab bar, and no horizontal scroll at 375 px.
 
+- **Lodestone page.** `src/pages/playground/minecraft.astro` is a static page (not part of `[language]`, since it has no code workspace). It creates the same `<lodestone-game mode="modal">` element the Projects modal uses and starts it on load, driving `ProjectDemoLoading` through `watchDemoLoading`. The element fills a `100dvh` host and resizes with it. Two icon buttons sit top-right: back to `/projects#minecraft` and full screen (hidden on the error state). The game is removed on `pagehide`. Its metadata is `lodestoneDemoPage` in `src/data/code-demos.ts`; `playgroundPages` combines it with `codeDemoPages` for the index, the sitemap and the card links.
+
 ## How to change it
 
 - **Copy and metadata:** `src/data/code-demos.ts`. Titles become `<title>` and `og:title` (with the site name appended) through `Head.astro`.
@@ -28,10 +30,10 @@
 
 ## Configuration
 
-None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jai`, `/playground/quasi` and `/playground/baerscript`. All four are in `sitemap.xml`. The Jai page uses the release in `jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
+None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jai`, `/playground/quasi`, `/playground/baerscript` and `/playground/minecraft`. All five are in `sitemap.xml`. The Lodestone page needs the SDK synced into `public/lodestone/` (`pnpm sync:web-assets`) and WebGPU in the browser. The Jai page uses the release in `jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
 
 ## Dependencies
 
-- The demo runtimes: [Jai](jai-integration.md), [Quasi](quasi-web-playground.md) and [BaerScript](baerscript-web-playground.md).
+- The demo runtimes: [Jai](jai-integration.md), [Quasi](quasi-web-playground.md), [BaerScript](baerscript-web-playground.md) and [Lodestone](lodestone-web-embed.md).
 - The [shared code workspace](code-workspace.md) and [demo loading surface](project-demo-modals.md).
 - COOP/COEP headers from `public/_headers` (all routes) for the module workers.

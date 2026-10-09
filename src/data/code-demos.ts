@@ -86,3 +86,25 @@ export const codeDemoPages: CodeDemoPage[] = [
     },
   },
 ];
+
+/** The Lodestone (Minecraft) game: a `/playground/minecraft` page with no code workspace. */
+export const lodestoneDemoPage = {
+  id: 'minecraft',
+  slug: 'minecraft',
+  path: '/playground/minecraft',
+  title: 'Lodestone playground',
+  description:
+    'Play Lodestone, a Minecraft-compatible game engine written in Rust, in your browser through WebAssembly and WebGPU.',
+  summary:
+    'A Minecraft-compatible engine written in Rust, running on WebGPU in the browser.',
+};
+
+/** Every full-page playground, in the order the /playground index lists them. */
+export const playgroundPages: {
+  id: string;
+  slug: string;
+  path: string;
+  title: string;
+  description: string;
+  summary: string;
+}[] = [lodestoneDemoPage, ...codeDemoPages];
