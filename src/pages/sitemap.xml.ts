@@ -1,6 +1,6 @@
 import { getCollection } from 'astro:content';
 import type { APIRoute } from 'astro';
-import { codeDemoPages } from '../data/code-demos';
+import { playgroundPages } from '../data/code-demos';
 
 export const prerender = true;
 
@@ -38,7 +38,7 @@ export const GET: APIRoute = async ({ site }) => {
     { pathname: '/projects' },
     { pathname: '/blog' },
     { pathname: '/playground' },
-    ...codeDemoPages.map(({ path }) => ({ pathname: path })),
+    ...playgroundPages.map(({ path }) => ({ pathname: path })),
     ...posts.map((post) => ({
       pathname: `/blog/${slug(post.id)}`,
       lastModified: post.data.date,

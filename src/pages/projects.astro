@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
 import CodeDemoModal from '../components/CodeDemoModal.astro';
-import { codeDemoPages } from '../data/code-demos';
+import { codeDemoPages, playgroundPages } from '../data/code-demos';
 import { jobs } from '../lib/config';
 import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
 import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
@@ -139,7 +139,7 @@ let eventIndex = 0;
               {item.kind === 'project' ? (
                 <ProjectCard
                   project={item.project}
-                  playground={codeDemoPages.find((demo) => demo.slug === item.project.id)?.path}
+                  playground={playgroundPages.find((demo) => demo.slug === item.project.id)?.path}
                   action={
                     item.project.id === 'minecraft'
                       ? { id: 'play-minecraft', label: 'Try in browser' }

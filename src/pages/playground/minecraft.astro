@@ -1,0 +1,138 @@
+---
+import PlaygroundLayout from '../../layouts/PlaygroundLayout.astro';
+import ProjectDemoLoading from '../../components/ProjectDemoLoading.astro';
+import { lodestoneDemoPage as demo } from '../../data/code-demos';
+---
+
+<PlaygroundLayout title={demo.title} description={demo.description}>
+  <main class="playground" data-playground-page={demo.id} data-demo-state="loading">
+    <h1 class="playground__title">{demo.title}</h1>
+    <div class="playground__actions">
+      <a href={`/projects#${demo.slug}`} data-astro-reload aria-label="Back to projects" title="Back to projects">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 12H5m6-6-6 6 6 6"></path>
+        </svg>
+      </a>
+      <button type="button" data-playground-fullscreen aria-label="Enter full screen" title="Full screen">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="playground__game" data-playground-game></div>
+    <ProjectDemoLoading seed="minecraft" />
+  </main>
+</PlaygroundLayout>
+
+<script>
+  import '../../lib/lodestone-game';
+  import { setDemoLoading, watchDemoLoading } from '../../lib/code-demos';
+
+  interface LodestoneGameElement extends HTMLElement {
+    start(): Promise<void>;
+    focusGame(): void;
+    enterFullscreen(): Promise<void>;
+  }
+
+  const root = document.querySelector<HTMLElement>('[data-playground-page="minecraft"]');
+  const host = root?.querySelector<HTMLElement>('[data-playground-game]');
+  if (root && host) {
+    const controller = new AbortController();
+    const { signal } = controller;
+    const game = document.createElement('lodestone-game') as LodestoneGameElement;
+    game.setAttribute('mode', 'modal');
+    watchDemoLoading(root, signal);
+    setDemoLoading(root, 0, 'Loading demo…');
+    host.replaceChildren(game);
+    game.focusGame();
+    void game.start();
+
+    root.querySelector('[data-playground-fullscreen]')?.addEventListener('click', () => void game.enterFullscreen(), {
+      signal,
+    });
+    // Tear the game down with the page so its audio and workers cannot outlive it.
+    window.addEventListener(
+      'pagehide',
+      (event) => {
+        if (event.persisted) return;
+        controller.abort();
+        host.replaceChildren();
+      },
+      { once: true }
+    );
+  }
+</script>
+
+<style>
+  .playground {
+    position: relative;
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background: #0a0a12;
+  }
+
+  .playground__game {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .playground__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .playground__actions {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 4;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .playground__actions a,
+  .playground__actions button {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    place-items: center;
+    border: 1px solid oklch(100% 0 0 / 0.2);
+    color: white;
+    background: oklch(9% 0 0 / 0.78);
+    backdrop-filter: blur(0.45rem);
+    cursor: pointer;
+  }
+
+  .playground__actions svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: square;
+    stroke-width: 2;
+  }
+
+  .playground__actions a:hover,
+  .playground__actions button:hover {
+    background: var(--blue);
+  }
+
+  .playground__actions a:focus-visible,
+  .playground__actions button:focus-visible {
+    outline: 3px solid var(--yellow);
+    outline-offset: 2px;
+  }
+
+  [data-playground-page][data-demo-state='error'] [data-playground-fullscreen] {
+    display: none;
+  }
+</style>
