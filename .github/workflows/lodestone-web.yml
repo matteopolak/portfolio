@@ -46,6 +46,10 @@ jobs:
           path: .build/lodestone
           token: ${{ secrets.LODESTONE_REPOSITORY_TOKEN || github.token }}
 
+      - name: read minecraft version
+        id: mc
+        run: echo "version=$(tr -d '[:space:]' < .build/lodestone/mc-version)" >> "$GITHUB_OUTPUT"
+
       - name: install rust and the webassembly target
         uses: dtolnay/rust-toolchain@master
         with:
@@ -57,7 +61,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: .build/lodestone -> target
-          cache-directories: .build/lodestone/.cache/mc/26.2
+          cache-directories: .build/lodestone/.cache/mc/${{ steps.mc.outputs.version }}
 
       - name: install java
         uses: actions/setup-java@v5
@@ -79,10 +83,12 @@ jobs:
 
       - name: fetch browser assets and generated reports
         working-directory: .build/lodestone
+        env:
+          MC_VERSION: ${{ steps.mc.outputs.version }}
         run: |
-          cargo run --release -p xtask -- fetch-assets --version 26.2
-          cargo run --release -p xtask -- fetch-version --version 26.2
-          cd .cache/mc/26.2
+          cargo run --release -p xtask -- fetch-assets --version "$MC_VERSION"
+          cargo run --release -p xtask -- fetch-version --version "$MC_VERSION"
+          cd ".cache/mc/$MC_VERSION"
           java -DbundlerMainClass=net.minecraft.data.Main -jar server.jar --reports
 
       - name: build canonical browser sdk
