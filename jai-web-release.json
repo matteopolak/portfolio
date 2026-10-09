@@ -1,10 +1,10 @@
 {
   "enabled": true,
   "repository": "matteopolak/portfolio",
-  "revision": "eccb0721a0aa3153d36ddde1b46eb4051bffb3d0",
-  "tag": "jai-web-eccb0721a0aa3153d36ddde1b46eb4051bffb3d0",
+  "revision": "1b157546833f65fdbdbda8cc6fcdddef3c313202",
+  "tag": "jai-web-1b157546833f65fdbdbda8cc6fcdddef3c313202",
   "manifestAsset": "jai-playground.manifest.json",
-  "manifestSha256": "f36da4137dba208c0fee09c14aa547e7d94d006a9f1180cfe8a61ad6af6dae4d",
+  "manifestSha256": "109832a39cbafa589b996dfd3d954795cace5ceb4272c19eb96870705c2b00e2",
   "bundleAsset": "jai-playground.zip",
-  "sha256": "05e440077de74e9615982e1f2105f5cad757f8bf559a5dc3c5257a5b23bbb239"
+  "sha256": "4b2dcaa055fef1be26f7f8d81f362be263eff1a5ab088c72481fddbda1b15351"
 }
