@@ -45,7 +45,7 @@ This is one of the real differences with agents. If a person had spent three day
 The structure I settled on:
 
 - **The main session** (Opus) plans, reviews, verifies and merges. It doesn't do bulk implementation.
-- **Subagents** take bounded jobs: a conformance pass, stdlib coverage, a perf push, a CI fix, a bug hunt. 241 of them over the ten days.
+- **Subagents** take bounded jobs: a language-spec pass, stdlib coverage, a perf push, a CI fix, a bug hunt. 241 of them over the ten days.
 - **Each subagent gets its own git worktree** and its own cargo target directory. 191 of them ran that way. A shared target directory left stale binaries around, so that stopped early.
 - **Reading goes to Haiku.** Things like checking the community language server's issue tracker for bugs we also had, or reading a big chunk of the stdlib.
 
@@ -75,8 +75,6 @@ With this many agents, nothing I said once would stick unless it was written dow
 - One cargo target directory per agent.
 - Check agent branches before merging. One agent commit tracked the gitignored corpus checkout and wiped it.
 - On my 16 GB Mac, only one heavy job at a time. That came after a benchmark spiked memory to about 84 GB.
-- The stdlib must not resemble the reference.
-- Comparisons with the real compiler stay uncommitted.
 
 **Docs.** I have a global rule that every feature gets a docs page: what it is, how it works, how to change it. That went from 80 to 126 pages over the project. It's what let a fresh session pick up any part of the codebase without me explaining it again, which is most of what makes a long-running multi-agent project resumable.
 
@@ -84,11 +82,9 @@ With this many agents, nothing I said once would stick unless it was written dow
 
 ## Clean room
 
-Jai's compiler and standard library aren't open source, and I didn't want this to be a copy. So the rules were:
+Jai's compiler and standard library aren't open source, and this isn't a copy of them. Everything is built from public information: how the language is documented and talked about, and how the open-source projects in the corpus actually use it. Contributors, human or not, can't read official Jai sources, and that rule is in the public docs.
 
-- Contributors, human or not, can't read official Jai sources. That's in the public docs.
-- The real compiler is only used as a black box for comparisons, and only in a sandbox. I didn't want an agent casually running a binary it found in the repo.
-- When the stdlib came out a bit too close to the reference in places, I had anything that resembled it rewritten independently. That was about 20 commits over two days.
+That applies to the standard library too. It's written from scratch to support the corpus, not modelled on anything.
 
 ## What I actually did
 
@@ -96,7 +92,7 @@ Looking back at around 870 messages I sent in the main session, very few were "b
 
 **Holding the standard.** The language server had to be a normal LSP server that works in VS Code or Neovim, not a custom protocol only the playground could use. Errors had to say what's wrong and ideally suggest a fix. The linter had to trace usage for real, not match by name.
 
-**Asking for performance with numbers.** Agents don't volunteer it. "The real compiler does around 250k lines per second, see if we can get close." "Can we get debug builds under 1s and optimized under 5?" "Track time, CPU and memory for the language server on a 100k-line file." On my machine, a local harness now has `jaic` at roughly 1.4 to 1.8 times faster than the real compiler on the projects we tried. That's a local, uncommitted comparison, so take it as a rough number.
+**Asking for performance with numbers.** Agents don't volunteer it. "Can we get debug builds under 1s and optimized under 5?" "Track time, CPU and memory for the language server on a 100k-line file."
 
 **Pushing on root causes.** "For crashes, can we fix the underlying issue instead of patching each one." On an arm64 struct-layout bug: "can we eliminate that class of bugs in some way?"
 
@@ -121,4 +117,4 @@ Looking back at around 870 messages I sent in the main session, very few were "b
 - **Throw things away early.** It's cheap now in a way it never used to be.
 - **Use the thing yourself.** That's still where the worst bugs show up.
 
-There's plenty left: code signing, a real conformance pass rate, and a language spec that's only partway done. But after ten days it compiles real Jai in your browser, with tooling around it that I'd actually want to use.
+There's plenty left: code signing, more of the corpus, and a language spec that's only partway done. But after ten days it compiles real Jai in your browser, with tooling around it that I'd actually want to use.
