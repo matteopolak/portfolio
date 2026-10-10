@@ -1,7 +1,8 @@
 import rss from '@astrojs/rss';
-import { getCollection } from 'astro:content';
 import type { APIRoute } from 'astro';
 import config from '../lib/config';
+import { feedTitle } from '../data/pages';
+import { getPosts } from '../lib/content';
 
 export const prerender = true;
 
@@ -12,20 +13,18 @@ export const GET: APIRoute = async ({ site }) => {
     );
   }
 
-  const posts = (await getCollection('blog'))
-    .filter((post) => post.data.published !== false)
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  const posts = await getPosts();
 
   return rss({
-    title: `${config.name} — Blog`,
+    title: feedTitle(config.name),
     description: config.description,
     site,
     items: posts.map((post) => ({
-      title: post.data.title,
-      description: post.data.description,
-      pubDate: post.data.date,
-      link: `/blog/${post.id.replace(/\.md$/, '')}`,
-      categories: post.data.tags,
+      title: post.title,
+      description: post.description,
+      pubDate: new Date(post.date),
+      link: post.path,
+      categories: post.tags,
     })),
     trailingSlash: false,
     customData: '<language>en-ca</language>',

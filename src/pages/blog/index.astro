@@ -1,20 +1,15 @@
 ---
-import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import { getPageMeta, getPosts } from '../../lib/content';
 
-const posts = (await getCollection('blog'))
-  .filter((post) => post.data.published !== false)
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-
-function slug(id: string) {
-  return id.replace(/\.md$/, '');
-}
+const posts = await getPosts();
+const meta = getPageMeta('/blog');
 ---
 
-<Layout title="Blog" description="Writing about systems, software, and things learned while building.">
+<Layout title={meta.title} description={meta.description}>
   <header class="page-intro">
     <span class="page-intro__index page-intro__index--blog" aria-hidden="true"></span>
-    <h1>Stuff I wrote</h1>
+    <h1>{meta.heading}</h1>
   </header>
   <ol class="editorial-list">
     {
@@ -27,24 +22,25 @@ function slug(id: string) {
             <h2 class="editorial-item__heading">
               <a
                 class="editorial-item__title"
-                href={`/blog/${slug(post.id)}`}
+                href={post.path}
                 data-astro-history="push"
               >
-                {post.data.title}
+                {post.title}
               </a>
             </h2>
-            {post.data.description && (
-              <p class="editorial-item__description">{post.data.description}</p>
+            {post.description && (
+              <p class="editorial-item__description">{post.description}</p>
             )}
           </div>
           <time
             class="editorial-item__aside"
-            datetime={post.data.date.toISOString()}
+            datetime={post.date}
           >
-            {post.data.date.toLocaleDateString('en-CA', {
+            {new Date(post.date).toLocaleDateString('en-CA', {
               year: 'numeric',
               month: 'short',
               day: '2-digit',
+              timeZone: 'UTC',
             })}
           </time>
         </li>

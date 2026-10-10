@@ -1,14 +1,17 @@
 ---
-import { jobs, formatDate } from '../lib/config';
-import { bold } from '../lib/bold';
+import { getProfile } from '../lib/content';
+import { sectionHeadings } from '../data/pages';
+import { boldHtml } from '../lib/bold';
 import CompanyLogo from './CompanyLogo.astro';
+
+const { experience } = getProfile();
 ---
 
 <section class="resume-section">
-  <h2 class="section-title">Experience</h2>
+  <h2 class="section-title">{sectionHeadings.experience}</h2>
   <div class="resume-list">
     {
-      jobs.map((job) => (
+      experience.map((job) => (
         <article class="resume-entry">
           <div class="resume-entry__heading">
             <div>
@@ -28,25 +31,17 @@ import CompanyLogo from './CompanyLogo.astro';
             <div class="resume-entry__aside">
               <div>{job.location}</div>
               <div>
-                <time datetime={job.start.toISOString().slice(0, 7)}>
-                  {formatDate(job.start)}
-                </time>{' '}
+                <time datetime={job.start}>{job.startLabel}</time>{' '}
                 —{' '}
-                {job.end ? (
-                  <time datetime={job.end.toISOString().slice(0, 7)}>
-                    {formatDate(job.end)}
-                  </time>
-                ) : (
-                  'Present'
-                )}
+                {job.end ? <time datetime={job.end}>{job.endLabel}</time> : 'Present'}
               </div>
             </div>
           </div>
-          {job.achievements.length > 0 && (
+          {job.bullets.length > 0 && (
             <ul>
-              {job.achievements.map((achievement) => (
+              {job.bullets.map((achievement) => (
                 <li>
-                  <Fragment set:html={bold(achievement)} />
+                  <Fragment set:html={boldHtml(achievement)} />
                 </li>
               ))}
             </ul>
