@@ -1,61 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { defaultTheme, nextTheme, type Theme } from '../../lib/themes';
   import {
-    defaultTheme,
-    nextTheme,
-    THEME_STORAGE_KEY,
-    themeById,
-    type Theme,
-  } from '../../lib/themes';
+    applyTheme,
+    chooseTheme,
+    currentTheme,
+    SITE_THEME_EVENT,
+  } from '../../lib/theme-client';
 
   let shuffling = $state(false);
   let theme = $state<Theme>(defaultTheme);
   let timer = 0;
 
-  const currentTheme = () => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(THEME_STORAGE_KEY);
-    } catch {
-      /* Blocked storage: the choice lasts for this page. */
-    }
-    return (
-      themeById(document.documentElement.dataset.siteTheme ?? saved) ??
-      defaultTheme
-    );
-  };
-
-  // The logo marks get their fill directly: an inherited registered colour that
-  // animates inside an SVG mask can drop paint, so the CSS variables are not used for them.
-  const paintMarks = (next: Theme) => {
-    next.accents.forEach((accent, index) => {
-      document
-        .querySelectorAll<SVGElement>(`.mark-${index + 1}`)
-        .forEach((element) => {
-          element.style.fill = accent.fill;
-        });
-    });
-  };
-
   const apply = (next: Theme) => {
-    const root = document.documentElement;
-    if (next === defaultTheme) delete root.dataset.siteTheme;
-    else root.dataset.siteTheme = next.id;
-    paintMarks(next);
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', next.paper);
+    applyTheme(next);
     theme = next;
   };
 
   const cycle = () => {
-    const next = nextTheme(theme.id);
-    apply(next);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next.id);
-    } catch {
-      /* Blocked storage: the choice lasts for this page. */
-    }
+    chooseTheme(nextTheme(theme.id));
 
     // Restart the CSS animation if it is already running.
     shuffling = false;
@@ -66,6 +29,11 @@
     });
   };
 
+  // Another caller (the WebMCP `set_theme` tool) changed the theme.
+  const follow = (event: Event) => {
+    theme = (event as CustomEvent<{ theme: Theme }>).detail.theme;
+  };
+
   // The island persists across ClientRouter navigations (transition:persist),
   // but the new page's logo marks are fresh DOM and need the theme again.
   const reapply = () => apply(currentTheme());
@@ -73,8 +41,10 @@
   onMount(() => {
     reapply();
     document.addEventListener('astro:page-load', reapply);
+    document.addEventListener(SITE_THEME_EVENT, follow);
     return () => {
       document.removeEventListener('astro:page-load', reapply);
+      document.removeEventListener(SITE_THEME_EVENT, follow);
       window.clearTimeout(timer);
     };
   });

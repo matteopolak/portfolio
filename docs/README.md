@@ -10,6 +10,7 @@
 | [favicon-pipeline.md](./favicon-pipeline.md)                                                       | Single-source SVG favicon generation and cache-safe asset delivery                    |
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
 | [theme-switching.md](./theme-switching.md) | Curated colour themes, nav theme button, persistence and contrast tests |
+| [webmcp.md](./webmcp.md) | WebMCP tools for browser agents, origin trial token and how to add a tool |
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |

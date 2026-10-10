@@ -1,10 +1,12 @@
 import './lodestone-game';
 import {
   codeDemos as codeDemoDefinitions,
+  runTargetFor,
   setDemoLoading,
   watchDemoLoading,
   wireFullscreen,
 } from './code-demos';
+import { registerRunTarget } from './run-target';
 import { closeAnimated, onDialogClosed, openDialog } from './dialog-lifecycle';
 
 type ProjectActionCallback = (
@@ -97,6 +99,10 @@ export function initializeProjectActions() {
     void game.start();
   });
 
+  let unregisterRunTarget: (() => void) | undefined;
+  signal.addEventListener('abort', () => unregisterRunTarget?.(), {
+    once: true,
+  });
   for (const demo of codeDemos) {
     registerProjectAction(demo.actionId, async (trigger) => {
       activeTrigger = trigger;
@@ -109,6 +115,10 @@ export function initializeProjectActions() {
       );
       document.documentElement.classList.add('has-project-demo');
       openDialog(demo.dialog);
+      // `run_code` (WebMCP) targets the open demo.
+      unregisterRunTarget?.();
+      const target = runTargetFor(demo.id, demo.playground);
+      unregisterRunTarget = target && registerRunTarget(target);
       demo.panel?.scrollTo(0, 0);
       try {
         await demo.playground.prepare();
@@ -141,6 +151,8 @@ export function initializeProjectActions() {
     onDialogClosed(
       demo.dialog,
       () => {
+        unregisterRunTarget?.();
+        unregisterRunTarget = undefined;
         demo.playground.destroy();
         releasePage();
         activeTrigger?.focus();

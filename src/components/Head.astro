@@ -108,6 +108,10 @@ const structuredData = {
 
 const serializedStructuredData = JSON.stringify(structuredData).replaceAll('<', '\\u003c');
 import { themeCss } from '../lib/themes';
+
+// WebMCP origin-trial token (docs/webmcp.md). Rendered only when the variable
+// is set at build time; nothing about the page changes without it.
+const originTrialToken = import.meta.env.PUBLIC_WEBMCP_ORIGIN_TRIAL_TOKEN?.trim();
 ---
 
 <meta charset="utf-8" />
@@ -123,6 +127,9 @@ import { themeCss } from '../lib/themes';
 <link rel="apple-touch-icon" sizes="180x180" href={appleTouchIconUrl} />
 <meta name="apple-mobile-web-app-title" content="Matthew Polak" />
 <meta name="theme-color" content="#fdf7e5" />
+{
+  originTrialToken && <meta http-equiv="origin-trial" content={originTrialToken} />
+}
 <style is:inline set:html={themeCss()}></style>
 <script is:inline>
   // Applies the saved theme before first paint and keeps it across client-side navigations.
@@ -175,3 +182,7 @@ import { themeCss } from '../lib/themes';
 }
 
 <script type="application/ld+json" set:html={serializedStructuredData} />
+
+<script>
+  import '../lib/webmcp/boot';
+</script>

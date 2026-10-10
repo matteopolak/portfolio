@@ -9,6 +9,4 @@ export default config;
 export const jobs = config.job.filter((j) => j.enabled !== false);
 export const projects = config.project.filter((p) => p.enabled !== false);
 
-export function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
-}
+export { formatDate } from './content/format';

@@ -1,6 +1,7 @@
 import { initializeBaerscriptPlayground } from './baerscript-playground';
 import { initializeQuasiPlayground } from './quasi-playground';
 import { initializeJaiPlayground } from './jai-playground';
+import type { RunFinished, RunRequest, RunTarget } from './run-target';
 
 /*
  * The code demos shared by the project modals (`project-actions.ts`) and the
@@ -12,6 +13,8 @@ export interface CodePlayground {
   prepare(): Promise<void>;
   isReady(): boolean;
   destroy(): void;
+  /** Loads code into the editor and runs it; used by the WebMCP `run_code` tool. */
+  runCode?(request: RunRequest, signal: AbortSignal): Promise<RunFinished>;
 }
 
 export type CodeDemoId = 'quasi' | 'baerscript' | 'jai';
@@ -29,6 +32,17 @@ export const codeDemos: {
   },
   { id: 'jai', actionId: 'try-jai', initialize: initializeJaiPlayground },
 ];
+
+/** The `run_code` target for a demo's playground, if its runtime can run on request. */
+export function runTargetFor(
+  id: CodeDemoId,
+  playground: CodePlayground
+): RunTarget | undefined {
+  const { runCode } = playground;
+  return runCode
+    ? { language: id, run: (request, signal) => runCode(request, signal) }
+    : undefined;
+}
 
 interface DemoProgressEvent extends CustomEvent {
   detail: { progress: number; message: string };
