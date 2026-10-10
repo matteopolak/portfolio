@@ -37,11 +37,10 @@ For the agents, one main session on Opus planned the work, reviewed it and merge
 
 The first version was a VM-based compiler split across a lot of crates. By Oct 3 it was around 330k lines of Rust and getting harder to change, so I had it restarted with a new core, `jaic`, that uses one AST for both the compiler and the language server. Hello world ran on it on Oct 4, and the old code was deleted the same day in two commits that removed about 666k lines.
 
-<AreaChart
+<LineChart
   src="vibecoding-jai/data/lines-by-component.json"
   title="Lines of Rust by component"
-  caption="Measured at the last commit of each day. The tall block on Oct 2 and 3 is the first version, deleted on Oct 4."
-  stacked
+  caption="Measured at the last commit of each day. The spike on Oct 2 and 3 is the first version, deleted on Oct 4."
   interactive
 />
 
