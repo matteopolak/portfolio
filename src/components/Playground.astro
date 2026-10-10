@@ -1,0 +1,145 @@
+---
+import {
+  codeDemoPages,
+  playgroundPages,
+  type PlaygroundName,
+} from '../data/code-demos';
+
+/**
+ * An inline playground for blog posts. It renders a placeholder card and runs
+ * nothing until the reader presses Start; see lib/playground-embed.ts and
+ * docs/blog-playground-embed.md.
+ */
+interface Props {
+  name: PlaygroundName;
+}
+
+const { name } = Astro.props;
+const page = playgroundPages.find(({ id }) => id === name);
+if (!page) throw new Error(`Unknown playground "${name}"`);
+const { id: _id, ...workspace } =
+  codeDemoPages.find(({ id }) => id === name)?.workspace ?? {};
+const title = page.title.replace(/ playground$/, '');
+---
+
+<div
+  class="playground-embed"
+  data-playground-embed={name}
+  data-playground-embed-props={JSON.stringify(workspace)}
+>
+  <section class="playground-embed__card" data-playground-embed-card aria-labelledby={`pe-${name}`}>
+    <p class="playground-embed__kind">Interactive playground</p>
+    <h3 class="playground-embed__title" id={`pe-${name}`}>{title}</h3>
+    <p class="playground-embed__summary">{page.summary}</p>
+    <div class="playground-embed__actions">
+      <button type="button" class="playground-embed__start" data-playground-embed-start>
+        Start {title}
+      </button>
+      <a href={page.path} data-astro-reload>Open full page</a>
+    </div>
+    <noscript><p class="playground-embed__summary">Running it needs JavaScript. <a href={page.path}>Open the full page</a>.</p></noscript>
+  </section>
+  <div class="playground-embed__stage" data-playground-embed-stage hidden></div>
+  <button type="button" class="playground-embed__fullscreen" data-playground-embed-fullscreen hidden>
+    Full screen
+  </button>
+</div>
+
+<script>
+  import { initializePlaygroundEmbeds } from '../lib/playground-embed';
+
+  document.addEventListener('astro:page-load', initializePlaygroundEmbeds);
+</script>
+
+<style>
+  .playground-embed {
+    position: relative;
+    margin: 2rem 0;
+    height: clamp(26rem, 70dvh, 40rem);
+    border: 1px solid var(--soft-rule);
+    color: var(--ink);
+    background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
+  }
+
+  .playground-embed__card {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border-left: 0.65rem solid var(--accent-2);
+  }
+
+  .playground-embed__kind {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .playground-embed__title {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .playground-embed__summary {
+    max-width: 34rem;
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .playground-embed__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .playground-embed__start {
+    padding: 0.6rem 1.1rem;
+    border: 0;
+    color: var(--accent-2-on);
+    background: var(--accent-2);
+    font: 700 0.95rem var(--font-sans);
+    cursor: pointer;
+  }
+
+  .playground-embed__start:disabled {
+    cursor: progress;
+    opacity: 0.7;
+  }
+
+  .playground-embed__start:focus-visible,
+  .playground-embed__fullscreen:focus-visible {
+    outline: 3px solid var(--accent-3);
+    outline-offset: 2px;
+  }
+
+  .playground-embed__stage {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .playground-embed__fullscreen {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid oklch(100% 0 0 / 0.25);
+    color: white;
+    background: oklch(9% 0 0 / 0.78);
+    font: 650 0.78rem var(--font-sans);
+    cursor: pointer;
+  }
+
+  .playground-embed__fullscreen[hidden] {
+    display: none;
+  }
+</style>

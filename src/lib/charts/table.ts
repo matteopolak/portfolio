@@ -22,7 +22,9 @@ export function timeSeriesTable(
     // Units go in the headers so cells stay plain numbers (clean CSV).
     columns: [
       'Date',
-      ...data.series.map((s) => (data.unit ? `${s.name} (${data.unit})` : s.name)),
+      ...data.series.map((s) =>
+        data.unit ? `${s.name} (${data.unit})` : s.name
+      ),
     ],
     rows: dates.map((date) => [
       date,

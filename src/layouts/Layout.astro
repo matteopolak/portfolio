@@ -46,10 +46,19 @@ const documentTitle = buildDocumentTitle(config.name, title, isHome);
       </main>
     </div>
     <script>
-      import { initializeProjectActions } from '../lib/project-actions';
+      // The demo dialogs only exist on some pages; the module drags in the
+      // Lodestone engine and every demo runtime, so it loads only when a page
+      // has a dialog (or has had one, so its listeners are cleaned up).
+      let actions: Promise<typeof import('../lib/project-actions')> | undefined;
+      const syncProjectActions = async () => {
+        if (!actions && !document.querySelector('dialog[data-project-demo]'))
+          return;
+        actions ??= import('../lib/project-actions');
+        (await actions).initializeProjectActions();
+      };
 
-      document.addEventListener('astro:page-load', initializeProjectActions);
-      initializeProjectActions();
+      document.addEventListener('astro:page-load', syncProjectActions);
+      void syncProjectActions();
     </script>
   </body>
 </html>
