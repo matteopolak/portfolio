@@ -547,7 +547,8 @@ export const findPanelTheme = EditorView.theme(
       backgroundColor: 'var(--ide-raised)',
       border: '1px solid var(--ide-rule)',
       borderTop: 'none',
-      borderRadius: '0 0 4px 4px',
+      // Hangs from the editor's top edge, so only the bottom corners round.
+      borderRadius: '0 0 var(--radius) var(--radius)',
       boxShadow: '0 0.5rem 1.25rem oklch(0% 0 0 / 0.45)',
       font: '0.78rem/1.2 var(--font-sans)',
       pointerEvents: 'auto',
@@ -558,6 +559,7 @@ export const findPanelTheme = EditorView.theme(
       width: '1.25rem',
       placeItems: 'center',
       padding: '0',
+      borderRadius: 'var(--radius-xs)',
       color: 'var(--ide-muted)',
       cursor: 'pointer',
     },
@@ -574,7 +576,7 @@ export const findPanelTheme = EditorView.theme(
       width: '15.5rem',
       backgroundColor: 'var(--ide-sunken)',
       border: '1px solid var(--ide-rule)',
-      borderRadius: '3px',
+      borderRadius: 'var(--radius-sm)',
     },
     '.cm-find__field:focus-within': { borderColor: 'var(--accent-3)' },
     '.cm-find .cm-find__input': {
@@ -602,7 +604,7 @@ export const findPanelTheme = EditorView.theme(
       color: 'var(--ide-muted)',
       backgroundColor: 'transparent',
       border: '1px solid transparent',
-      borderRadius: '3px',
+      borderRadius: 'var(--radius-xs)',
       cursor: 'pointer',
     },
     '.cm-find .cm-find__button:hover': {

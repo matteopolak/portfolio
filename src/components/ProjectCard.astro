@@ -87,6 +87,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
   .project-card {
     position: relative;
     padding: clamp(1.25rem, 2.4vw, 1.75rem);
+    border-radius: var(--radius-lg);
     background: color-mix(in oklch, var(--paper-bright) 90%, transparent);
     transition:
       background-color 160ms ease,
@@ -213,6 +214,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
     min-height: 1.9rem;
     padding: 0.32rem 0.5rem;
     border: 0;
+    border-radius: var(--radius-sm);
     color: var(--accent-2-on);
     background: var(--accent-2);
     font-size: 0.68rem;

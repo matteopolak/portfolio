@@ -99,6 +99,7 @@
   bind:this={panel}
   class="ide ide--{language}"
   class:ide--single={!files}
+  class:ide--page={mode === 'page'}
   data-code-workspace
   data-code-language={language}
   data-code-starter={starter}
@@ -545,6 +546,7 @@
     width: 1.65rem;
     height: 1.65rem;
     place-items: center;
+    border-radius: var(--radius-sm) !important;
     color: var(--ide-muted) !important;
   }
 
@@ -594,7 +596,10 @@
   }
 
   .ide-terminal :global(.xterm-viewport::-webkit-scrollbar-thumb) {
+    border: 0.15rem solid transparent;
+    border-radius: var(--radius-pill);
     background: var(--ide-rule);
+    background-clip: padding-box;
   }
 
   pre {
@@ -761,6 +766,7 @@
     color: var(--ide-fg);
     background: var(--ide-bg);
     border: 1px solid oklch(100% 0 0 / 0.08);
+    border-radius: var(--radius-lg);
     box-shadow:
       0 1.5rem 4rem oklch(0% 0 0 / 0.38),
       0 0.25rem 1rem oklch(0% 0 0 / 0.2);
@@ -774,6 +780,12 @@
 
   .ide--baerscript {
     --ide-accent: var(--accent-3);
+  }
+
+  /* Full-screen and the full-page playground fill the viewport: no frame corners. */
+  .ide:fullscreen,
+  .ide--page {
+    border-radius: 0;
   }
 
   .ide:fullscreen {
@@ -912,6 +924,7 @@
     font-size: 0.8rem !important;
     font-weight: 650 !important;
     border: 1px solid var(--ide-rule) !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .ide-text-button:hover {
@@ -925,6 +938,7 @@
     height: 2rem;
     padding: 0 0.7rem 0 0.6rem;
     margin-left: 0.25rem;
+    border-radius: var(--radius-sm) !important;
     color: var(--accent-3-on) !important;
     background: var(--accent-3) !important;
     font-size: 0.8rem !important;
@@ -950,6 +964,7 @@
 
   .ide-run kbd {
     padding: 0.1rem 0.3rem;
+    border-radius: var(--radius-xs);
     font: 600 0.68rem/1 var(--ide-mono);
     background: oklch(0% 0 0 / 0.12);
   }
@@ -965,6 +980,7 @@
     height: 2rem;
     place-items: center;
     flex: none;
+    border-radius: var(--radius-sm) !important;
     color: var(--ide-muted) !important;
     transition:
       color 120ms ease,
@@ -1069,6 +1085,7 @@
     height: 1.875rem;
     padding: 0 2rem 0
       calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
+    border-radius: var(--radius-xs) !important;
     color: var(--ide-fg) !important;
     font: 0.875rem/1 var(--ide-mono) !important;
     text-align: left;
@@ -1159,6 +1176,7 @@
     width: 1.5rem;
     height: 1.5rem;
     place-items: center;
+    border-radius: var(--radius-xs) !important;
     color: var(--ide-muted) !important;
     opacity: 0;
   }
@@ -1192,7 +1210,7 @@
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
     border: 1px solid var(--accent-2);
-    border-radius: 0;
+    border-radius: var(--radius-xs);
     outline: none;
     font: 0.875rem/1 var(--ide-mono);
   }
@@ -1208,6 +1226,7 @@
     padding: 0.3rem;
     background: var(--ide-raised);
     border: 1px solid var(--ide-rule);
+    border-radius: var(--radius);
     box-shadow: 0 0.75rem 2rem oklch(0% 0 0 / 0.45);
   }
 
@@ -1215,6 +1234,8 @@
     display: block;
     width: 100%;
     padding: 0.45rem 0.7rem;
+    /* Menu radius minus its 0.3rem padding, so items nest inside the frame. */
+    border-radius: var(--radius-xs) !important;
     color: var(--ide-fg);
     font-size: 0.8rem;
     text-align: left;
@@ -1285,6 +1306,8 @@
     max-width: 16rem;
     color: var(--ide-muted);
     border-right: 1px solid var(--ide-rule);
+    /* Tabs round on top only; the bottom stays flush with the editor below. */
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   }
 
   .ide-filetabs :global(.ide-filetab:hover) {
@@ -1358,6 +1381,7 @@
     height: 1.35rem;
     margin: 0 0.4rem 0 0.2rem;
     place-items: center;
+    border-radius: var(--radius-xs) !important;
     color: var(--ide-muted) !important;
     opacity: 0;
   }
@@ -1516,6 +1540,8 @@
 
       grid-template-rows: auto minmax(0, 1fr) auto;
       border: 0;
+      /* A full-screen sheet on phones (the blog embed's frame still clips it). */
+      border-radius: 0;
       box-shadow: none;
     }
 
@@ -1803,6 +1829,7 @@
       position: absolute;
       z-index: 40;
       pointer-events: none;
+      border-radius: var(--radius-sm);
       background: color-mix(in oklch, var(--accent-2) 20%, transparent);
       box-shadow: inset 0 0 0 1px
         color-mix(in oklch, var(--accent-2) 65%, transparent);
@@ -1834,6 +1861,7 @@
       color: var(--ide-fg-strong);
       background: var(--ide-raised);
       border: 1px solid var(--ide-rule);
+      border-radius: var(--radius-sm);
       box-shadow: 0 0.5rem 1.5rem oklch(0% 0 0 / 0.4);
       font: 0.78rem/1.2 var(--ide-mono);
       text-overflow: ellipsis;
@@ -1904,6 +1932,7 @@
     background: var(--ide-raised, oklch(25.5% 0.008 270));
     border: 1px solid oklch(100% 0 0 / 0.12);
     border-top: 3px solid var(--accent-1);
+    border-radius: var(--radius-lg);
     box-shadow:
       0 0.5rem 1.25rem oklch(0% 0 0 / 0.3),
       0 1.75rem 4rem oklch(0% 0 0 / 0.45);
@@ -1934,6 +1963,7 @@
     place-items: center;
     width: 2.25rem;
     height: 2.25rem;
+    border-radius: var(--radius);
     color: var(--accent-1-on);
     background: var(--accent-1);
   }
@@ -1972,6 +2002,7 @@
     color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
     background: transparent;
     border: 1px solid oklch(100% 0 0 / 0.22);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition:
       background-color 120ms ease,

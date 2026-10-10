@@ -56,6 +56,7 @@ const title = page.title.replace(/ playground$/, '');
     min-height: 16rem;
     max-height: 80dvh;
     border: 1px solid var(--soft-rule);
+    border-radius: var(--radius-lg);
     color: var(--ink);
     background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
   }
@@ -88,6 +89,7 @@ const title = page.title.replace(/ playground$/, '');
     gap: 0.5rem;
     padding: 0.6rem 1.2rem 0.6rem 1rem;
     border: 0;
+    border-radius: var(--radius-sm);
     color: var(--accent-2-on);
     background: var(--accent-2);
     font: 700 0.95rem var(--font-sans);
@@ -121,6 +123,8 @@ const title = page.title.replace(/ playground$/, '');
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Inner radius of the frame, so the workspace inside can't poke past it. */
+    border-radius: calc(var(--radius-lg) - 1px);
   }
 
   .playground-embed__fullscreen {
@@ -130,6 +134,7 @@ const title = page.title.replace(/ playground$/, '');
     z-index: 2;
     padding: 0.3rem 0.65rem;
     border: 1px solid oklch(100% 0 0 / 0.25);
+    border-radius: var(--radius-sm);
     color: white;
     background: oklch(9% 0 0 / 0.78);
     font: 650 0.78rem var(--font-sans);

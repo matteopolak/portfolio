@@ -73,6 +73,8 @@
     justify-items: center;
     gap: 0.85rem;
     padding: 1.5rem;
+    /* Follow the rounded frame it covers (demo panel, playground embed). */
+    border-radius: inherit;
     color: var(--ink);
     background: var(--paper);
     text-align: center;
@@ -174,6 +176,7 @@
     display: inline-block;
     padding: 0.08rem 0.28rem;
     border: 1px solid color-mix(in oklch, var(--ink), transparent 68%);
+    border-radius: var(--radius-xs);
     color: var(--ink);
     background: color-mix(in oklch, var(--ink), transparent 93%);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

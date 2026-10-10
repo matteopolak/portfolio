@@ -51,6 +51,27 @@ The homepage, Blog, and Projects use a shared thick horizontal bar above the pag
 
 Keep interface copy in natural case. Reserve geometric color blocks for hierarchy instead of adding repeated divider rules.
 
+### Corner radii
+
+Every boxed UI element is rounded with the radius tokens on `:root` in `src/styles/global.css`; nothing interactive or boxed should be square. Pick by size:
+
+| Token           | Value | Use                                                                                    |
+| --------------- | ----- | -------------------------------------------------------------------------------------- |
+| `--radius-xs`   | 4px   | inline code, kbd, tree rows, small icon buttons, timeline square/diamond markers       |
+| `--radius-sm`   | 6px   | buttons, inputs, chips, nav links, callouts, blockquotes, file tabs (top corners only) |
+| `--radius`      | 10px  | cards in lists, code blocks, tables, menus, editor tooltips and pickers                |
+| `--radius-lg`   | 14px  | project cards, dialogs, demo panels, the code workspace frame, the playground embed    |
+| `--radius-pill` | 999px | badges, progress bars, scrollbar thumbs                                                |
+
+`--radius-box`, `--radius-field` and `--radius-selector` map DaisyUI onto the same scale. CodeMirror themes (`code-editor.ts`, `editor-find-panel.ts`) use the same `var(--radius…)` strings.
+
+Gotchas:
+
+- A rounded container with flush children needs `overflow: hidden` or children with `border-radius: inherit` / an inner radius (`calc(var(--radius-lg) - 1px)` inside a 1px border), or square corners show through. See `.project-demo-modal__game`, `.playground-embed__stage` and `.project-demo-loading`.
+- Tables can't round with `border-collapse: collapse`. `.prose table` and the Markdown preview's `.md-table` use separate borders: the frame draws the outer border and radius, cells draw only right/bottom rules.
+- Things that fill the viewport drop the radius: `:fullscreen`, the full-page playground (`.ide--page`) and the phone sheet (`max-width: 42rem`).
+- Deliberately square: the Bauhaus art (`BauhausPattern`, `BauhausField`, `bauhaus.ts`), the nav M mark and other logos, `GeometricMark`, page-intro/article/TOC/eyebrow colour bars, `.prose h2` shape markers, and the Lodestone game's own UI.
+
 ## Configuration
 
 The design has no environment variables or runtime flags. Colours are theme tokens, defined per theme in `src/lib/themes.ts` and emitted into the page by `Head.astro` (see [theme-switching.md](./theme-switching.md)). `src/styles/global.css` only holds theme-independent tokens:

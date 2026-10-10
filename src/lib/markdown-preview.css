@@ -40,6 +40,7 @@
   height: 1.75rem;
   min-width: 1.75rem;
   padding: 0 0.4rem;
+  border-radius: var(--radius-sm);
   color: var(--ide-muted);
   font-size: 0.75rem;
   font-weight: 650;
@@ -220,6 +221,7 @@
   color: var(--ide-fg-strong);
   background: var(--ide-raised);
   border: 1px solid var(--ide-rule);
+  border-radius: var(--radius-xs);
 }
 
 .ide .md-preview pre {
@@ -229,6 +231,7 @@
   line-height: 1.55;
   background: var(--ide-sunken);
   border: 1px solid var(--ide-rule);
+  border-radius: var(--radius);
   tab-size: 4;
 }
 
@@ -239,19 +242,33 @@
 }
 
 .ide .md-preview .md-table {
+  /* The wrapper draws the rounded frame and clips the header row's corners. */
+  width: fit-content;
   max-width: 100%;
   overflow-x: auto;
+  border: 1px solid var(--ide-rule);
+  border-radius: var(--radius);
 }
 
 .ide .md-preview table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.875rem;
 }
 
 .ide .md-preview :is(th, td) {
   padding: 0.4rem 0.75rem;
-  border: 1px solid var(--ide-rule);
+  border-right: 1px solid var(--ide-rule);
+  border-bottom: 1px solid var(--ide-rule);
   text-align: left;
+}
+
+.ide .md-preview tr > :last-child {
+  border-right: 0;
+}
+
+.ide .md-preview table > :last-child > tr:last-child > * {
+  border-bottom: 0;
 }
 
 .ide .md-preview :is(th, td)[align='center'] {
@@ -275,6 +292,7 @@
 .ide .md-preview img {
   max-width: 100%;
   height: auto;
+  border-radius: var(--radius-sm);
 }
 
 .ide .md-preview .md-image-alt {
@@ -282,6 +300,7 @@
   color: var(--ide-muted);
   font-style: italic;
   border: 1px dashed var(--ide-rule);
+  border-radius: var(--radius-xs);
 }
 
 .ide .md-preview .md-empty {

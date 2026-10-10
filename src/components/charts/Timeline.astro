@@ -147,11 +147,12 @@ const label = (date: string) => longDate(parseDate(date), date.length > 7);
   }
   .marker--2 {
     --marker: var(--accent-2-text);
-    border-radius: 0;
+    /* Still reads as a square next to the circle, just not sharp. */
+    border-radius: var(--radius-xs);
   }
   .marker--3 {
     --marker: var(--accent-3-text);
-    border-radius: 0;
+    border-radius: var(--radius-xs);
     transform: rotate(45deg) scale(0.9);
   }
 

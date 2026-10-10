@@ -119,6 +119,7 @@
     color: var(--muted);
     background: transparent;
     border: 1px solid var(--soft-rule);
+    border-radius: var(--radius-sm);
     font: 650 0.78rem var(--font-sans);
     cursor: pointer;
     transition:

@@ -28,7 +28,12 @@ import ProjectDemoLoading from './svelte/ProjectDemoLoading.svelte';
     width: 100%;
     min-width: 0;
     aspect-ratio: 16 / 9;
+    border-radius: var(--radius-lg);
     background: #0a0a12;
+  }
+
+  .project-demo-modal__panel:fullscreen {
+    border-radius: 0;
   }
 
   .project-demo-modal__actions {
@@ -48,6 +53,7 @@ import ProjectDemoLoading from './svelte/ProjectDemoLoading.svelte';
     padding: 0;
     place-items: center;
     border: 1px solid oklch(100% 0 0 / 0.2);
+    border-radius: var(--radius);
     color: white;
     background: oklch(9% 0 0 / 0.78);
     box-shadow: 0 0.35rem 1.1rem oklch(0% 0 0 / 0.3);
@@ -89,6 +95,8 @@ import ProjectDemoLoading from './svelte/ProjectDemoLoading.svelte';
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    /* Clip the game to the panel's rounded corners. */
+    border-radius: inherit;
     background: #0a0a12;
   }
 

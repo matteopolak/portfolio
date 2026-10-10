@@ -78,6 +78,7 @@
             y={bar.y}
             width={bar.width}
             height={Math.max(bar.height, 1)}
+            rx="3"
           />
           {#if enhanced && hover?.variant === variant && hover.index === index}
             <text
