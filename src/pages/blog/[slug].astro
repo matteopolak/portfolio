@@ -10,10 +10,11 @@ import AreaChart from '../../components/charts/AreaChart.astro';
 import BarChart from '../../components/charts/BarChart.astro';
 import Timeline from '../../components/charts/Timeline.astro';
 import StatGrid from '../../components/charts/StatGrid.astro';
+import Playground from '../../components/Playground.astro';
 import Callout from '../../components/charts/Callout.astro';
 
 // Available in every MDX post without an import (docs/blog-charts.md).
-const mdxComponents = { LineChart, AreaChart, BarChart, Timeline, StatGrid, Callout, Aside: Callout };
+const mdxComponents = { LineChart, AreaChart, BarChart, Timeline, StatGrid, Callout, Aside: Callout, Playground };
 
 export async function getStaticPaths() {
   // Drafts are only in the collection in dev (see isVisiblePost).
@@ -58,9 +59,6 @@ const isDraft = post.data.published === false;
 </Layout>
 
 <script>
-  if (document.querySelector('lodestone-game')) {
-    void import('../../lib/lodestone-game');
-  }
   // Bundled scripts run once; re-check charts after each ClientRouter navigation.
   document.addEventListener('astro:page-load', () => {
     if (document.querySelector('[data-chart-data]')) {

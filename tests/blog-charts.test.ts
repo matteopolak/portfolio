@@ -180,6 +180,7 @@ test('tables and descriptions come from the same data', () => {
 });
 
 const options = {
+  playground: (name: string) => `[[play ${name}]]`,
   chart: (component: string, props: Record<string, unknown>) =>
     `[[${component} ${props.src} ${props.title ?? ''} ${props.stacked ?? ''}]]`,
 };
@@ -208,6 +209,8 @@ test('mdxToMarkdown replaces components and keeps everything else verbatim', () 
     '```',
     '',
     '<Unknown>child text</Unknown>',
+    '',
+    '<Playground name="minecraft" />',
   ].join('\n');
   const out = mdxToMarkdown(source, options as never);
   assert.ok(!out.includes('import X'), 'esm removed');
@@ -216,6 +219,7 @@ test('mdxToMarkdown replaces components and keeps everything else verbatim', () 
     out.includes('Intro with `<LineChart />` in code and  an expression.')
   );
   assert.ok(out.includes('[[LineChart p/data/a.json Lines true]]'));
+  assert.ok(out.includes('[[play minecraft]]'));
   assert.ok(out.includes('> **Heads up**'));
   assert.ok(out.includes('> Inner **markdown** here.'));
   assert.ok(out.includes('> [[BarChart p/data/b.json  ]]'));

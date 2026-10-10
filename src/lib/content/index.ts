@@ -28,6 +28,10 @@ export const getProfile = () => buildProfile(config);
 // become a title, a table of their data and a caption.
 const mdxBody = (body: string) =>
   mdxToMarkdown(body, {
+    playground(name) {
+      const page = playgroundPages.find(({ id }) => id === name);
+      return page ? `[${page.title}: try it in the browser](${page.path})` : '';
+    },
     chart(component, props) {
       const data = loadChartData(componentKinds[component], String(props.src));
       return renderChartMarkdown(component, data, {

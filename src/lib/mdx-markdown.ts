@@ -17,6 +17,8 @@ export type JsxProps = Record<string, string | number | boolean>;
 export interface MdxMarkdownOptions {
   /** The markdown for a chart component (a caption and a table), built from its data. */
   chart(component: ChartComponentName, props: JsxProps): string;
+  /** The markdown for `<Playground name>`: a link to the full playground page. */
+  playground(name: string): string;
 }
 
 interface Point {
@@ -127,6 +129,8 @@ export function mdxToMarkdown(
     if (isRemoved(node)) return '';
     if (!isJsx(node)) return rebuild(node, from, to);
     if (isChart(node.name)) return options.chart(node.name, propsOf(node));
+    if (node.name === 'Playground')
+      return options.playground(String(propsOf(node).name ?? ''));
     const first = node.children?.[0]?.position;
     const last = node.children?.[node.children.length - 1]?.position;
     const inner =

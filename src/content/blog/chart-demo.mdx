@@ -42,8 +42,8 @@ This draft (draft-marker-chart-demo) exercises the build-time chart components. 
 <Timeline src="chart-demo/data/milestones.json" title="What happened when" />
 
 <Callout type="tip" title="Reading the charts">
-  Every chart has a **Data** button with a table with the same numbers, and a markdown
-  fallback for the `.md` variant.
+  Every chart has a **Data** button with a table with the same numbers, and a
+  markdown fallback for the `.md` variant.
 </Callout>
 
 ```rust
@@ -51,3 +51,13 @@ fn main() {
     println!("code blocks still use Shiki");
 }
 ```
+
+## Playground
+
+The embed below does nothing until Start is pressed.
+
+<Playground name="minecraft" />
+
+And a code language, which mounts the editor workspace inline:
+
+<Playground name="quasi" />

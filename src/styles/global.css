@@ -613,7 +613,7 @@ body .site-main .project-card:hover {
   margin-bottom: 0;
 }
 
-.prose :not(pre) > code {
+.prose :not(pre) > code:not(.playground-embed *) {
   padding: 0.12em 0.34em;
   border: 1px solid var(--soft-rule);
   background: var(--paper-bright);
@@ -621,7 +621,7 @@ body .site-main .project-card:hover {
   font-size: 0.87em;
 }
 
-.prose pre {
+.prose pre:not(.playground-embed *) {
   overflow-x: auto;
   margin: 1.75rem 0;
   padding: 1rem 0;
@@ -637,17 +637,17 @@ body .site-main .project-card:hover {
   counter-reset: line;
 }
 
-.prose pre code {
+.prose pre:not(.playground-embed *) code {
   display: grid;
   min-width: max-content;
   background: transparent;
 }
 
-.prose pre .line {
+.prose pre:not(.playground-embed *) .line {
   padding: 0 0.8rem;
 }
 
-.prose pre .line::before {
+.prose pre:not(.playground-embed *) .line::before {
   display: inline-block;
   width: 1.5rem;
   margin-right: 0.85rem;
@@ -659,7 +659,7 @@ body .site-main .project-card:hover {
   user-select: none;
 }
 
-.prose pre .line.highlighted {
+.prose pre:not(.playground-embed *) .line.highlighted {
   background: oklch(82.369% 0.16104 87.02 / 0.22);
 }
 

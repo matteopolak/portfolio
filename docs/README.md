@@ -5,6 +5,7 @@
 | [portfolio-data.md](./portfolio-data.md)                                                           | How `portfolio.toml` feeds the site and how to add/change content                    |
 | [blog.md](./blog.md)                                                                               | How to write and publish blog posts                                                  |
 | [blog-charts.md](./blog-charts.md) | MDX posts and the build-time SVG chart components: props, data files, markdown fallbacks, accessibility |
+| [blog-playground-embed.md](./blog-playground-embed.md) | The `<Playground>` MDX component: click-to-start inline playgrounds, lazy loading, teardown |
 | [site-design.md](./site-design.md)                                                                 | Bauhaus design system, responsive layouts, and modular homepage artwork               |
 | [bauhaus-grid-state.md](./bauhaus-grid-state.md)                                                   | In-memory artwork continuity across client-side routes                                |
 | [continuous-integration.md](./continuous-integration.md)                                           | Per-commit formatting, lint, test, and static-build quality gate                       |

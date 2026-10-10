@@ -89,7 +89,7 @@ export const codeDemoPages: CodeDemoPage[] = [
 
 /** The Lodestone (Minecraft) game: a `/playground/minecraft` page with no code workspace. */
 export const lodestoneDemoPage = {
-  id: 'minecraft',
+  id: 'minecraft' as const,
   slug: 'minecraft',
   path: '/playground/minecraft',
   title: 'Lodestone playground',
@@ -101,10 +101,13 @@ export const lodestoneDemoPage = {
 
 /** Every full-page playground, in the order the /playground index lists them. */
 export const playgroundPages: {
-  id: string;
+  id: PlaygroundName;
   slug: string;
   path: string;
   title: string;
   description: string;
   summary: string;
 }[] = [lodestoneDemoPage, ...codeDemoPages];
+
+/** The id of every playground; the `name` of the blog `<Playground>` component. */
+export type PlaygroundName = CodeDemoPage['id'] | typeof lodestoneDemoPage.id;
