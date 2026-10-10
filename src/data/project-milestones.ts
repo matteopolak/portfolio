@@ -15,6 +15,30 @@ export interface ProjectMilestone {
  */
 export const projectMilestones: ProjectMilestone[] = [
   {
+    id: 'gpt-6-1-sol',
+    date: '2026-09-29',
+    title: 'GPT-6.1 Sol released',
+    detail: 'Released at OpenAI DevDay.',
+    category: 'ai',
+    sourceUrl: 'https://openai.com/index/introducing-gpt-6-1-sol/',
+  },
+  {
+    id: 'claude-opus-5-5',
+    date: '2026-09-22',
+    title: 'Claude Opus 5.5 released',
+    detail: 'The first Claude 5.5 model, released the same day as GPT-6 Luna.',
+    category: 'ai',
+    sourceUrl: 'https://www.anthropic.com/news/claude-opus-5-5',
+  },
+  {
+    id: 'gpt-6-luna',
+    date: '2026-09-22',
+    title: 'GPT-6 Luna released',
+    detail: 'The lower-cost GPT-6 model.',
+    category: 'ai',
+    sourceUrl: 'https://openai.com/index/introducing-gpt-6-sol-and-luna/',
+  },
+  {
     id: 'gpt-6-astra',
     date: '2026-09-03',
     title: 'GPT-6 Astra released',
@@ -48,15 +72,6 @@ export const projectMilestones: ProjectMilestone[] = [
       'Sonnet became the subagent workhorse in the agent-heavy Minecraft rewrite.',
     category: 'ai',
     sourceUrl: 'https://www.anthropic.com/news/claude-sonnet-5',
-  },
-  {
-    id: 'cursor-composer-2-5',
-    date: '2026-05-18',
-    title: 'Cursor Composer 2.5 released',
-    detail:
-      "Cursor's agentic coding model joined the set of models I used to iterate on uoPlan.",
-    category: 'ai',
-    sourceUrl: 'https://cursor.com/blog/composer-2-5',
   },
   {
     id: 'claude-opus-4-7',
