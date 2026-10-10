@@ -46,7 +46,9 @@ const isActive = (href: string) =>
           aria-current={isActive(href) ? 'page' : undefined}
           class:list={['site-nav__link', { 'is-active': isActive(href) }]}
         >
-          {name}
+          <span class="site-nav__label" data-text={name}>
+            {name}
+          </span>
         </a>
       ))
     }
@@ -115,6 +117,24 @@ const isActive = (href: string) =>
     font-weight: 700;
     line-height: 1.1;
     text-decoration: none;
+  }
+
+  /* Reserve the active (bolder) width so toggling weight never shifts siblings. */
+  .site-nav__label {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .site-nav__label::after {
+    display: block;
+    height: 0;
+    overflow: hidden;
+    font-weight: 800;
+    pointer-events: none;
+    user-select: none;
+    visibility: hidden;
+    content: attr(data-text) / '';
   }
 
   .site-nav__link.is-active {
