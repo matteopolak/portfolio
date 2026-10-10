@@ -28,19 +28,19 @@
 @property --red {
   syntax: '<color>';
   inherits: true;
-  initial-value: oklch(63.259% 0.24086 31.631);
+  initial-value: oklch(75% 0.13 25);
 }
 
 @property --blue {
   syntax: '<color>';
   inherits: true;
-  initial-value: oklch(56.774% 0.12194 238.83);
+  initial-value: oklch(77% 0.1 240);
 }
 
 @property --yellow {
   syntax: '<color>';
   inherits: true;
-  initial-value: oklch(83.099% 0.17046 81.363);
+  initial-value: oklch(91% 0.14 95);
 }
 
 :root {
@@ -49,10 +49,15 @@
   --paper: oklch(97.598% 0.02449 91.61);
   --paper-bright: oklch(98.623% 0.01422 84.583);
   --ink: oklch(20.463% 0 0);
-  --muted: oklch(49.138% 0.02603 274.321);
-  --red: oklch(63.259% 0.24086 31.631);
-  --blue: oklch(56.774% 0.12194 238.83);
-  --yellow: oklch(83.099% 0.17046 81.363);
+  --muted: oklch(43% 0.026 274.321);
+  --red: oklch(75% 0.13 25);
+  --blue: oklch(77% 0.1 240);
+  --yellow: oklch(91% 0.14 95);
+  /* Readable accents on paper: the fills above are pastel, so coloured text,
+     focus rings and glyphs use these darker mixes (AAA, see tests/palette-contrast.test.ts). */
+  --red-text: color-mix(in oklch, var(--red) 30%, var(--ink));
+  --blue-text: color-mix(in oklch, var(--blue) 30%, var(--ink));
+  --yellow-text: color-mix(in oklch, var(--yellow) 30%, var(--ink));
   --rule: oklch(20.463% 0 0);
   --soft-rule: oklch(20.463% 0 0 / 0.22);
   --page-title-gap: 1rem;
@@ -128,11 +133,11 @@ a {
 }
 
 a:hover {
-  color: var(--blue);
+  color: var(--blue-text);
 }
 
 :focus-visible {
-  outline: 3px solid var(--blue);
+  outline: 3px solid var(--blue-text);
   outline-offset: 4px;
 }
 
@@ -374,19 +379,19 @@ body .site-main .project-card:hover {
   top: 0;
   right: calc(100% + 0.55rem);
   content: '■';
-  color: var(--red);
+  color: var(--red-text);
   font-size: 0.58em;
   line-height: 2.5;
 }
 
 .resume-list .resume-entry:nth-child(4n + 2) li::before {
   content: '●';
-  color: var(--blue);
+  color: var(--blue-text);
 }
 
 .resume-list .resume-entry:nth-child(4n + 3) li::before {
   content: '◆';
-  color: var(--yellow);
+  color: var(--yellow-text);
 }
 
 .resume-list .resume-entry:nth-child(4n + 4) li::before {
@@ -396,7 +401,7 @@ body .site-main .project-card:hover {
 
 .achievement-list li::before {
   content: '◆';
-  color: var(--blue);
+  color: var(--blue-text);
 }
 
 .tag-line {
@@ -467,12 +472,12 @@ body .site-main .project-card:hover {
 }
 
 .editorial-item:has(.editorial-item__title:focus-visible) {
-  outline: 3px solid var(--blue);
+  outline: 3px solid var(--blue-text);
   outline-offset: 2px;
 }
 
 .editorial-item__number {
-  color: var(--blue);
+  color: var(--blue-text);
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -641,7 +646,7 @@ body .site-main .project-card:hover {
 }
 
 .prose li::marker {
-  color: var(--red);
+  color: var(--red-text);
   font-weight: 800;
 }
 
@@ -770,7 +775,7 @@ body .site-main .project-card:hover {
 }
 
 .toc a:hover {
-  color: var(--blue);
+  color: var(--blue-text);
 }
 
 .toc a.is-visible {

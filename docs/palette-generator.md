@@ -8,9 +8,9 @@ The large-screen navigation includes a three-dot control that generates a new ha
 
 `src/lib/palette.ts` chooses from six art-directed color families. The classic vermilion/cobalt/gold set is joined by orchid/lagoon/apricot, forest/violet/sky, navy/rust/mint, plum/olive/aqua, and cobalt/emerald/coral. These are role-based anchors rather than fixed red/blue/yellow hue ranges, so every click can move the full design into a distinctly different part of the color wheel while the three colors remain coordinated. The generator avoids immediately repeating the same family, then varies its lightness, chroma, and hue.
 
-The colors are generated directly in OKLCH: two darker accents serve links and light-text surfaces, while the brighter accent supports dark text. The three color properties are registered with CSS `@property`, allowing the root palette to interpolate as one synchronized 500ms transition when it changes. The navigation M receives the same final colors directly on its SVG circles and transitions their `fill` properties separately; this avoids browser compositing bugs that can temporarily drop SVG paint while an inherited registered color is interpolating.
+The colors are generated directly in OKLCH as pastel fills: all three carry dark `--ink` text, so each is generated light (L about 0.78 to 0.92) with low chroma. Coloured text and focus rings on paper come from CSS (`--red-text` and friends, 30% fill mixed into ink), which stays AAA for any generated fill. The three color properties are registered with CSS `@property`, allowing the root palette to interpolate as one synchronized 500ms transition when it changes. The navigation M receives the same final colors directly on its SVG circles and transitions their `fill` properties separately; this avoids browser compositing bugs that can temporarily drop SVG paint while an inherited registered color is interpolating.
 
-Each color's chroma is binary-searched down until it fits inside the sRGB gamut. Lightness is then adjusted until the relevant foreground pairing reaches at least a 4.5:1 contrast ratio. `Nav.astro` assigns the result to the root `--red`, `--blue`, and `--yellow` properties, which immediately recolors the artwork and interface.
+Each color's chroma is binary-searched down until it fits inside the sRGB gamut. Lightness is then raised until the fill reaches `MINIMUM_INK_CONTRAST` (7:1, WCAG AAA) against ink. `Nav.astro` assigns the result to the root `--red`, `--blue`, and `--yellow` properties, which immediately recolors the artwork and interface.
 
 The palette lives only in JavaScript memory. It carries across Astro client-side navigation in the current page instance and returns to the reference palette after a full reload. A regular CSS media query displays the button only when the viewport is at least `80rem` wide. The button is absolutely positioned outside the centered site shell at every size, so it never consumes navigation layout space; JavaScript is used only after a click to generate and apply colors.
 
@@ -18,8 +18,7 @@ The palette lives only in JavaScript memory. It carries across Astro client-side
 
 - Add or tune the curated role-based OKLCH anchors in `PALETTE_FAMILIES`; keep each family's three anchors harmonious and use `vary()` only for local variation around them.
 - Adjust the shared palette transition duration in the root rule in `src/styles/global.css`.
-- Keep both darker colors at readable contrast against `--paper` because they are used for links and light-text controls.
-- Keep the brighter color readable against `--ink` because it is used behind dark navigation text.
+- Keep every anchor light enough for ink text: `accessibleColor` lifts lightness until the fill has 7:1 against ink, and `tests/palette-contrast.test.ts` checks 500 seeded palettes (fills and derived `*-text` accents) in CI (`pnpm test:palette`).
 - Change the visibility breakpoint or dot presentation in `Nav.astro`.
 - Do not persist palettes in browser storage unless cross-reload persistence is intentionally added.
 
