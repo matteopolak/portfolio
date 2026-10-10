@@ -37,3 +37,5 @@ None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://ma
 - The demo runtimes: [Jai](jai-integration.md), [Quasi](quasi-web-playground.md), [BaerScript](baerscript-web-playground.md) and [Lodestone](lodestone-web-embed.md).
 - The [shared code workspace](code-workspace.md) and [demo loading surface](project-demo-modals.md).
 - COOP/COEP headers from `public/_headers` (all routes) for the module workers.
+
+Note: `/playground/<id>` renders `CodeWorkspace.svelte` with `client:load`; the Projects modals use `client:idle`. Both are fully server-rendered. See [svelte-islands.md](./svelte-islands.md).

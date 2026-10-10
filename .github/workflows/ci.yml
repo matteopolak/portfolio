@@ -55,3 +55,6 @@ jobs:
 
       - name: build static site
         run: pnpm build
+
+      - name: check SEO metadata in the built pages
+        run: pnpm check:seo

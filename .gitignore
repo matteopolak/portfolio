@@ -12,9 +12,15 @@ docs/*
 !docs/project-journey.md
 !docs/quasi-web-playground.md
 !docs/seo.md
+!docs/editor-search.md
+!docs/svelte-islands.md
+!docs/editor-search.md
+!docs/svelte-islands.md
 !docs/site-design.md
 scripts/*
 !scripts/generate-favicons.ts
+!scripts/check-seo.ts
+!scripts/check-seo.ts
 !scripts/quasi-browser-worker.patch
 !scripts/sync-quasi-web.ts
 !scripts/sync-baerscript-web.ts

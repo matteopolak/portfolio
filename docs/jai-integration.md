@@ -171,3 +171,5 @@ Astro provides the portfolio pages and client navigation. CodeMirror supplies
 editing primitives; the portfolio owns their configuration and UI. Browser
 execution uses the owned module worker and pinned Rust-generated WebAssembly. Publishing uses
 GitHub Actions and Releases; deployment uses the existing Cloudflare Pages build.
+
+Note: `initializeJaiPlayground` waits for the `CodeWorkspace` island to mount (`whenWorkspaceMounted`) before creating the layout and session, and drives the status/Retry/Run state through `WorkspaceChrome` (`src/lib/workspace-chrome.ts`). `tests/jai/host.test.ts` injects a fake chrome. The `AbortSignal` teardown is unchanged.

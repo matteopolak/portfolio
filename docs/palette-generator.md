@@ -30,3 +30,5 @@ There are no environment variables. The generator's harmony offsets, contrast ta
 ## Dependencies
 
 The feature uses browser CSS custom properties and JavaScript only. It has no runtime package or external service dependency.
+
+Note: the button is `src/components/svelte/PaletteButton.svelte` (`client:load`, `transition:persist="site-palette"`). It keeps the last palette in `window.bauhausPalette` and reapplies it on `astro:page-load`.

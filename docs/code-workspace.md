@@ -161,3 +161,7 @@ There are no runtime flags. The narrow layout starts at `42rem`. Default dock si
 ## Dependencies
 
 CodeMirror 6 (with `@replit/codemirror-vim`), native `<dialog>`, CSS custom properties with `color-mix()`, Web Workers and WebAssembly.
+
+## Svelte component
+
+The workspace is `src/components/svelte/CodeWorkspace.svelte` (it replaced `CodeWorkspace.astro` and `CodeOutput.astro`). It renders the same server-side markup and `data-*` attributes (`data-code-workspace`, `data-code-language`, `data-jai-revision`, `data-pane`, ...) and owns the reactive chrome: status line, Retry, Run/Stop, the narrow-screen pane tabs and the output-unread dot. The runtimes drive that state through the `WorkspaceChrome` interface in `src/lib/workspace-chrome.ts` (`setStatus`, `setRetryVisible`, `setRun`, `setPane`, `setHandlers`, ...) instead of editing the DOM; `showPane()` and `code-output.ts` use it too. Runtimes call `whenWorkspaceMounted(panel)` first, because the dock layout moves server-rendered nodes and must not run before hydration. The platform shortcut hint and Format tooltip are set in the component. See [svelte-islands.md](./svelte-islands.md).

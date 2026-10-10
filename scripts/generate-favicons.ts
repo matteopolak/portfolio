@@ -39,17 +39,36 @@ function createIco(png: Buffer) {
   return Buffer.concat([header, png]);
 }
 
-const [favicon32, appleTouchIcon, icon512, legacyWebp] = await Promise.all([
-  renderPng(32),
-  renderPng(180),
-  renderPng(512),
-  sharp(source).resize(512, 512).webp({ lossless: true }).toBuffer(),
-]);
+/** Default 1200x630 social preview: the monogram on the site's paper colour. */
+async function renderSocialImage() {
+  const mark = await renderPng(440);
+  return sharp({
+    create: {
+      width: 1200,
+      height: 630,
+      channels: 4,
+      background: '#fdf7e5',
+    },
+  })
+    .composite([{ input: mark, gravity: 'center' }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+const [favicon32, appleTouchIcon, icon512, legacyWebp, socialImage] =
+  await Promise.all([
+    renderPng(32),
+    renderPng(180),
+    renderPng(512),
+    sharp(source).resize(512, 512).webp({ lossless: true }).toBuffer(),
+    renderSocialImage(),
+  ]);
 
 const outputs: [string, Buffer][] = [
   [resolve(generatedDirectory, 'favicon-32x32.png'), favicon32],
   [resolve(generatedDirectory, 'apple-touch-icon.png'), appleTouchIcon],
   [resolve(generatedDirectory, 'icon-512.png'), icon512],
+  [resolve(generatedDirectory, 'og-image.png'), socialImage],
   [resolve(publicDirectory, 'favicon.ico'), createIco(favicon32)],
   [resolve(publicDirectory, 'favicon.webp'), legacyWebp],
 ];

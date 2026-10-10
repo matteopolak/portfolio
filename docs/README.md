@@ -14,6 +14,7 @@
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |
 | [workspace-layout.md](./workspace-layout.md)                                                       | Dockable tree/output panels, editor split groups, drag and drop, saved layout          |
+| [svelte-islands.md](./svelte-islands.md) | Svelte 5 islands in Astro: where they live, hydration directives, workers-in-TS and COEP rules |
 | [editor-search.md](./editor-search.md) | VS Code-style find/replace widget for all CodeMirror editors |
 | [markdown-preview.md](./markdown-preview.md)                                                       | Markdown preview tabs (open to the side, phone toggle, links, scroll sync) and `.md` highlighting |
 | [playground-pages.md](./playground-pages.md)                                                       | Full-page `/playground/<project>` routes (Jai, Quasi, BaerScript, Lodestone) sharing the modal demos                 |
@@ -33,4 +34,5 @@
 | [Resume job decisions](./resume-tailoring/job-decisions.json)                                      | Exact evidence selections, assumptions, and gaps for all 105 jobs                    |
 | [Job application hub](../jobs/README.md)                                                           | Tier and pay-ordered links, compensation, tailored resumes, and application tracking |
 | [Job compensation data](./resume-tailoring/job-compensation.json)                                  | Sourced compensation breakdowns and confidence for all 162 jobs                      |
+
 

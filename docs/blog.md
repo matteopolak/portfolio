@@ -43,3 +43,5 @@ The desktop table of contents is rendered by `src/components/BlogToc.astro` and 
 - Astro content collections (`astro:content`)
 - `src/layouts/Layout.astro` for the page shell
 - Shiki's `github-light` theme for syntax highlighting
+
+Note: the table of contents is now `src/components/svelte/BlogToc.svelte` (`client:idle`); `src/lib/blog-toc.ts` was removed. The list is server-rendered, and the component only tracks scroll progress and the visible sections.

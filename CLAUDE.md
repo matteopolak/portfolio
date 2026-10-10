@@ -72,6 +72,10 @@ The PDF resume (`pnpm resume`) must fit on a **single page**. When editing
 
 Markdown posts go in `src/content/blog/`. Frontmatter requires `title` and `date` (YYYY-MM-DD); `description` is optional. The filename becomes the slug. Posts are sorted by date descending.
 
+### Svelte islands
+
+Stateful UI (palette button, blog TOC, Bauhaus pattern, code workspace) is Svelte 5 in `src/components/svelte/`, mounted as SSR'd Astro islands. Keep workers, CodeMirror/LSP and anything covered by `node --test` in plain `.ts`, keep COOP/COEP headers, and never use `client:only` for content. See `docs/svelte-islands.md`. `pnpm check:seo` validates built-page metadata.
+
 ### Styling
 
 Tailwind CSS v4 + DaisyUI v5, configured via `@tailwindcss/vite` plugin in `astro.config.ts`. No separate `tailwind.config.*` file — configuration is inline.
