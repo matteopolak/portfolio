@@ -61,3 +61,23 @@ The embed below does nothing until Start is pressed.
 And a code language, which mounts the editor workspace inline:
 
 <Playground name="quasi" />
+
+## A Jai block
+
+```jai
+#import "Basic";
+
+Point :: struct { x: float; y: float; }
+
+main :: () {
+    // Highlighted at build time by the editor's own parser.
+    p := Point.{1.5, 2};
+    print("p = (%, %) in %ms\n", p.x, p.y, 42);
+}
+```
+
+And one that Shiki still handles:
+
+```rust
+fn main() { println!("hi"); }
+```
