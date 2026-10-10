@@ -38,6 +38,29 @@
   let retryVisible = $state(false);
   let run = $state<RunState>({ disabled: true, running: false });
   let pane = $state<WorkspacePane>('code');
+
+  // Arrow keys / Home / End move between the panel tabs (roving tabindex).
+  const onPaneTabKeydown = (event: KeyboardEvent) => {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const tabs = [
+      ...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
+        '[data-pane-tab]'
+      ),
+    ];
+    const current = tabs.findIndex((tab) => tab === document.activeElement);
+    if (current < 0) return;
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? tabs.length - 1
+          : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) %
+            tabs.length;
+    event.preventDefault();
+    chrome.setPane(tabs[next].dataset.paneTab as WorkspacePane);
+    tabs[next].focus();
+  };
   let outputUnread = $state(false);
   let shortcut = $state('Ctrl↵');
   let formatShortcut = $state('Shift+Alt+F');
@@ -389,11 +412,18 @@
   </div>
 
   <!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
-  <nav class="ide-tabs" aria-label="Workspace panels">
+  <nav
+    class="ide-tabs"
+    role="tablist"
+    aria-label="Workspace panels"
+    onkeydown={onPaneTabKeydown}
+  >
     {#if files}
       <button
         type="button"
         data-pane-tab="files"
+        role="tab"
+        tabindex={pane === 'files' ? 0 : -1}
         aria-selected={pane === 'files'}
         onclick={() => chrome.setPane('files')}
       >
@@ -406,6 +436,8 @@
     <button
       type="button"
       data-pane-tab="code"
+      role="tab"
+      tabindex={pane === 'code' ? 0 : -1}
       aria-selected={pane === 'code'}
       onclick={() => chrome.setPane('code')}
     >
@@ -417,6 +449,8 @@
     <button
       type="button"
       data-pane-tab="output"
+      role="tab"
+      tabindex={pane === 'output' ? 0 : -1}
       aria-selected={pane === 'output'}
       onclick={() => chrome.setPane('output')}
     >
@@ -651,7 +685,7 @@
     --ide-fg: oklch(90% 0.016 91);
     --ide-fg-strong: oklch(97.598% 0.02449 91.61);
     --ide-muted: oklch(70% 0.012 270);
-    --ide-faint: oklch(50% 0.01 270);
+    --ide-faint: oklch(64% 0.01 270);
     --ide-active-line: oklch(100% 0 0 / 0.035);
     --ide-selection: color-mix(in oklch, var(--blue) 24%, transparent);
     --ide-selection-match: oklch(100% 0 0 / 0.07);
@@ -666,7 +700,7 @@
     --ide-syntax-format-percent: oklch(70% 0.07 310);
     --ide-syntax-number: color-mix(in oklch, var(--red) 55%, white);
     --ide-syntax-directive: color-mix(in oklch, var(--red) 72%, white);
-    --ide-syntax-comment: oklch(60% 0.014 270);
+    --ide-syntax-comment: oklch(67% 0.014 270);
     --ide-syntax-punct: oklch(74% 0.01 270);
     --ide-error: color-mix(in oklch, var(--red) 58%, white);
     --ide-mono:
