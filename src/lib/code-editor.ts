@@ -50,11 +50,8 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete';
-import {
-  searchKeymap,
-  highlightSelectionMatches,
-  openSearchPanel,
-} from '@codemirror/search';
+import { highlightSelectionMatches } from '@codemirror/search';
+import { findExtensions, openFind } from './editor-find-panel.ts';
 import {
   lintGutter,
   setDiagnostics,
@@ -1262,6 +1259,8 @@ export function createEditor(
         crosshairCursor(),
         highlightActiveLine(),
         highlightSelectionMatches(),
+        // Before the keymap above is consulted: Mod-f, Mod-h, F3, Escape.
+        findExtensions,
         autocompletion({ override: [completions], icons: false }),
         hover,
         editable.of(EditorView.editable.of(true)),
@@ -1282,7 +1281,6 @@ export function createEditor(
           ...closeBracketsKeymap,
           ...defaultKeymap,
           ...historyKeymap,
-          ...searchKeymap,
           ...foldKeymap,
           ...completionKeymap,
           tabKey,
@@ -1390,7 +1388,7 @@ export function createEditor(
       }
       view.dispatch(setDiagnostics(view.state, checked));
     },
-    find: () => openSearchPanel(view),
+    find: () => openFind(view),
     setEditable: (value: boolean) =>
       view.dispatch({
         effects: editable.reconfigure(EditorView.editable.of(value)),
