@@ -144,7 +144,7 @@ The modal on the Projects page does not touch the browser history: the site's `C
 - **Visual design:** the `--ide-*` tokens and layout rules in `CodeWorkspace.astro`, and the output-pane styles in `CodeOutput.astro`. The tab elements are created in script, so their rules use `:global(...)` inside `.ide-filetabs`.
 - **Tab behaviour:** neighbour choice, preview replacement, reordering (`place`) and rename/delete handling are in `open-tabs.ts`; extend its tests when changing them. Only the multi-file workspace renders the group head with the strip, so Quasi and BaerScript keep their layout.
 - **Docking, splits and drag and drop:** see [Workspace layout](workspace-layout.md).
-- **Editor appearance and behavior:** `code-editor.ts`. Keep colors as `var(--ide-…)` references so they stay in sync with the chrome.
+- **Editor appearance and behavior:** `code-editor.ts`. Keep colors as `var(--ide-…)` references so they stay in sync with the chrome, and corner radii as `var(--radius…)` tokens (see [site-design.md](./site-design.md#corner-radii)). The frame is `--radius-lg`, but `.ide--page` (full-page playground), `:fullscreen` and the phone sheet are square.
 - **Modal size, entrance/exit animation and the phone sheet:** `DemoModal.astro`. `closeAnimated` in `project-actions.ts` waits for that exit animation's `animationend`.
 - **Adding a language:**
   1. Add a tokenizer and name in `code-editor.ts`.

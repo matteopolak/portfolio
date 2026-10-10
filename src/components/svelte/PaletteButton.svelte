@@ -74,6 +74,7 @@
     gap: 0.32rem;
     padding: 0.65rem 0.45rem;
     border: 0;
+    border-radius: var(--radius-sm);
     background: transparent;
     transform: translateY(-50%);
     cursor: pointer;

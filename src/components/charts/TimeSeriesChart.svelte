@@ -182,7 +182,7 @@
             y="0"
             width={tipWidth}
             height={rows.length * 18 + 10}
-            rx="3"
+            rx="6"
           />
           {#each rows as row, i}
             <text x="8" y={18 + i * 18}
@@ -329,6 +329,7 @@
   .legend button {
     padding: 0.1rem 0.25rem;
     border: 0;
+    border-radius: var(--radius-xs);
     background: none;
     color: inherit;
     cursor: pointer;
