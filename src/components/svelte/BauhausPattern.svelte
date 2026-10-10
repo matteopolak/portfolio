@@ -79,6 +79,10 @@
 
   /* svelte-ignore state_referenced_locally */
   let rows = $state(initialRows);
+  // The ambient field derives its column count from the container (cells have a
+  // fixed pixel size); static patterns keep the `columns` prop.
+  /* svelte-ignore state_referenced_locally */
+  let columnCount = $state(columns);
   /* svelte-ignore state_referenced_locally */
   let viewBox = $state({
     x: edgeInset,
@@ -361,20 +365,31 @@
       const grid = root.closest<HTMLElement>('.latent-grid');
       if (!field || !grid) return;
 
-      const renderedWidth = grid.getBoundingClientRect().width;
-      const renderedHeight = field.getBoundingClientRect().height;
-      if (renderedWidth <= 0 || renderedHeight <= 0 || columns < 5) return;
+      void grid;
+      const fieldRect = field.getBoundingClientRect();
+      const renderedHeight = fieldRect.height;
+      if (fieldRect.width <= 0 || renderedHeight <= 0) return;
 
+      // Cells are a fixed pixel size (`--bauhaus-cell`); only the number of
+      // columns and rows changes with the container.
+      const cell =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue(
+            '--bauhaus-cell'
+          )
+        ) || 30;
       const inset = unit;
       const moduleSize = 160;
-      const viewWidth = columns * unit - inset * 2;
-      const requiredViewHeight = (renderedHeight / renderedWidth) * viewWidth;
+      const visibleColumns = Math.max(4, Math.floor(fieldRect.width / cell));
+      const viewWidth = visibleColumns * unit;
+      const requiredViewHeight = (renderedHeight / cell) * unit;
       const coordinateHeight =
         Math.ceil((requiredViewHeight + inset * 2) / moduleSize) * moduleSize;
       const rowCount = Math.max(6, coordinateHeight / unit);
-      if (rows === rowCount) return;
+      if (rows === rowCount && columnCount === visibleColumns + 2) return;
 
       rows = rowCount;
+      columnCount = visibleColumns + 2;
       viewBox = {
         x: inset,
         y: inset,
@@ -448,7 +463,7 @@
             viewBox.height;
         const firstColumn = Math.max(0, Math.floor(svgLeft / 160) * 2);
         const lastColumn = Math.min(
-          columns - 2,
+          columnCount - 2,
           Math.floor(svgRight / 160) * 2
         );
         const firstRow = Math.max(0, Math.floor(svgTop / 160) * 2);
@@ -677,8 +692,11 @@
   data-bauhaus-pattern={patternKey}
   data-ambient={ambient ? 'true' : undefined}
   data-interactive={interactive ? 'true' : undefined}
-  data-columns={columns}
+  data-columns={columnCount}
   data-rows={rows}
+  style={ambient
+    ? `width: calc(${viewBox.width / unit} * var(--bauhaus-cell, 30px))`
+    : undefined}
   viewBox="{viewBox.x} {viewBox.y} {viewBox.width} {viewBox.height}"
   role="presentation"
 >

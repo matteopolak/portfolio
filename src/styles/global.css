@@ -36,6 +36,8 @@
 }
 
 :root {
+  /* Side of one Bauhaus grid cell; never scales with the viewport. */
+  --bauhaus-cell: 30px;
   --paper: oklch(97.598% 0.02449 91.61);
   --paper-bright: oklch(98.623% 0.01422 84.583);
   --ink: oklch(20.463% 0 0);
