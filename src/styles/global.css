@@ -2,7 +2,13 @@
 @plugin "daisyui" {
   themes: light --default;
   /* Components the site never uses (it has its own styles); keeps ~100KB of CSS out of every page. */
-  exclude: alert, aura, avatar, badge, breadcrumbs, button, calendar, card, carousel, chat, checkbox, collapse, countdown, diff, dock, drawer, dropdown, fab, fieldset, fileinput, filter, footer, hero, hover3d, hovergallery, indicator, input, megamenu, menu, mockup, modal, navbar, otp, radialprogress, radio, range, rating, select, skeleton, stack, stat, steps, swap, tab, table, textarea, textrotate, timeline, toast, toggle, tooltip, validator;
+  exclude:
+    alert, aura, avatar, badge, breadcrumbs, button, calendar, card, carousel,
+    chat, checkbox, collapse, countdown, diff, dock, drawer, dropdown, fab,
+    fieldset, fileinput, filter, footer, hero, hover3d, hovergallery, indicator,
+    input, megamenu, menu, mockup, modal, navbar, otp, radialprogress, radio,
+    range, rating, select, skeleton, stack, stat, steps, swap, tab, table,
+    textarea, textrotate, timeline, toast, toggle, tooltip, validator;
 }
 
 @font-face {
