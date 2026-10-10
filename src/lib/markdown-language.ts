@@ -6,7 +6,8 @@
  * The editor's shared HighlightStyle colours `processingInstruction` as a Jai
  * directive (red), and @lezer/markdown tags every markup character (`#`,
  * `*`, `` ` ``, `>`, `-`) with it. So the marks are re-tagged with tags of
- * their own here, which only this file's style knows about.
+ * their own here, which only this file's style knows about (see the note on
+ * `markdownTags` for why the selectors name any parent).
  */
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
@@ -21,11 +22,15 @@ const listMark = Tag.define();
 const markup = Tag.define();
 const inlineCode = Tag.define();
 
+// `*/Node` (any parent) gives each rule a context, so it sorts ahead of
+// @lezer/markdown's own context-free rule. Since @lezer/highlight 1.2.2 rules
+// for the same node are merged instead of replaced, so a plain `HeaderMark`
+// here would lose to the `processingInstruction` default.
 const markdownTags = styleTags({
-  HeaderMark: headingMark,
-  ListMark: listMark,
-  'EmphasisMark CodeMark LinkMark QuoteMark HardBreak': markup,
-  InlineCode: inlineCode,
+  '*/HeaderMark': headingMark,
+  '*/ListMark': listMark,
+  '*/EmphasisMark */CodeMark */LinkMark */QuoteMark */HardBreak': markup,
+  '*/InlineCode': inlineCode,
 });
 
 // Colours come from the `--ide-*` tokens, like the rest of the editor theme.

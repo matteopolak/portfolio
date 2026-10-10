@@ -2,3 +2,4 @@ allowBuilds:
   # Both ship prebuilt platform binaries; their install scripts are not needed.
   esbuild: false
   sharp: false
+minimumReleaseAge: 20160
