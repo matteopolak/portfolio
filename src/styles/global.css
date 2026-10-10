@@ -888,3 +888,11 @@ body .site-main .project-card:hover {
 .mark[data-mark='github'] img {
   filter: var(--mono-logo-filter);
 }
+
+/* Shiki emits light and dark colours as variables (astro.config.ts); dark site themes switch in themeCss(). */
+.astro-code,
+.astro-code span {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+}

@@ -26,5 +26,5 @@ export function joinNatural(items: string[]): string {
   return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
-/** The slug of a content collection id (`axum-extract.md`). */
-export const slugOf = (id: string) => id.replace(/\.md$/, '');
+/** The slug of a content collection id (`axum-extract.md` or `.mdx`). */
+export const slugOf = (id: string) => id.replace(/\.mdx?$/, '');

@@ -1,0 +1,53 @@
+---
+title: Chart components demo
+description: A fixture that uses every blog chart component with fake data.
+date: 2026-06-01
+tags:
+  - demo
+published: false
+---
+
+This draft exercises the build-time chart components. The components are available in every MDX post without an import.
+
+<StatGrid src="_chart-demo/data/stats.json" title="The project in numbers" />
+
+## Lines over time
+
+<LineChart
+  src="_chart-demo/data/loc.json"
+  title="Lines of code by component"
+  caption="Fake data: the backend overtakes everything in April."
+  interactive
+/>
+
+<AreaChart
+  src="_chart-demo/data/loc.json"
+  title="The same data, stacked"
+  caption="Stacked areas show the total."
+  stacked
+  interactive
+/>
+
+## Commits
+
+<BarChart
+  src="_chart-demo/data/commits.json"
+  title="Commits per week"
+  caption="Twelve fake weeks."
+  interactive
+/>
+
+## Milestones
+
+<Timeline src="_chart-demo/data/milestones.json" title="What happened when" />
+
+<Callout type="tip" title="Reading the charts">
+  Every chart has a **Show data** table with the same numbers, and a markdown
+  fallback for the `.md` variant.
+</Callout>
+
+```rust
+fn main() {
+    println!("code blocks still use Shiki");
+}
+```

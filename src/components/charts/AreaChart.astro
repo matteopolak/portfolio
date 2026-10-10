@@ -1,0 +1,11 @@
+---
+import TimeSeriesChart from './TimeSeriesChart.svelte';
+import { timeSeriesModel, type CommonProps } from '../../lib/charts/model';
+
+/** Time series as filled areas; `stacked` stacks the series (they must share their dates). */
+type Props = CommonProps & { stacked?: boolean };
+const { interactive = false, ...props } = Astro.props;
+const model = timeSeriesModel('AreaChart', props);
+---
+
+{interactive ? <TimeSeriesChart client:visible {...model} interactive /> : <TimeSeriesChart {...model} />}

@@ -1,0 +1,11 @@
+---
+import BarChartView from './BarChart.svelte';
+import { barsModel, type CommonProps } from '../../lib/charts/model';
+
+/** Bars from `{ bars: [{ label, value }] }`, e.g. commits per week. */
+type Props = CommonProps;
+const { interactive = false, ...props } = Astro.props;
+const model = barsModel(props);
+---
+
+{interactive ? <BarChartView client:visible {...model} interactive /> : <BarChartView {...model} />}

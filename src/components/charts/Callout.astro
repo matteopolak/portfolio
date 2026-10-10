@@ -1,0 +1,49 @@
+---
+/** A highlighted aside for MDX prose. `type` changes the accent and the label. */
+interface Props {
+  type?: 'note' | 'tip' | 'warning';
+  title?: string;
+}
+const { type = 'note', title } = Astro.props;
+const label = { note: 'Note', tip: 'Tip', warning: 'Warning' }[type];
+---
+
+<aside class={`callout callout--${type}`}>
+  <p class="callout__label">{title ?? label}</p>
+  <div class="callout__body"><slot /></div>
+</aside>
+
+<style>
+  .callout {
+    margin: 1.75rem 0;
+    padding: 1rem 1.25rem;
+    border-left: 0.65rem solid var(--callout);
+    background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
+  }
+
+  .callout--note {
+    --callout: var(--accent-2);
+  }
+  .callout--tip {
+    --callout: var(--accent-3);
+  }
+  .callout--warning {
+    --callout: var(--accent-1);
+  }
+
+  .callout__label {
+    margin: 0 0 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .callout__body > :first-child {
+    margin-top: 0;
+  }
+
+  .callout__body > :last-child {
+    margin-bottom: 0;
+  }
+</style>

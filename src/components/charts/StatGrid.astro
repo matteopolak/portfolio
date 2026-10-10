@@ -1,0 +1,84 @@
+---
+import { loadChartData } from '../../lib/charts/data';
+
+/** A few big numbers with labels, from `{ stats: [{ value, label, note? }] }`. */
+interface Props {
+  src: string;
+  title?: string;
+}
+const { src, title } = Astro.props;
+const { stats } = loadChartData('stats', src);
+---
+
+<section class="stats" aria-label={title ?? 'Key numbers'}>
+  {title && <p class="stats__title">{title}</p>}
+  <dl>
+    {
+      stats.map((stat) => (
+        <div class="stat">
+          <dt>{stat.label}</dt>
+          <dd>
+            <span class="stat__value">{stat.value}</span>
+            {stat.note && <span class="stat__note">{stat.note}</span>}
+          </dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>
+
+<style>
+  .stats {
+    margin: 2rem 0;
+    padding: 1rem 0;
+    border-block: 1px solid var(--soft-rule);
+    container-type: inline-size;
+  }
+
+  .stats__title {
+    margin: 0 0 0.75rem;
+    font-weight: 750;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1.25rem 1.5rem;
+    margin: 0;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  dd {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+
+  .stat__value {
+    color: var(--accent-1-text);
+    font-size: clamp(2rem, 8cqi, 3rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    line-height: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .stat__note {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+</style>

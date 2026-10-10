@@ -1,0 +1,11 @@
+---
+import TimeSeriesChart from './TimeSeriesChart.svelte';
+import { timeSeriesModel, type CommonProps } from '../../lib/charts/model';
+
+/** Multi-series time series as a static SVG line chart (1-3 series). */
+type Props = CommonProps;
+const { interactive = false, ...props } = Astro.props;
+const model = timeSeriesModel('LineChart', props);
+---
+
+{interactive ? <TimeSeriesChart client:visible {...model} interactive /> : <TimeSeriesChart {...model} />}

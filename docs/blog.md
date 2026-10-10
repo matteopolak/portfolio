@@ -1,6 +1,6 @@
 # Blog
 
-Blog posts are Markdown files in `src/content/blog/`. They are rendered as static pages at `/blog/[slug]`.
+Blog posts are Markdown (`.md`) or MDX (`.mdx`) files in `src/content/blog/`. MDX posts can use the build-time chart components, see [blog-charts.md](./blog-charts.md). They are rendered as static pages at `/blog/[slug]`.
 
 ## Writing a post
 
@@ -16,7 +16,7 @@ description: Optional one-line summary shown on /blog listing.
 Post content here. Standard Markdown.
 ```
 
-The filename becomes the URL slug (with `.md` stripped). For example, `hello-world.md` → `/blog/hello-world`.
+The filename becomes the URL slug (with `.md` / `.mdx` stripped). For example, `hello-world.md` → `/blog/hello-world`.
 
 ## Frontmatter fields
 
@@ -25,10 +25,12 @@ The filename becomes the URL slug (with `.md` stripped). For example, `hello-wor
 | `title`       | string              | yes      | Post title                              |
 | `date`        | date (`YYYY-MM-DD`) | yes      | Publication date, used for sorting      |
 | `description` | string              | no       | Short summary shown on the listing page |
+| `tags`        | string[]            | no       | Shown in feeds, search and the markdown variant |
+| `published`   | boolean             | no       | `false` keeps a draft out of every output (pages, RSS, sitemap, llms.txt, `.md` variants, WebMCP); it is not viewable in dev either |
 
 ## How it works
 
-- `src/content.config.ts` defines the `blog` collection using Astro's `glob` loader.
+- `src/content.config.ts` defines the `blog` collection using Astro's `glob` loader (`**/*.{md,mdx}`).
 - `/blog` (`src/pages/blog/index.astro`) lists all posts sorted by date descending.
 - `/blog/[slug]` (`src/pages/blog/[slug].astro`) renders each post using Astro's `render()` function.
 
