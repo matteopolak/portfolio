@@ -18,7 +18,7 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 
 **A view tab.** The Render tab is an `OpenTab` with `view: 'render'` (its `path` is the view id, never a file path, so a file called `render` is a different tab). The workspace has at most one: `openView` focuses it where it is, drags move it (dropping a group's only tab on its own side does not copy it), and `parseLayout` drops later copies. File operations (`move`, `retain`, editor states, diagnostics, Format, navigation history) skip it.
 
-**When it opens.** "Room for a split" means an editor area at least `SPLIT_MIN_WIDTH` (640px, two 320px groups) wide, outside the phone layout.
+**When it opens.** "Room for a split" means an editor area at least `SPLIT_MIN_WIDTH` (960px, two 480px groups) wide, outside the phone layout.
 
 - **First visit** (no tabs restored): the starter's tabs in one group and, with room, the Render tab split off to the right (`renderBeside`); without room (and on phones) the Render tab sits behind `main.jai` in the one group. Reset layout rebuilds the same arrangement.
 - **Open anywhere, it stays put.** If a Render tab is open, even behind another tab, a drawing program leaves it there: a run never rearranges the layout.
@@ -56,7 +56,7 @@ Jai programs that draw with WebGPU (`#import "WebGPU"`, or `"Extensions/WebGPU"`
 ## Configuration
 
 - `BUDGET` (200M basic blocks) in `workspace-ui.ts`.
-- `SPLIT_MIN_WIDTH` (640px) and `MAX_GROUPS` (16) in the layout model: a narrower editor area or a full workspace takes the Render tab as a tab instead of a split.
+- `SPLIT_MIN_WIDTH` (960px) and `MAX_GROUPS` (16) in the layout model: a narrower editor area or a full workspace takes the Render tab as a tab instead of a split. Below the same width, an output dock at its default size takes half the height (`dockBasis` in `code-workspace-layout.ts`) so code and output split evenly; dragging the dock overrides it.
 - Bundle files: `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` (optional in `scripts/sync-jai-web.ts`).
 
 ## Dependencies
