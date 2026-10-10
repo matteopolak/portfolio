@@ -30,7 +30,7 @@
 
 ## Configuration
 
-None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jai`, `/playground/quasi`, `/playground/baerscript` and `/playground/minecraft`. All five are in `sitemap.xml`. The Lodestone page needs the SDK synced into `public/lodestone/` (`pnpm sync:web-assets`) and WebGPU in the browser. The Jai page uses the release in `jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
+None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jai`, `/playground/quasi`, `/playground/baerscript` and `/playground/minecraft`. All five are in `sitemap.xml`. The Lodestone page needs the SDK synced into `public/lodestone/` (`pnpm sync:web-assets`) and WebGPU in the browser. The Jai page uses the release in `releases/jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
 
 ## Dependencies
 

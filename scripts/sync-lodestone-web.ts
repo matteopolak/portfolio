@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join, normalize, resolve, sep } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const pointerPath = join(root, 'lodestone-web-release.json');
+const pointerPath = join(root, 'releases', 'lodestone-web-release.json');
 const outputPath = join(root, 'public', 'lodestone');
 const stampPath = join(outputPath, '.lodestone-bundle.json');
 const downloadAttempts = 5;

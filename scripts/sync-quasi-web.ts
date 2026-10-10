@@ -14,7 +14,7 @@ import { join, normalize, resolve, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const root = resolve(import.meta.dirname, '..');
-const pointerPath = join(root, 'quasi-web-release.json');
+const pointerPath = join(root, 'releases', 'quasi-web-release.json');
 const outputPath = join(root, 'public', 'quasi');
 const stampPath = join(outputPath, '.quasi-bundle.json');
 const pointer = JSON.parse(await readFile(pointerPath, 'utf8'));

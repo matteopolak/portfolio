@@ -1,4 +1,4 @@
-import jaiRelease from '../../jai-web-release.json';
+import jaiRelease from '../../releases/jai-web-release.json';
 
 /*
  * Build-time description of each in-browser code demo. The Projects page

@@ -130,7 +130,7 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 
 ## Configuration
 
-`jai-web-release.json` records the repository, immutable tag, revision, manifest and
+`releases/jai-web-release.json` records the repository, immutable tag, revision, manifest and
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
