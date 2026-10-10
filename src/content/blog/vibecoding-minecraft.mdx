@@ -1,0 +1,103 @@
+---
+title: Rewriting Minecraft with agents
+description: Ten weeks of coding agents rewriting Minecraft in Rust, and the things that went wrong along the way.
+date: 2026-10-10
+tags:
+  - rust
+  - vibecoding
+  - minecraft
+published: false
+---
+
+Minecraft is a big game. One version of the client and server together is about 1.1 million lines of code, not counting comments, and if you count every version people still play it's well over 2 million.
+
+People have rewritten it before, but usually only part of it, like only some versions, only the server, or everything except redstone. I wanted to see what it would take to do all of it: every feature and every version, in Rust, and running in the browser. I called it Lodestone, and you can play it here:
+
+<Playground name="minecraft" />
+
+Agents wrote almost all of the code. This post covers how I set that up, but mostly the things that went wrong.
+
+## The setup
+
+Since I was cloning an existing game, I didn't have to design anything. I had a few research agents read through the client and server and categorize everything they found, then went through their results and fixed what they got wrong. All of it went into GitHub issues, labelled by priority, area and tier. 358 issues were created on Jul 30 alone.
+
+I started with the client. If my client could connect to a real vanilla server, the server would handle all the simulation while I worked on networking and rendering. The server came after.
+
+One main session planned the work, reviewed it and merged it, and kept 5 to 10 subagents working on separate issues.
+
+<BarChart
+  src="vibecoding-minecraft/data/commits-per-week.json"
+  title="Commits per week"
+  caption="ISO weeks from late July to October. The quiet weeks are when I wasn't running agents."
+  interactive
+/>
+
+## Too many agents
+
+More agents didn't mean faster progress. Past about ten they mostly got in each other's way, competing for the same files, disk space and build cache. At one point I asked for docs to be cleaned up, the main session started three docs agents, and those started about 20 more of their own. I had to tell it to stop.
+
+Even at ten, the machine struggled. Each agent had its own `target/` directory, and together they used a few hundred GiB of disk until tool calls started failing. Running too many builds at once froze my 16 GB Mac, and at one point crashed the desktop app I was running the agents in. After that, only one agent was allowed to build at a time.
+
+## Agents breaking each other
+
+Most of the confusing bugs weren't in the game at all:
+
+- One agent made a commit from a temporary git index while two other agents committed in the meantime. Its commit quietly undid both of theirs, about 2,000 lines including a test and an oracle dump. Now commits go through a script that refuses to commit from a checkout that's behind `HEAD`.
+- `cargo check` once reported 435 missing files. They all existed. Another agent was deleting the worktree it was reading from, and a few minutes later the same command showed 3 errors, all real.
+- The search tool the agents used had a bug where it cut off the part of the line that matched. So an agent would search for a function, get a result back, and conclude the function didn't exist. Three agents nearly made wrong decisions because of it before anyone noticed.
+
+All of these looked like the agent had written broken code. If I'd just asked it to fix what it saw, it would have patched around a tooling problem.
+
+## Metrics that lied
+
+We had a tool that reported how much of the protocol was implemented, and two agents were using it to decide what to work on. It turned out it only checked one direction and one protocol version, and its "53/69" was mostly checking whether a name appeared in a file.
+
+The opposite happened too. There was a benchmark check that kept failing and looked flaky. It was actually catching a 4x increase in allocations. Once that was fixed, allocations per chunk column went from 87,882 to 118.
+
+And the tests weren't always enough. In one scene, every test passed, but the screenshot showed the entities were missing and their shields were floating in the air by themselves.
+
+## Slow code
+
+The agents didn't work on performance unless I asked, and early on a lot of it was slow. The biggest problem was block data being passed around as strings everywhere. World generation was doing over 200 million string comparisons per chunk. Generating enums at build time got that under 20,000.
+
+The agents also reported every optimization as an improvement, whether or not it was. So I made it a rule that every change had to be benchmarked, and reverted if it was slower. That caught a few:
+
+<Timeline
+  src="vibecoding-minecraft/data/perf.json"
+  title="Performance changes, including reverted ones"
+/>
+
+The barrier one is my favourite. Removing a sync point between chunk rings was supposed to make generation more parallel, but instead it caused about 5,000 lock attempts on the same mutex. The version that worked came two days later.
+
+## Mobs
+
+I've played a lot of Minecraft, so playtesting caught a lot. Mobs spawned with `/summon` didn't collide with anything. Pathfinding was wrong in when it happened, where they went and how fast they moved, which needed a rewrite. And until Oct 9, bees, bats, phantoms and ghasts didn't fly.
+
+## Comments and clean room
+
+Agents like to write comments like `// matches LivingEntity.tick() line 412`. They help while porting, but they shouldn't be in the repo. I had one pass remove all of them, and 27 line-number references in one go, then added a lint (`check-comment-voice`) so new ones would fail CI.
+
+The docs had a similar problem. A lot of them were dense blocks of text that didn't help anyone, mostly from a stretch where I was using a different model. Those got rewritten.
+
+<LineChart
+  src="vibecoding-minecraft/data/lines-of-rust.json"
+  title="Lines of Rust over time"
+  caption="Every line in every .rs file, including tests, sampled weekly. The drop at the end is the old 26.2 world generator being deleted."
+  interactive
+/>
+
+## Updating to 26.3
+
+In October I changed the target version to 26.3. Instead of modifying the 26.2 world generator, I had the 26.3 version built separately and checked against the real game first. The density engine matched exactly on Oct 4, and structure placement matched a real server on Oct 5, along with shaped chunks going from 118 ms to about 10 ms. Then the old generator was deleted, which is the drop at the end of the chart above.
+
+## Was it worth it?
+
+As an experiment, yes. It was easier than I expected, partly because cloning a game is easier than designing one.
+
+If you try something similar:
+
+- Keep the number of agents small enough that you can follow what they're doing. Ten was about my limit.
+- When something looks broken, check whether it's the code or the tooling before asking an agent to fix it.
+- Double-check any metric the agents built.
+- Benchmark every optimization and revert the ones that don't help.
+- Play the game. Look at the screenshots.
