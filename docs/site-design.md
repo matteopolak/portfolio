@@ -58,12 +58,16 @@ The design has no environment variables or runtime flags. The site is intentiona
 ```css
 --paper: oklch(97.598% 0.02449 91.61);
 --ink: oklch(20.463% 0 0);
---red: oklch(63.259% 0.24086 31.631);
---blue: oklch(56.774% 0.12194 238.83);
---yellow: oklch(83.099% 0.17046 81.363);
+--muted: oklch(43% 0.026 274.321);
+--red: oklch(75% 0.13 25); /* #f58b84, was #fa2b03 */
+--blue: oklch(77% 0.1 240); /* #76bdee, was #147fb6 */
+--yellow: oklch(91% 0.14 95); /* #fee06b, was #ffba08 */
+--red-text: color-mix(in oklch, var(--red) 30%, var(--ink));
+--blue-text: color-mix(in oklch, var(--blue) 30%, var(--ink));
+--yellow-text: color-mix(in oklch, var(--yellow) 30%, var(--ink));
 ```
 
-The primary colors and paper tone are sampled directly from the flat-color regions in the Bauhaus reference image, then represented in OKLCH. The ink is a neutral near-black rather than pure black. The main portfolio interface uses OKLCH consistently; standalone SVG assets and the isolated Lodestone embed shell retain their existing color values.
+The primary colours are a soft pastel red, blue and yellow so they can carry dark text. Rule: text and icons on a red, blue or yellow fill are always `--ink` (7.6:1 to 13.8:1); coloured text, glyphs and focus rings on paper use the `*-text` mixes (AAA on paper) instead of the fills. Paper and ink are unchanged, so the favicon and the generated OG image (which only use those two) are too. The target is WCAG AAA (7:1 text, 4.5:1 large text) with AA (4.5:1 / 3:1) as a hard floor; `tests/palette-contrast.test.ts` (`pnpm test:palette`) computes every pair the site uses, including the editor theme, prints a table, fails below AA and warns below AAA. The ink and paper tones are neutral and warm; the main portfolio interface uses OKLCH consistently; standalone SVG assets and the isolated Lodestone embed shell retain their existing color values.
 
 `prefers-reduced-motion: reduce` disables the occasional rotation of complete four-dot groups.
 

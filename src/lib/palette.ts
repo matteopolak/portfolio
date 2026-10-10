@@ -18,43 +18,52 @@ interface PaletteFamily {
 
 type LinearSrgb = [red: number, green: number, blue: number];
 
-const PAPER_LUMINANCE = relativeLuminance(
-  oklchToLinearSrgb({ lightness: 0.97598, chroma: 0.02449, hue: 91.61 })
-);
+export const PAPER = 'oklch(97.598% 0.02449 91.61)';
+export const INK = 'oklch(20.463% 0 0)';
+
+/** Generated fills carry dark ink text; this is the contrast they must reach (WCAG AA is 4.5). */
+export const MINIMUM_INK_CONTRAST = 7;
+
 const INK_LUMINANCE = relativeLuminance(
   oklchToLinearSrgb({ lightness: 0.20463, chroma: 0, hue: 0 })
 );
 
+/*
+ * Pastel families: each fill is light enough for ink text and low in chroma, so
+ * it stays a soft red, blue and yellow (or a neighbouring triad) without losing
+ * the Bauhaus feel. `lightness` and `chroma` are starting points that
+ * `accessibleColor` raises until the fill reaches MINIMUM_INK_CONTRAST.
+ */
 const PALETTE_FAMILIES: PaletteFamily[] = [
   {
-    darkOne: { lightness: 0.6, chroma: 0.23, hue: 31 },
-    darkTwo: { lightness: 0.5, chroma: 0.16, hue: 252 },
-    bright: { lightness: 0.84, chroma: 0.17, hue: 84 },
+    darkOne: { lightness: 0.78, chroma: 0.12, hue: 25 },
+    darkTwo: { lightness: 0.79, chroma: 0.09, hue: 240 },
+    bright: { lightness: 0.92, chroma: 0.13, hue: 95 },
   },
   {
-    darkOne: { lightness: 0.5, chroma: 0.2, hue: 320 },
-    darkTwo: { lightness: 0.47, chroma: 0.12, hue: 188 },
-    bright: { lightness: 0.84, chroma: 0.14, hue: 55 },
+    darkOne: { lightness: 0.78, chroma: 0.11, hue: 330 },
+    darkTwo: { lightness: 0.8, chroma: 0.08, hue: 195 },
+    bright: { lightness: 0.92, chroma: 0.12, hue: 70 },
   },
   {
-    darkOne: { lightness: 0.47, chroma: 0.14, hue: 145 },
-    darkTwo: { lightness: 0.49, chroma: 0.18, hue: 295 },
-    bright: { lightness: 0.83, chroma: 0.11, hue: 210 },
+    darkOne: { lightness: 0.8, chroma: 0.1, hue: 150 },
+    darkTwo: { lightness: 0.78, chroma: 0.1, hue: 295 },
+    bright: { lightness: 0.9, chroma: 0.09, hue: 215 },
   },
   {
-    darkOne: { lightness: 0.47, chroma: 0.16, hue: 265 },
-    darkTwo: { lightness: 0.53, chroma: 0.17, hue: 45 },
-    bright: { lightness: 0.85, chroma: 0.11, hue: 155 },
+    darkOne: { lightness: 0.78, chroma: 0.09, hue: 265 },
+    darkTwo: { lightness: 0.8, chroma: 0.11, hue: 50 },
+    bright: { lightness: 0.9, chroma: 0.09, hue: 160 },
   },
   {
-    darkOne: { lightness: 0.48, chroma: 0.16, hue: 345 },
-    darkTwo: { lightness: 0.49, chroma: 0.12, hue: 100 },
-    bright: { lightness: 0.84, chroma: 0.11, hue: 195 },
+    darkOne: { lightness: 0.78, chroma: 0.1, hue: 350 },
+    darkTwo: { lightness: 0.82, chroma: 0.09, hue: 105 },
+    bright: { lightness: 0.9, chroma: 0.08, hue: 200 },
   },
   {
-    darkOne: { lightness: 0.49, chroma: 0.18, hue: 270 },
-    darkTwo: { lightness: 0.47, chroma: 0.13, hue: 160 },
-    bright: { lightness: 0.82, chroma: 0.16, hue: 25 },
+    darkOne: { lightness: 0.78, chroma: 0.1, hue: 280 },
+    darkTwo: { lightness: 0.8, chroma: 0.09, hue: 165 },
+    bright: { lightness: 0.9, chroma: 0.1, hue: 30 },
   },
 ];
 
@@ -113,23 +122,50 @@ function fitChroma(lightness: number, chroma: number, hue: number) {
 function accessibleColor(
   initialLightness: number,
   initialChroma: number,
-  hue: number,
-  foregroundLuminance: number,
-  direction: -1 | 1
+  hue: number
 ) {
-  let lightness = initialLightness;
+  let lightness = Math.min(0.95, initialLightness);
   let chroma = fitChroma(lightness, initialChroma, hue);
 
-  for (let attempt = 0; attempt < 18; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     const luminance = relativeLuminance(
       oklchToLinearSrgb({ lightness, chroma, hue })
     );
-    if (contrastRatio(luminance, foregroundLuminance) >= 4.5) break;
-    lightness = Math.min(0.9, Math.max(0.35, lightness + direction * 0.012));
+    if (contrastRatio(luminance, INK_LUMINANCE) >= MINIMUM_INK_CONTRAST) break;
+    lightness = Math.min(0.97, lightness + 0.01);
     chroma = fitChroma(lightness, initialChroma, hue);
   }
 
   return `oklch(${(lightness * 100).toFixed(3)}% ${chroma.toFixed(5)} ${normalizeHue(hue).toFixed(3)})`;
+}
+
+/** WCAG contrast ratio of two `oklch(L% C H)` strings (as produced here and used in CSS). */
+export function contrastBetween(first: string, second: string) {
+  const luminance = (value: string) =>
+    relativeLuminance(oklchToLinearSrgb(parseOklch(value)));
+  return contrastRatio(luminance(first), luminance(second));
+}
+
+export function parseOklch(value: string): OklchColor {
+  const match = /^oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*\)$/u.exec(
+    value.trim()
+  );
+  if (!match) throw new Error(`Not an oklch() color: ${value}`);
+  return {
+    lightness: Number(match[1]) / 100,
+    chroma: Number(match[2]),
+    hue: Number(match[3]),
+  };
+}
+
+/**
+ * `color-mix(in oklch, <color> <share>%, <other>)` for an achromatic `other`:
+ * how CSS derives the readable text accents (`--red-text`, ...) from a fill.
+ */
+export function mixWithInk(color: string, share: number) {
+  const mixed = parseOklch(color);
+  const ink = parseOklch(INK);
+  return `oklch(${(100 * (mixed.lightness * share + ink.lightness * (1 - share))).toFixed(3)}% ${(mixed.chroma * share).toFixed(5)} ${mixed.hue})`;
 }
 
 const jitter = (amount: number) => (Math.random() * 2 - 1) * amount;
@@ -151,31 +187,13 @@ function chooseFamily() {
 
 export function generatePalette(): GeneratedPalette {
   const family = chooseFamily();
-  const darkOne = vary(family.darkOne);
-  const darkTwo = vary(family.darkTwo);
-  const bright = vary(family.bright);
+  const red = vary(family.darkOne);
+  const blue = vary(family.darkTwo);
+  const yellow = vary(family.bright);
 
   return {
-    red: accessibleColor(
-      darkOne.lightness,
-      darkOne.chroma,
-      darkOne.hue,
-      PAPER_LUMINANCE,
-      -1
-    ),
-    blue: accessibleColor(
-      darkTwo.lightness,
-      darkTwo.chroma,
-      darkTwo.hue,
-      PAPER_LUMINANCE,
-      -1
-    ),
-    yellow: accessibleColor(
-      bright.lightness,
-      bright.chroma,
-      bright.hue,
-      INK_LUMINANCE,
-      1
-    ),
+    red: accessibleColor(red.lightness, red.chroma, red.hue),
+    blue: accessibleColor(blue.lightness, blue.chroma, blue.hue),
+    yellow: accessibleColor(yellow.lightness, yellow.chroma, yellow.hue),
   };
 }

@@ -99,7 +99,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
   }
 
   .project-card:has(.project-card__title:focus-visible) {
-    outline: 3px solid var(--blue);
+    outline: 3px solid var(--blue-text);
     outline-offset: 3px;
   }
 
@@ -213,7 +213,7 @@ const date = project.data.date.toLocaleDateString('en-US', {
     min-height: 1.9rem;
     padding: 0.32rem 0.5rem;
     border: 0;
-    color: var(--paper);
+    color: var(--ink);
     background: var(--blue);
     font-size: 0.68rem;
     line-height: 1;
@@ -230,13 +230,14 @@ const date = project.data.date.toLocaleDateString('en-US', {
   }
 
   .project-links a:last-child {
+    color: var(--paper);
     background: var(--ink);
   }
 
   .project-links a:hover,
   .project-links button:hover {
-    color: var(--paper);
-    background: var(--blue);
+    color: var(--ink);
+    background: var(--yellow);
   }
 
   @media (max-width: 52rem) {

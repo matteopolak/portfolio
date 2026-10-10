@@ -684,8 +684,8 @@
     --ide-rule: oklch(31% 0.008 270);
     --ide-fg: oklch(90% 0.016 91);
     --ide-fg-strong: oklch(97.598% 0.02449 91.61);
-    --ide-muted: oklch(70% 0.012 270);
-    --ide-faint: oklch(64% 0.01 270);
+    --ide-muted: oklch(76% 0.012 270);
+    --ide-faint: oklch(75% 0.01 270);
     --ide-active-line: oklch(100% 0 0 / 0.035);
     --ide-selection: color-mix(in oklch, var(--blue) 24%, transparent);
     --ide-selection-match: oklch(100% 0 0 / 0.07);
@@ -697,11 +697,11 @@
     --ide-syntax-string: oklch(81% 0.11 150);
     /* Format specifiers (`%`, `%1`) in print-family strings: violet, away from the green strings. */
     --ide-syntax-format: oklch(78% 0.15 310);
-    --ide-syntax-format-percent: oklch(70% 0.07 310);
+    --ide-syntax-format-percent: oklch(76% 0.07 310);
     --ide-syntax-number: color-mix(in oklch, var(--red) 55%, white);
     --ide-syntax-directive: color-mix(in oklch, var(--red) 72%, white);
-    --ide-syntax-comment: oklch(67% 0.014 270);
-    --ide-syntax-punct: oklch(74% 0.01 270);
+    --ide-syntax-comment: oklch(76% 0.014 270);
+    --ide-syntax-punct: oklch(80% 0.01 270);
     --ide-error: color-mix(in oklch, var(--red) 58%, white);
     --ide-mono:
       ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas,
@@ -911,7 +911,7 @@
   }
 
   .ide-run--stop {
-    color: white !important;
+    color: var(--ink) !important;
     background: var(--red) !important;
   }
 
@@ -938,7 +938,7 @@
   }
 
   .ide-icon--close:hover {
-    color: white !important;
+    color: var(--ink) !important;
     background: var(--red) !important;
   }
 
