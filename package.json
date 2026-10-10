@@ -16,6 +16,7 @@
     "preview": "astro preview",
     "test:lodestone": "node --test tests/lodestone/*.test.ts",
     "check": "astro check && svelte-check --tsconfig ./tsconfig.json",
+    "check:seo": "node scripts/check-seo.ts",
     "test:jai": "node --test tests/jai/*.test.ts && python3 -m unittest discover -s tests/jai -p 'test_*.py'",
     "astro": "astro",
     "lint": "oxlint",
@@ -46,7 +47,6 @@
     "daisyui": "^5.7.46",
     "dompurify": "3.4.16",
     "marked": "18.0.14",
-    "prismjs": "^1.30.0",
     "smol-toml": "^1.9.0",
     "svelte": "5.57.1",
     "tailwindcss": "^4.3.3"

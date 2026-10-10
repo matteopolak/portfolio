@@ -74,9 +74,6 @@ importers:
       marked:
         specifier: 18.0.14
         version: 18.0.14
-      prismjs:
-        specifier: ^1.30.0
-        version: 1.30.0
       smol-toml:
         specifier: ^1.9.0
         version: 1.9.0

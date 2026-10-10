@@ -4,7 +4,7 @@ import { canonicalPathname } from '../lib/urls';
 import faviconSvgUrl from '../assets/favicon.svg?url&no-inline';
 import appleTouchIconUrl from '../generated/favicons/apple-touch-icon.png?url&no-inline';
 import favicon32Url from '../generated/favicons/favicon-32x32.png?url&no-inline';
-import icon512Url from '../generated/favicons/icon-512.png?url&no-inline';
+import ogImageUrl from '../generated/favicons/og-image.png?url&no-inline';
 import openSansUrl from '@fontsource-variable/open-sans/files/open-sans-latin-wght-normal.woff2?url';
 
 interface Props {
@@ -17,10 +17,41 @@ interface Props {
 
 const { title, pageTitle, description, type = 'website', publishedTime } = Astro.props;
 const canonicalUrl = new URL(canonicalPathname(Astro.url.pathname), Astro.site);
-const socialImageUrl = new URL(icon512Url, Astro.site);
+const socialImageUrl = new URL(ogImageUrl, Astro.site);
 const personId = new URL('/#person', Astro.site).href;
 const websiteId = new URL('/#website', Astro.site).href;
 const pageId = `${canonicalUrl.href}#webpage`;
+const canonicalPath = canonicalPathname(Astro.url.pathname);
+const sectionNames: Record<string, string> = {
+  blog: 'Blog',
+  projects: 'Projects',
+  playground: 'Playground',
+};
+
+// Home > section > page, from the URL. The last crumb is the page itself.
+const crumbs: { name: string; path: string }[] = [{ name: 'Home', path: '/' }];
+const segments = canonicalPath.split('/').filter(Boolean);
+segments.forEach((segment, index) => {
+  const path = `/${segments.slice(0, index + 1).join('/')}`;
+  const last = index === segments.length - 1;
+  crumbs.push({
+    name: last ? pageTitle : (sectionNames[segment] ?? pageTitle),
+    path,
+  });
+});
+const breadcrumbs =
+  crumbs.length > 1
+    ? {
+        '@type': 'BreadcrumbList',
+        '@id': `${canonicalUrl.href}#breadcrumb`,
+        itemListElement: crumbs.map((crumb, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: crumb.name,
+          item: new URL(crumb.path, Astro.site).href,
+        })),
+      }
+    : undefined;
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -53,6 +84,9 @@ const structuredData = {
           headline: pageTitle,
           ...(description ? { description } : {}),
           ...(publishedTime ? { datePublished: publishedTime } : {}),
+          // Posts carry no separate modification date, so it matches publication.
+          ...(publishedTime ? { dateModified: publishedTime } : {}),
+          image: socialImageUrl.href,
           inLanguage: 'en-CA',
           author: { '@id': personId },
           isPartOf: { '@id': websiteId },
@@ -68,6 +102,7 @@ const structuredData = {
           isPartOf: { '@id': websiteId },
           about: { '@id': personId },
         },
+    ...(breadcrumbs ? [breadcrumbs] : []),
   ],
 };
 
@@ -90,6 +125,8 @@ const serializedStructuredData = JSON.stringify(structuredData).replaceAll('<', 
 <title>{title}</title>
 
 <link rel="canonical" href={canonicalUrl} />
+<link rel="alternate" type="application/rss+xml" title={`${config.name} — Blog`} href="/rss.xml" />
+<link rel="manifest" href="/manifest.webmanifest" />
 
 <!-- Open Graph -->
 <meta property="og:title" content={title} />
@@ -100,12 +137,12 @@ const serializedStructuredData = JSON.stringify(structuredData).replaceAll('<', 
 <meta property="og:locale" content="en_CA" />
 <meta property="og:image" content={socialImageUrl} />
 <meta property="og:image:type" content="image/png" />
-<meta property="og:image:width" content="512" />
-<meta property="og:image:height" content="512" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content={`${config.name} monogram`} />
 
 <!-- Twitter Card -->
-<meta name="twitter:card" content="summary" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={title} />
 {description && <meta name="twitter:description" content={description} />}
 <meta name="twitter:image" content={socialImageUrl} />

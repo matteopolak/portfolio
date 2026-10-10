@@ -63,3 +63,5 @@ Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split 
 
 - Internal: `OpenTabs` (`jai/open-tabs.ts`), `createCodeEditor` (`code-editor.ts`), `createMarkdownPreview` (`markdown-preview.ts`), the file tree (`jai/file-tree.ts`).
 - CodeMirror 6 (`Annotation`, `Transaction.addToHistory`), Pointer Events with pointer capture, `ResizeObserver`, `matchMedia`.
+
+Note: the narrow-screen pane tabs and `showPane()` are Svelte state in `CodeWorkspace.svelte` (via `workspace-chrome.ts`); `initializeWorkspaceLayout` no longer wires the tab buttons. It still runs only after the island has mounted.

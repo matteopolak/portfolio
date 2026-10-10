@@ -1,0 +1,12 @@
+{
+  "name": "Matthew Polak",
+  "short_name": "Matthew Polak",
+  "description": "Portfolio, projects and blog of Matthew Polak, software engineer.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#fdf7e5",
+  "theme_color": "#fdf7e5",
+  "icons": [
+    { "src": "/favicon.webp", "sizes": "512x512", "type": "image/webp" }
+  ]
+}

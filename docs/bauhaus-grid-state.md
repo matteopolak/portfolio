@@ -27,3 +27,7 @@ The persistence key is the fixed string `bauhaus-grid`, while `portfolio-bauhaus
 ## Dependencies
 
 This behavior uses Astro's `ClientRouter` and transition persistence, plus standard browser DOM events and timers. It adds no runtime package and does not use `sessionStorage` or `localStorage`.
+
+## Svelte implementation
+
+The pattern is now `src/components/svelte/BauhausPattern.svelte` (hydrated `client:idle` inside the persisted `.latent-grid`). Tiles are `$state` regions rendered by the component; tile regeneration is the pure `src/lib/bauhaus-regenerate.ts`, and `bauhaus.ts` still generates the server-rendered shapes. The `astro:page-load` re-measurement now lives in the component's `onMount` (with cleanup). See [svelte-islands.md](./svelte-islands.md).

@@ -25,3 +25,5 @@ The workflow requires no secrets and has only read access to repository contents
 ## Dependencies
 
 The workflow uses `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`, and `typst-community/setup-typst`. The build may read public GitHub Release metadata and assets through the existing synchronization scripts.
+
+The workflow also runs `pnpm check:seo` after the build (see [seo.md](./seo.md)).
