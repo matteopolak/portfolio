@@ -14,9 +14,11 @@ interface Props {
   description?: string;
   type?: 'website' | 'article';
   publishedTime?: string;
+  /** Adds `noindex` (draft posts in dev). */
+  noindex?: boolean;
 }
 
-const { title, description, type, publishedTime } = Astro.props;
+const { title, description, type, publishedTime, noindex } = Astro.props;
 const isHome = canonicalPathname(Astro.url.pathname) === '/';
 const documentTitle = buildDocumentTitle(config.name, title, isHome);
 ---
@@ -31,6 +33,7 @@ const documentTitle = buildDocumentTitle(config.name, title, isHome);
       description={description}
       type={type}
       publishedTime={publishedTime}
+      noindex={noindex}
     />
   </head>
   <body>

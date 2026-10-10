@@ -22,7 +22,7 @@
       ]
     },
     {
-      "name": "Backend",
+      "name": "Backend draft-marker-chart-demo",
       "points": [
         { "t": "2026-01-01", "v": 300 },
         { "t": "2026-02-01", "v": 900 },

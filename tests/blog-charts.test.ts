@@ -310,3 +310,31 @@ test('chart colours meet contrast in every theme', async () => {
     }
   }
 });
+
+test('drafts are visible only in dev, decided by one predicate', async () => {
+  const { isVisiblePost } = await import('../src/lib/content/posts.ts');
+  assert.equal(isVisiblePost({ published: false }, false), false);
+  assert.equal(isVisiblePost({ published: false }, true), true);
+  assert.equal(isVisiblePost({ published: true }, false), true);
+  assert.equal(isVisiblePost({}, false), true);
+  const entries = [
+    { id: 'p', body: '', data: { title: 'P', date: new Date('2026-01-02') } },
+    {
+      id: 'd',
+      body: '',
+      data: { title: 'D', date: new Date('2026-01-03'), published: false },
+    },
+  ];
+  assert.deepEqual(
+    buildPosts(entries).map((p) => p.slug),
+    ['p']
+  );
+  const dev = buildPosts(entries, undefined, true);
+  assert.deepEqual(
+    dev.map((p) => [p.slug, p.draft]),
+    [
+      ['d', true],
+      ['p', false],
+    ]
+  );
+});

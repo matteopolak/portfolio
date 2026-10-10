@@ -57,8 +57,8 @@ jobs:
       - name: build static site
         run: pnpm build
 
-      - name: check SEO metadata in the built pages
-        run: pnpm check:seo
+      - name: check SEO metadata and that drafts are absent from the build
+        run: pnpm check:seo && pnpm check:drafts
 
   lighthouse:
     name: Lighthouse (performance and accessibility)

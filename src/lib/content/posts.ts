@@ -16,8 +16,20 @@ export interface PostEntry {
   };
 }
 
+/**
+ * The one place that decides whether a post is shown: drafts (`published:
+ * false`) are visible only in dev. Used as the `getCollection` filter, so a
+ * draft never enters a production build (no page, no MDX module, no chart data).
+ */
+export const isVisiblePost = (
+  data: { published?: boolean },
+  dev: boolean
+): boolean => dev || data.published !== false;
+
 export interface Post {
   slug: string;
+  /** A draft (`published: false`), only ever present in dev. */
+  draft: boolean;
   title: string;
   date: string;
   description?: string;
@@ -38,10 +50,11 @@ export interface Post {
  */
 export function buildPosts(
   entries: PostEntry[],
-  convertMdx: (body: string, entry: PostEntry) => string = (body) => body
+  convertMdx: (body: string, entry: PostEntry) => string = (body) => body,
+  dev = false
 ): Post[] {
   return entries
-    .filter((entry) => entry.data.published !== false)
+    .filter((entry) => isVisiblePost(entry.data, dev))
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
     .map((entry) => {
       const slug = slugOf(entry.id);
@@ -49,6 +62,7 @@ export function buildPosts(
       const body = entry.body ?? '';
       return {
         slug,
+        draft: entry.data.published === false,
         title: entry.data.title,
         date: isoDay(entry.data.date),
         description: entry.data.description,

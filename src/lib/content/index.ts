@@ -11,7 +11,7 @@ import { hackathonWins } from '../../data/hackathon-wins';
 import { playgroundPages } from '../../data/code-demos';
 import { pageCopy, type PageRoute } from '../../data/pages.ts';
 import { buildProfile } from './profile';
-import { buildPosts } from './posts';
+import { buildPosts, isVisiblePost } from './posts';
 import { componentKinds } from '../charts/schema';
 import { loadChartData } from '../charts/data';
 import { mdxToMarkdown } from '../mdx-markdown';
@@ -36,8 +36,11 @@ const mdxBody = (body: string) =>
       });
     },
   });
+/** Blog collection entries; drafts only in dev (filtered here, so production never loads them). */
+export const getBlogEntries = () =>
+  getCollection('blog', ({ data }) => isVisiblePost(data, import.meta.env.DEV));
 export const getPosts = async () =>
-  buildPosts(await getCollection('blog'), mdxBody);
+  buildPosts(await getBlogEntries(), mdxBody, import.meta.env.DEV);
 export const getProjects = async () =>
   buildProjects(await getCollection('projects'));
 
