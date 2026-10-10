@@ -1,0 +1,52 @@
+{
+  "categories": [
+    {
+      "id": "win",
+      "label": "Kept"
+    },
+    {
+      "id": "revert",
+      "label": "Measured and reverted"
+    }
+  ],
+  "events": [
+    {
+      "date": "2026-07-27",
+      "title": "Noise stage about 2x faster",
+      "category": "win"
+    },
+    {
+      "date": "2026-07-29",
+      "title": "Worst world-lock hold 328\u00b5s to 41\u00b5s",
+      "category": "win"
+    },
+    {
+      "date": "2026-07-31",
+      "title": "World generation cache",
+      "detail": "4.4% slower on chunk generation, so it was reverted.",
+      "category": "revert"
+    },
+    {
+      "date": "2026-08-05",
+      "title": "Removing the per-ring join barrier",
+      "detail": "About 5,000 concurrent lock attempts on one mutex. Reverted.",
+      "category": "revert"
+    },
+    {
+      "date": "2026-08-07",
+      "title": "Bounded dependency-edge window",
+      "detail": "The version of the barrier change that actually helped.",
+      "category": "win"
+    },
+    {
+      "date": "2026-08-08",
+      "title": "Allocations per chunk column 87,882 to 118",
+      "category": "win"
+    },
+    {
+      "date": "2026-10-05",
+      "title": "26.3 shaped chunk 118ms to about 10ms",
+      "category": "win"
+    }
+  ]
+}
