@@ -1,5 +1,9 @@
 import { createAutoRunner, type AutoRunner } from './code-auto-run.ts';
-import { createCodeOutput } from './code-output.ts';
+import { createCodeOutput, type CodeOutput } from './code-output.ts';
+import {
+  whenWorkspaceMounted,
+  type WorkspaceChrome,
+} from './workspace-chrome.ts';
 import type { Editor, EditorLanguage } from './code-editor.ts';
 import {
   initializeWorkspaceLayout,
@@ -19,17 +23,36 @@ type InterpreterMessage =
 export function initializeCodePlayground(
   root: HTMLElement,
   signal: AbortSignal,
-  options: CodePlaygroundOptions
+  options: CodePlaygroundOptions,
+  getChrome = whenWorkspaceMounted
 ) {
   const panel = root.querySelector<HTMLElement>('[data-code-workspace]')!;
   const container = panel.querySelector<HTMLElement>('[data-code-editor]')!;
-  initializeWorkspaceLayout(panel, signal);
-  const output = createCodeOutput(panel);
-  const status = panel.querySelector<HTMLElement>('[data-code-status]')!;
-  const runButton = panel.querySelector<HTMLButtonElement>('[data-code-run]')!;
-  const cancelButton =
-    panel.querySelector<HTMLButtonElement>('[data-code-cancel]')!;
-  const retry = panel.querySelector<HTMLButtonElement>('[data-code-retry]')!;
+  // The workspace is a Svelte island. Its dock layout moves server-rendered
+  // nodes, so it (and everything else that touches the DOM) waits for the
+  // island to hydrate; the header state is driven through `chrome`.
+  let chrome: WorkspaceChrome | undefined;
+  let output: CodeOutput | undefined;
+  let mounting: Promise<void> | undefined;
+  function mount() {
+    mounting ??= getChrome(panel, signal).then((mounted) => {
+      chrome = mounted;
+      initializeWorkspaceLayout(panel, signal);
+      output = createCodeOutput(panel);
+      mounted.setHandlers({
+        run: () => {
+          showPane(panel, 'output');
+          void autoRun?.play();
+        },
+        cancel: () => autoRun?.pause(),
+        retry: () => {
+          void prepare().catch(() => {});
+        },
+      });
+      mounted.setRun({ disabled: !ready, running: false });
+    });
+    return mounting;
+  }
   let session: AbortController | undefined;
   let editor: Editor | undefined;
   let worker: Worker | undefined;
@@ -53,9 +76,7 @@ export function initializeCodePlayground(
   }
   function idle() {
     running = false;
-    runButton.disabled = !ready;
-    runButton.hidden = false;
-    cancelButton.hidden = true;
+    chrome?.setRun({ disabled: !ready, running: false });
   }
   function stopWorker() {
     clearTimeout(timeout);
@@ -80,10 +101,10 @@ export function initializeCodePlayground(
     container.replaceChildren();
     pending = undefined;
     source = panel.dataset.codeStarter ?? '';
-    output.clear();
+    output?.clear();
     showPane(panel, 'code');
-    status.textContent = '';
-    retry.hidden = true;
+    chrome?.setStatus('');
+    chrome?.setRetryVisible(false);
     idle();
   }
   function bootWorker() {
@@ -126,8 +147,8 @@ export function initializeCodePlayground(
             reject(new Error(data.error));
           } else if (data.type === 'result') {
             clearTimeout(timeout);
-            if (data.error !== undefined) output.write(data.error, 'error');
-            else output.write(data.output ?? '');
+            if (data.error !== undefined) output!.write(data.error, 'error');
+            else output!.write(data.output ?? '');
             idle();
           }
         }
@@ -140,7 +161,7 @@ export function initializeCodePlayground(
           rejectBoot = undefined;
           reject(error);
         } else {
-          output.write(error.message, 'error');
+          output!.write(error.message, 'error');
           stopWorker();
           idle();
         }
@@ -154,9 +175,11 @@ export function initializeCodePlayground(
     const current = ++generation;
     session = new AbortController();
     const sessionSignal = session.signal;
-    status.textContent = 'Loading…';
-    retry.hidden = true;
     pending = (async () => {
+      await mount();
+      if (sessionSignal.aborted) throw new DOMException('Closed', 'AbortError');
+      chrome!.setStatus('Loading…');
+      chrome!.setRetryVisible(false);
       const { createEditor } = await import('./code-editor.ts');
       if (sessionSignal.aborted) throw new DOMException('Closed', 'AbortError');
       autoRun = createAutoRunner(run, cancelExecution);
@@ -178,7 +201,7 @@ export function initializeCodePlayground(
       await bootWorker();
       if (current !== generation)
         throw new DOMException('Closed', 'AbortError');
-      status.textContent = '';
+      chrome!.setStatus('');
       idle();
       editor.focus();
       prepared = true;
@@ -190,8 +213,8 @@ export function initializeCodePlayground(
     })().catch((error: Error) => {
       if (current === generation && error.name !== 'AbortError') {
         destroy();
-        status.textContent = error.message;
-        retry.hidden = false;
+        chrome?.setStatus(error.message);
+        chrome?.setRetryVisible(true);
         emit('project-demo-error', error.message);
       }
       throw error;
@@ -205,10 +228,8 @@ export function initializeCodePlayground(
     }
     if (running) return;
     running = true;
-    runButton.disabled = true;
-    runButton.hidden = true;
-    cancelButton.hidden = false;
-    output.start();
+    chrome!.setRun({ disabled: true, running: true });
+    output!.start();
     const current = generation;
     const currentJob = ++runJob;
     try {
@@ -218,18 +239,18 @@ export function initializeCodePlayground(
       worker?.postMessage({ source });
       timeout = setTimeout(() => {
         stopWorker();
-        output.write(`Stopped after ${EXECUTION_TIMEOUT_MS} ms`, 'error');
+        output!.write(`Stopped after ${EXECUTION_TIMEOUT_MS} ms`, 'error');
         idle();
-        runButton.disabled = false;
+        chrome!.setRun({ disabled: false, running: false });
       }, EXECUTION_TIMEOUT_MS);
     } catch (error) {
       if (current === generation && currentJob === runJob) {
-        output.write(
+        output!.write(
           error instanceof Error ? error.message : String(error),
           'error'
         );
         idle();
-        runButton.disabled = false;
+        chrome!.setRun({ disabled: false, running: false });
       }
     }
   }
@@ -237,37 +258,33 @@ export function initializeCodePlayground(
     ++runJob;
     if (!running) return;
     stopWorker();
-    output.write('Stopped', 'error');
+    output!.write('Stopped', 'error');
     idle();
-    runButton.disabled = false;
+    chrome!.setRun({ disabled: false, running: false });
   }
-  runButton.addEventListener(
-    'click',
-    () => {
-      showPane(panel, 'output');
-      void autoRun?.play();
-    },
-    { signal }
-  );
-  cancelButton.addEventListener('click', () => autoRun?.pause(), { signal });
-  retry.addEventListener(
-    'click',
-    () => {
-      void prepare().catch(() => {});
-    },
-    { signal }
-  );
   panel.addEventListener(
     'keydown',
     (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault();
+        if (!chrome) return;
         showPane(panel, 'output');
         void autoRun?.play();
       }
     },
     { signal }
   );
-  signal.addEventListener('abort', destroy, { once: true });
+  signal.addEventListener(
+    'abort',
+    () => {
+      chrome?.setHandlers({
+        run: undefined,
+        cancel: undefined,
+        retry: undefined,
+      });
+      destroy();
+    },
+    { once: true }
+  );
   return { prepare, isReady: () => ready, destroy };
 }

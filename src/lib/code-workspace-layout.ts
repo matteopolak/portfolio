@@ -1,4 +1,5 @@
 import { clearOutput } from './code-output.ts';
+import { workspaceChromeFor, type WorkspacePane } from './workspace-chrome.ts';
 import {
   defaultLayout,
   dockPanels,
@@ -21,9 +22,7 @@ import {
   type WorkspaceLayout,
 } from './workspace-layout-model.ts';
 
-export type WorkspacePane = 'files' | 'code' | 'output';
-
-const panes: readonly WorkspacePane[] = ['files', 'code', 'output'];
+export type { WorkspacePane } from './workspace-chrome.ts';
 
 /** Below this width the workspace is one pane at a time, picked by the bottom tabs. */
 export const NARROW_QUERY = '(max-width: 42rem)';
@@ -31,18 +30,13 @@ export const NARROW_QUERY = '(max-width: 42rem)';
 const DRAG_THRESHOLD = 5;
 const SAVE_DELAY = 250;
 
-/** Selects the visible pane in the narrow tabbed layout. Desktop ignores it. */
+/**
+ * Selects the visible pane in the narrow tabbed layout. Desktop ignores it.
+ * The pane is Svelte state of the mounted workspace; `data-pane` on the root
+ * and the bottom tabs follow it.
+ */
 export function showPane(panel: HTMLElement, pane: WorkspacePane) {
-  panel.dataset.pane = pane;
-  if (pane === 'output') delete panel.dataset.outputUnread;
-  for (const tab of panel.querySelectorAll<HTMLButtonElement>(
-    '[data-pane-tab]'
-  ))
-    tab.setAttribute('aria-selected', String(tab.dataset.paneTab === pane));
-}
-
-function isPane(value: string | undefined): value is WorkspacePane {
-  return panes.includes(value as WorkspacePane);
+  workspaceChromeFor(panel)?.setPane(pane);
 }
 
 /** True in the phone layout, where nothing is docked or split. */
@@ -734,8 +728,8 @@ function initializeLayout(
 
 /**
  * Wires the shared workspace chrome: the dockable panels and their resize
- * handles, the narrow-screen pane tabs, the output collapse toggle, and the
- * platform shortcut hint.
+ * handles and the output collapse toggle. (The pane tabs and the platform
+ * shortcut hint are CodeWorkspace.svelte's.)
  */
 export function initializeWorkspaceLayout(
   panel: HTMLElement,
@@ -743,29 +737,9 @@ export function initializeWorkspaceLayout(
 ) {
   const controller = initializeLayout(panel, signal);
 
-  for (const tab of panel.querySelectorAll<HTMLButtonElement>(
-    '[data-pane-tab]'
-  ))
-    tab.addEventListener(
-      'click',
-      () => {
-        if (isPane(tab.dataset.paneTab)) showPane(panel, tab.dataset.paneTab);
-      },
-      { signal }
-    );
-
   panel
     .querySelector<HTMLButtonElement>('[data-code-clear]')
     ?.addEventListener('click', () => clearOutput(panel), { signal });
-
-  const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
-  for (const hint of panel.querySelectorAll<HTMLElement>(
-    '[data-code-shortcut]'
-  ))
-    hint.textContent = mac ? '⌘↵' : 'Ctrl↵';
-  panel
-    .querySelector('[data-code-format]')
-    ?.setAttribute('title', `Format file (${mac ? '⇧⌥F' : 'Shift+Alt+F'})`);
 
   signal.addEventListener(
     'abort',

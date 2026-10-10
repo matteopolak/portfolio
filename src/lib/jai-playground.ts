@@ -2,6 +2,10 @@ import {
   initializeWorkspaceLayout,
   showPane,
 } from './code-workspace-layout.ts';
+import {
+  whenWorkspaceMounted,
+  type WorkspaceChrome,
+} from './workspace-chrome.ts';
 type SessionLoader = (
   panel: HTMLElement,
   revision: string,
@@ -16,27 +20,41 @@ const loadSession: SessionLoader = async (panel, revision, signal) => {
 export function initializeJaiPlayground(
   root: HTMLElement,
   signal: AbortSignal,
-  createSession = loadSession
+  createSession = loadSession,
+  getChrome = whenWorkspaceMounted
 ) {
   const panel = root.matches('[data-code-workspace]')
     ? root
     : root.querySelector<HTMLElement>('[data-code-workspace]')!;
-  const status = panel.querySelector<HTMLElement>('[data-code-status]')!;
-  const retry = panel.querySelector<HTMLButtonElement>('[data-code-retry]')!;
   const revision = panel.dataset.jaiRevision ?? '';
-  initializeWorkspaceLayout(panel, signal);
+  let chrome: WorkspaceChrome | undefined;
+  let mounting: Promise<void> | undefined;
   let controller: AbortController | undefined;
   let pending: Promise<void> | undefined;
   let ready = false;
   let generation = 0;
+  // The workspace is a Svelte island: its dock layout moves server-rendered
+  // nodes, so nothing touches the DOM until the island has hydrated.
+  function mount() {
+    mounting ??= getChrome(panel, signal).then((mounted) => {
+      chrome = mounted;
+      initializeWorkspaceLayout(panel, signal);
+      mounted.setHandlers({
+        retry: () => {
+          void prepare().catch(() => {});
+        },
+      });
+    });
+    return mounting;
+  }
   function destroy() {
     ++generation;
     controller?.abort();
     controller = undefined;
     pending = undefined;
     ready = false;
-    status.textContent = '';
-    retry.hidden = true;
+    chrome?.setStatus('');
+    chrome?.setRetryVisible(false);
     showPane(panel, 'code');
   }
   function prepare() {
@@ -49,14 +67,19 @@ export function initializeJaiPlayground(
     const current = ++generation;
     controller = new AbortController();
     const sessionSignal = controller.signal;
-    status.textContent = 'Loading…';
-    retry.hidden = true;
-    pending = createSession(panel, revision, sessionSignal)
+    pending = mount()
+      .then(() => {
+        if (current !== generation || sessionSignal.aborted)
+          throw new DOMException('Closed', 'AbortError');
+        chrome!.setStatus('Loading…');
+        chrome!.setRetryVisible(false);
+        return createSession(panel, revision, sessionSignal);
+      })
       .then(() => {
         if (current !== generation || sessionSignal.aborted)
           throw new DOMException('Closed', 'AbortError');
         ready = true;
-        status.textContent = '';
+        chrome?.setStatus('');
         root.dispatchEvent(new CustomEvent('project-demo-ready'));
       })
       .catch((error: Error) => {
@@ -66,12 +89,11 @@ export function initializeJaiPlayground(
           pending = undefined;
           ready = false;
           if (error.name !== 'AbortError') {
-            status.textContent = String(error.message).slice(0, 500);
-            retry.hidden = false;
+            const message = String(error.message).slice(0, 500);
+            chrome?.setStatus(message);
+            chrome?.setRetryVisible(true);
             root.dispatchEvent(
-              new CustomEvent('project-demo-error', {
-                detail: { message: status.textContent },
-              })
+              new CustomEvent('project-demo-error', { detail: { message } })
             );
           }
         }
@@ -79,13 +101,13 @@ export function initializeJaiPlayground(
       });
     return pending;
   }
-  retry.addEventListener(
-    'click',
+  signal.addEventListener(
+    'abort',
     () => {
-      void prepare().catch(() => {});
+      chrome?.setHandlers({ retry: undefined });
+      destroy();
     },
-    { signal }
+    { once: true }
   );
-  signal.addEventListener('abort', destroy, { once: true });
   return { prepare, destroy, isReady: () => ready };
 }

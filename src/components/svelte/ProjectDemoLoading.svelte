@@ -1,35 +1,40 @@
----
-import { generateBauhausPattern } from '../lib/bauhaus';
-import BauhausPattern from './svelte/BauhausPattern.svelte';
+<script lang="ts">
+  import { generateBauhausPattern } from '../../lib/bauhaus';
+  import BauhausPattern from './BauhausPattern.svelte';
 
-interface Props {
-  seed: string;
-}
-
-const { seed } = Astro.props;
-
-const completePatternSeed = (set: number) => {
-  for (let attempt = 0; attempt < 10_000; attempt += 1) {
-    const candidate = `demo-loader-${seed}-${set}-${attempt}`;
-    const pattern = generateBauhausPattern({
-      columns: 6,
-      rows: 6,
-      seed: candidate,
-      density: 1,
-    });
-    if (pattern.shapes.every((shape) => shape.kind !== 'empty')) {
-      return candidate;
-    }
+  interface Props {
+    seed: string;
   }
-  throw new Error(`Could not generate a complete loader pattern for ${seed}`);
-};
 
-const patternSeeds = Array.from({ length: 3 }, (_, set) =>
-  completePatternSeed(set)
-);
----
+  const { seed }: Props = $props();
 
-<div class="project-demo-loading" data-project-demo-loading data-state="loading" aria-live="polite">
+  const completePatternSeed = (base: string, set: number) => {
+    for (let attempt = 0; attempt < 10_000; attempt += 1) {
+      const candidate = `demo-loader-${base}-${set}-${attempt}`;
+      const pattern = generateBauhausPattern({
+        columns: 6,
+        rows: 6,
+        seed: candidate,
+        density: 1,
+      });
+      if (pattern.shapes.every((shape) => shape.kind !== 'empty')) {
+        return candidate;
+      }
+    }
+    throw new Error(`Could not generate a complete loader pattern for ${base}`);
+  };
+
+  const patternSeeds = $derived(
+    Array.from({ length: 3 }, (_, set) => completePatternSeed(seed, set))
+  );
+</script>
+
+<div
+  class="project-demo-loading"
+  data-project-demo-loading
+  data-state="loading"
+  aria-live="polite"
+>
   <div
     class="project-demo-loading__mosaic"
     data-project-demo-loading-progress
@@ -39,23 +44,21 @@ const patternSeeds = Array.from({ length: 3 }, (_, set) =>
     aria-valuemax="100"
     aria-valuenow="0"
   >
-    {
-      patternSeeds.map((patternSeed, index) => (
-        <div
-          class="project-demo-loading__pattern"
-          style={`--pattern-delay: ${index * 2.4}s`}
-          aria-hidden="true"
-        >
-          <BauhausPattern
-            columns={6}
-            rows={6}
-            seed={patternSeed}
-            density={1}
-            cropEdges={false}
-          />
-        </div>
-      ))
-    }
+    {#each patternSeeds as patternSeed, index (patternSeed)}
+      <div
+        class="project-demo-loading__pattern"
+        style="--pattern-delay: {index * 2.4}s"
+        aria-hidden="true"
+      >
+        <BauhausPattern
+          columns={6}
+          rows={6}
+          seed={patternSeed}
+          density={1}
+          cropEdges={false}
+        />
+      </div>
+    {/each}
   </div>
   <p data-project-demo-loading-label>Loading demo…</p>
 </div>
