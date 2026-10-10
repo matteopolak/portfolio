@@ -34,7 +34,7 @@ The pattern is now `src/components/svelte/BauhausPattern.svelte` (hydrated `clie
 
 ## Fixed cell size
 
-The ambient page grid no longer scales with the viewport. One grid cell (the 80-unit `unit` in `BauhausPattern.svelte`) is `--bauhaus-cell` pixels (`30px`, defined on `:root` in `src/styles/global.css`, which is what the old layout produced at 1440px wide). The pattern's column and row counts change instead:
+The ambient page grid no longer scales with the viewport. One grid cell (the 80-unit `unit` in `BauhausPattern.svelte`) is `--bauhaus-cell` pixels (`52px`, defined on `:root` in `src/styles/global.css`). The pattern's column and row counts change instead:
 
 - `resizePatternToField()` measures `.bauhaus-field`, sets `columnCount = floor(width / cell) + 2` and the row count from the field height, and rewrites the `viewBox` so one cell is exactly `--bauhaus-cell` wide. It runs on mount and from the existing debounced `ResizeObserver`, and only changes state when the counts change.
 - The `<svg>` gets an inline `width: calc(<cells> * var(--bauhaus-cell))`; `.latent-grid` is `width: max-content` and centred, so leftover space is split evenly on both sides and clipped by `.bauhaus-field`.

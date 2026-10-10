@@ -29,7 +29,7 @@
   /* Theme colours (--paper, --ink, --accent-N ...) are defined per theme in
      src/lib/themes.ts and injected by Head.astro. */
   /* Side of one Bauhaus grid cell; never scales with the viewport. */
-  --bauhaus-cell: 30px;
+  --bauhaus-cell: 52px;
   --rule: var(--ink);
   --soft-rule: color-mix(in oklch, var(--ink) 22%, transparent);
   --page-title-gap: 1rem;
