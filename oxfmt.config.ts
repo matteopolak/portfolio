@@ -7,6 +7,8 @@ export default defineConfig({
   trailingComma: 'es5',
   printWidth: 80,
   sortPackageJson: false,
+  // Formats .svelte files (needs the `svelte` package, a dependency).
+  svelte: true,
   ignorePatterns: [
     'dist/',
     '.astro/',

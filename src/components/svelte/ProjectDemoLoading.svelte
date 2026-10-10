@@ -82,7 +82,8 @@
   }
 
   :global([data-project-demo][data-demo-state='ready']) .project-demo-loading,
-  :global([data-playground-page][data-demo-state='ready']) .project-demo-loading {
+  :global([data-playground-page][data-demo-state='ready'])
+    .project-demo-loading {
     visibility: hidden;
     opacity: 0;
     pointer-events: none;

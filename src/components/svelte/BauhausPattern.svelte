@@ -129,7 +129,12 @@
   const elements: Record<string, SVGGElement | undefined> = {};
   let svg: SVGSVGElement | undefined;
 
-  const quarterPath = (x: number, y: number, direction: number, size = unit) => {
+  const quarterPath = (
+    x: number,
+    y: number,
+    direction: number,
+    size = unit
+  ) => {
     const right = x + size;
     const bottom = y + size;
     return [
@@ -279,10 +284,9 @@
   let generationCount = 0;
   const regenerateNow = (target: Region, shiftX = '0px', shiftY = '0px') => {
     generationCount += 1;
-    const usage = Object.fromEntries(solidColors.map((color) => [color, 0])) as Record<
-      (typeof solidColors)[number],
-      number
-    >;
+    const usage = Object.fromEntries(
+      solidColors.map((color) => [color, 0])
+    ) as Record<(typeof solidColors)[number], number>;
     for (const region of regions) {
       for (const color of colorsOf(region)) {
         if (color !== 'paper') usage[color] += 1;
@@ -402,7 +406,9 @@
         }
         main
           .querySelectorAll<HTMLElement>('.page-intro__index, img, svg')
-          .forEach((element) => textBounds.push(element.getBoundingClientRect()));
+          .forEach((element) =>
+            textBounds.push(element.getBoundingClientRect())
+          );
       }
 
       const overlapsContent = (bounds: {
@@ -441,7 +447,10 @@
           ((placeholder.bottom - patternBounds.top) / patternBounds.height) *
             viewBox.height;
         const firstColumn = Math.max(0, Math.floor(svgLeft / 160) * 2);
-        const lastColumn = Math.min(columns - 2, Math.floor(svgRight / 160) * 2);
+        const lastColumn = Math.min(
+          columns - 2,
+          Math.floor(svgRight / 160) * 2
+        );
         const firstRow = Math.max(0, Math.floor(svgTop / 160) * 2);
         const lastRow = Math.min(rows - 2, Math.floor(svgBottom / 160) * 2);
 
@@ -450,10 +459,12 @@
             const bounds = {
               left:
                 patternBounds.left +
-                ((column * unit - viewBox.x) / viewBox.width) * patternBounds.width,
+                ((column * unit - viewBox.x) / viewBox.width) *
+                  patternBounds.width,
               top:
                 patternBounds.top +
-                ((row * unit - viewBox.y) / viewBox.height) * patternBounds.height,
+                ((row * unit - viewBox.y) / viewBox.height) *
+                  patternBounds.height,
               width: (160 / viewBox.width) * patternBounds.width,
               height: (160 / viewBox.height) * patternBounds.height,
             };
@@ -506,7 +517,9 @@
                 `${patternKey}:special:${region.column}:${region.row}`
               );
               const chooseColor = (excluded = new Set<BauhausColor>()) => {
-                const choices = solidColors.filter((color) => !excluded.has(color));
+                const choices = solidColors.filter(
+                  (color) => !excluded.has(color)
+                );
                 return choices[Math.floor(random() * choices.length)] ?? 'ink';
               };
               applyRegeneration(region, random, chooseColor);
