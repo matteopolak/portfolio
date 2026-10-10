@@ -64,6 +64,11 @@ function seededRandom(seed: number) {
   };
 }
 
+/** Deterministic random source for an arbitrary string seed. */
+export function randomFrom(value: string) {
+  return seededRandom(hashSeed(value));
+}
+
 function shuffled<T>(items: T[], random: () => number) {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {

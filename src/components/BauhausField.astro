@@ -1,5 +1,5 @@
 ---
-import BauhausPattern from './BauhausPattern.astro';
+import BauhausPattern from './svelte/BauhausPattern.svelte';
 
 interface Props {
   showHero?: boolean;
@@ -10,7 +10,7 @@ const { showHero = true } = Astro.props;
 
 <div class="bauhaus-field" aria-hidden="true">
   <div class="latent-grid" transition:persist="bauhaus-grid">
-    <BauhausPattern
+    <BauhausPattern client:idle
       columns={50}
       rows={6}
       seed="portfolio-bauhaus-v1-page"
