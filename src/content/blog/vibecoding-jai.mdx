@@ -10,9 +10,11 @@ tags:
 published: false
 ---
 
-Jai is Jonathan Blow's programming language. It's been in a closed beta for a while, and people have built real projects with it, but there isn't much tooling around it. There's no first-party language server, formatter or linter, and you can't try it without getting into the beta.
+Jai is Jonathan Blow's programming language. It's been in a closed beta for a while, and people have built real projects with it, but there isn't much tooling around it. There's a community language server, but it's missing a lot of features, has a lot of bugs, and a lot of it doesn't work without a Jai build. There's no first-party formatter or linter, and you can't try the language without getting into the beta.
 
-I wanted to build all of that: a compiler that can run real Jai projects, a language server that works in any editor, a formatter, a linter, and a playground that runs everything in the browser. I worked on it from Oct 1 to Oct 10, and you can try the result in the [Jai playground](/playground/jai).
+I wanted to build all of that: a compiler that can run real Jai projects, a language server that works in any editor, a formatter, a linter, and a playground that runs everything in the browser. I worked on it from Oct 1 to Oct 10, and you can try the result here:
+
+<Playground name="jai" />
 
 This was right after [Lodestone](/blog/vibecoding-minecraft), my Minecraft rewrite, so I had a rough idea of how I wanted to run the agents. This post covers how I set it up, but mostly the things that went wrong.
 
