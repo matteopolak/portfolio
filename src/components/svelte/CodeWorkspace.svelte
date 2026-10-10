@@ -1891,59 +1891,154 @@
 
   /* The confirmation dialog (workspace-actions.ts) is created in the panel at runtime. */
   :global(.ide-confirm) {
-    width: min(26rem, calc(100vw - 2rem));
-    padding: 1.25rem 1.4rem;
+    /* The global reset zeroes the UA's `margin: auto`, so centre it explicitly. */
+    position: fixed;
+    inset: 50% auto auto 50%;
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 1rem;
+    width: min(27rem, calc(100vw - 2rem));
+    padding: 1.35rem 1.4rem 1.2rem;
     color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
-    background: oklch(25.5% 0.008 270);
-    border: 1px solid oklch(100% 0 0 / 0.16);
-    box-shadow: 0 1.5rem 4rem oklch(0% 0 0 / 0.5);
+    background: var(--ide-raised, oklch(25.5% 0.008 270));
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-top: 3px solid var(--accent-1);
+    box-shadow:
+      0 0.5rem 1.25rem oklch(0% 0 0 / 0.3),
+      0 1.75rem 4rem oklch(0% 0 0 / 0.45);
     font-family: var(--font-sans);
+    transform: translate(-50%, -50%);
+  }
+
+  :global(.ide-confirm[open]) {
+    animation: ide-confirm-enter 200ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  }
+
+  :global(.ide-confirm[open][data-closing='true']) {
+    animation: ide-confirm-exit 150ms ease-in both;
   }
 
   :global(.ide-confirm)::backdrop {
-    background: oklch(0% 0 0 / 0.55);
+    background: oklch(0% 0 0 / 0.4);
+    backdrop-filter: blur(0.3rem);
+    animation: ide-confirm-fade-in 200ms ease-out both;
+  }
+
+  :global(.ide-confirm[data-closing='true'])::backdrop {
+    animation: ide-confirm-fade-out 150ms ease-in both;
+  }
+
+  :global(.ide-confirm__icon) {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--accent-1-on);
+    background: var(--accent-1);
+  }
+
+  :global(.ide-confirm__body) {
+    min-width: 0;
   }
 
   :global(.ide-confirm h2) {
-    margin: 0 0 0.5rem;
+    margin: 0.3rem 0 0.45rem;
     font-size: 1.05rem;
     font-weight: 800;
+    line-height: 1.3;
   }
 
   :global(.ide-confirm p) {
-    margin: 0 0 1.1rem;
-    color: oklch(90% 0.016 91);
-    font-size: 0.88rem;
-    line-height: 1.5;
+    margin: 0;
+    color: var(--ide-fg, oklch(90% 0.016 91));
+    font-size: 0.875rem;
+    line-height: 1.55;
   }
 
   :global(.ide-confirm__actions) {
+    grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid oklch(100% 0 0 / 0.08);
   }
 
   :global(.ide-confirm button) {
-    padding: 0.5rem 0.9rem;
+    padding: 0.5rem 0.95rem;
     font: 700 0.82rem var(--font-sans);
-    color: oklch(97.598% 0.02449 91.61);
-    background: oklch(31% 0.008 270);
-    border: 1px solid oklch(100% 0 0 / 0.2);
+    color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
+    background: transparent;
+    border: 1px solid oklch(100% 0 0 / 0.22);
     cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      filter 120ms ease;
   }
 
   :global(.ide-confirm button:hover) {
-    background: oklch(36% 0.01 270);
+    background: oklch(100% 0 0 / 0.07);
+    border-color: oklch(100% 0 0 / 0.32);
   }
 
   :global(.ide-confirm .ide-confirm__danger) {
     color: var(--accent-1-on);
     background: var(--accent-1);
-    border-color: transparent;
+    border-color: var(--accent-1);
+  }
+
+  :global(.ide-confirm .ide-confirm__danger:hover) {
+    background: var(--accent-1);
+    border-color: var(--accent-1);
+    filter: brightness(1.08);
   }
 
   :global(.ide-confirm button:focus-visible) {
     outline: 2px solid var(--accent-3);
     outline-offset: 2px;
+  }
+
+  @keyframes -global-ide-confirm-enter {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -47%) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @keyframes -global-ide-confirm-exit {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.98);
+    }
+  }
+
+  @keyframes -global-ide-confirm-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes -global-ide-confirm-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.ide-confirm),
+    :global(.ide-confirm)::backdrop {
+      animation: none !important;
+    }
   }
 </style>

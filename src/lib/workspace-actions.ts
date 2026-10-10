@@ -3,6 +3,7 @@
  * the picked files and the small confirmation dialog. The rules (filters, caps,
  * entry file) are in workspace-import.ts.
  */
+import { closeAnimated } from './dialog-lifecycle.ts';
 import {
   entryPath,
   looksBinary,
@@ -27,12 +28,19 @@ export function confirmDialog(
     dialog.className = 'ide-confirm';
     dialog.setAttribute('aria-labelledby', 'ide-confirm-title');
     dialog.setAttribute('aria-describedby', 'ide-confirm-message');
+    const icon = document.createElement('span');
+    icon.className = 'ide-confirm__icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = WARNING_ICON;
     const heading = document.createElement('h2');
     heading.id = 'ide-confirm-title';
     heading.textContent = title;
     const text = document.createElement('p');
     text.id = 'ide-confirm-message';
     text.textContent = message;
+    const body = document.createElement('div');
+    body.className = 'ide-confirm__body';
+    body.append(heading, text);
     const actions = document.createElement('div');
     actions.className = 'ide-confirm__actions';
     const cancel = document.createElement('button');
@@ -43,27 +51,46 @@ export function confirmDialog(
     confirm.className = 'ide-confirm__danger';
     confirm.textContent = confirmLabel;
     actions.append(cancel, confirm);
-    dialog.append(heading, text, actions);
+    dialog.append(icon, body, actions);
     let settled = false;
     const finish = (answer: boolean) => {
       if (settled) return;
       settled = true;
-      if (dialog.open) dialog.close();
-      dialog.remove();
       resolve(answer);
+      // Same exit animation as the demo dialogs; removed once really closed.
+      closeAnimated(dialog);
     };
     cancel.addEventListener('click', () => finish(false));
     confirm.addEventListener('click', () => finish(true));
-    // Escape closes the dialog: that cancels.
-    dialog.addEventListener('close', () => finish(false));
-    dialog.addEventListener('cancel', () => finish(false));
+    // Escape cancels, but through the exit animation rather than an instant close.
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      finish(false);
+    });
+    // A click outside the dialog's box lands on the backdrop: that cancels too.
+    dialog.addEventListener('click', (event) => {
+      if (event.target !== dialog) return;
+      const box = dialog.getBoundingClientRect();
+      const inside =
+        event.clientX >= box.left &&
+        event.clientX <= box.right &&
+        event.clientY >= box.top &&
+        event.clientY <= box.bottom;
+      if (!inside) finish(false);
+    });
+    dialog.addEventListener('close', () => {
+      finish(false);
+      dialog.remove();
+    });
     panel.append(dialog);
     dialog.showModal();
     cancel.focus();
   });
 }
 
-/** Opens the browser's folder picker; resolves undefined when it is cancelled. */
+const WARNING_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+
 export function pickFolder(): Promise<File[] | undefined> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
