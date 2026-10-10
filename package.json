@@ -17,6 +17,7 @@
     "preview": "astro preview",
     "lighthouse": "node scripts/lighthouse.ts",
     "test:palette": "node --test tests/palette-contrast.test.ts",
+    "test:workspace": "node --test tests/workspace-import.test.ts",
     "test:lodestone": "node --test tests/lodestone/*.test.ts",
     "check": "astro check && svelte-check --tsconfig ./tsconfig.json",
     "check:seo": "node scripts/check-seo.ts",

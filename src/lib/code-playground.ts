@@ -5,6 +5,7 @@ import {
   type WorkspaceChrome,
 } from './workspace-chrome.ts';
 import type { Editor, EditorLanguage } from './code-editor.ts';
+import { confirmDialog } from './workspace-actions.ts';
 import {
   initializeWorkspaceLayout,
   showPane,
@@ -50,6 +51,30 @@ export function initializeCodePlayground(
         },
       });
       mounted.setRun({ disabled: !ready, running: false });
+      // Single-file workspace: Reset puts the starter code back.
+      panel.querySelector('[data-code-reset]')?.addEventListener(
+        'click',
+        async () => {
+          const starter = panel.dataset.codeStarter ?? '';
+          if (!editor || editor.view.state.doc.toString() === starter) return;
+          const reset = await confirmDialog(panel, {
+            title: 'Reset to starter code?',
+            message:
+              'This replaces the editor contents with the starter program. Your changes are lost.',
+            confirmLabel: 'Reset code',
+          });
+          if (!reset || !editor || signal.aborted) return;
+          editor.view.dispatch({
+            changes: {
+              from: 0,
+              to: editor.view.state.doc.length,
+              insert: starter,
+            },
+          });
+          output?.clear();
+        },
+        { signal }
+      );
     });
     return mounting;
   }

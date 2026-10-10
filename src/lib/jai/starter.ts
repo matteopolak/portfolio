@@ -27,6 +27,21 @@ main :: () {
   [LINT_SETTINGS]: lintConfigStarter,
 };
 
+/**
+ * A clean workspace: a hello-world `main.jai` and the default jaifmt.toml and
+ * jailint.toml (the same ones the tour and the built-in starter get).
+ */
+export const defaultFiles = (): Record<string, string> => ({
+  'main.jai': `#import "Basic";
+
+main :: () {
+    print("Hello, World!\\n");
+}
+`,
+  [FORMAT_CONFIG_PATH]: formatConfigStarter,
+  [LINT_SETTINGS]: lintConfigStarter,
+});
+
 /** The workspace a session starts with, and the tabs to open (the first is active). */
 export interface Starter {
   files: Record<string, string>;
@@ -39,6 +54,11 @@ export const TOUR_INDEX_ASSET = 'tour.json';
 export const TOUR_GUIDE = 'tour.md';
 const MAX_TOUR_FILES = 64;
 const MAX_TOUR_BYTES = 1024 * 1024;
+
+export const defaultStarter = (): Starter => ({
+  files: defaultFiles(),
+  open: ['main.jai'],
+});
 
 export const builtinStarter = (): Starter => ({
   files: { ...starterFiles },

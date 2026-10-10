@@ -39,3 +39,5 @@ None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://ma
 - COOP/COEP headers from `public/_headers` (all routes) for the module workers.
 
 Note: `/playground/<id>` renders `CodeWorkspace.svelte` with `client:load`; the Projects modals use `client:idle`. Both are fully server-rendered. See [svelte-islands.md](./svelte-islands.md).
+
+Each editor's file tree (Jai) has Import folder and Reset workspace buttons; the single-file editors have Reset to starter code. See [code-workspace.md](./code-workspace.md#import-folder-and-reset-workspace).
