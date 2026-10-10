@@ -17,6 +17,7 @@ import { buildTimeline } from './timeline';
 import { buildRoutes } from './routes';
 import { isoDay } from './format';
 import { pageMeta } from './page-meta';
+import { buildSiteMarkdown } from './site-markdown';
 
 export const getProfile = () => buildProfile(config);
 export const getPosts = async () => buildPosts(await getCollection('blog'));
@@ -46,6 +47,21 @@ export async function getRoutes() {
   return buildRoutes({
     posts: await getPosts(),
     playgrounds: playgroundPages.map(({ path, title }) => ({ path, title })),
+  });
+}
+
+/** Every markdown document (the .md endpoints, llms.txt) from one build of the content. */
+export async function getSiteMarkdown() {
+  return buildSiteMarkdown({
+    profile: getProfile(),
+    posts: await getPosts(),
+    projects: await getProjects(),
+    timeline: await getTimeline(),
+    meta: {
+      home: getPageMeta('/'),
+      blog: getPageMeta('/blog'),
+      projects: getPageMeta('/projects'),
+    },
   });
 }
 

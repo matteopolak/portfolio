@@ -1,15 +1,15 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { playgroundPages } from '../../data/code-demos';
+import { getPageMeta } from '../../lib/content';
+
+const meta = getPageMeta('/playground');
 ---
 
-<Layout
-  title="Playgrounds"
-  description="Run Jai, Quasi, BaerScript and Lodestone in your browser: full-page editors and a game, built in Rust and compiled to WebAssembly."
->
+<Layout title={meta.title} description={meta.description}>
   <header class="page-intro">
     <span class="page-intro__index page-intro__index--projects" aria-hidden="true"></span>
-    <h1>Stuff you can run</h1>
+    <h1>{meta.heading}</h1>
   </header>
   <ol class="editorial-list">
     {

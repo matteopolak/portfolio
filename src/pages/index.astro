@@ -1,15 +1,16 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import config from '../lib/config';
+import { getPageMeta } from '../lib/content';
 import Header from '../components/Header.astro';
 import Experience from '../components/Experience.astro';
 import Projects from '../components/Projects.astro';
 import Education from '../components/Education.astro';
 import Skills from '../components/Skills.astro';
 import Achievements from '../components/Achievements.astro';
+const meta = getPageMeta('/');
 ---
 
-<Layout title="Portfolio" description={config.description}>
+<Layout title={meta.title} description={meta.description}>
   <Header />
   <Experience />
   <Projects />

@@ -1,110 +1,29 @@
 ---
-import { getCollection, type CollectionEntry } from 'astro:content';
+import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ProjectDemoModal from '../components/ProjectDemoModal.astro';
 import CodeDemoModal from '../components/CodeDemoModal.astro';
 import { codeDemoPages, playgroundPages } from '../data/code-demos';
-import { jobs } from '../lib/config';
-import { projectMilestones, type ProjectMilestone } from '../data/project-milestones';
-import { hackathonWins, type HackathonWin } from '../data/hackathon-wins';
+import { getPageMeta, getTimeline } from '../lib/content';
+import { timelineDate, timelineTitle } from '../lib/content/timeline';
+import { timelineCopy } from '../data/pages';
 import { ExternalLink } from '@lucide/astro';
 import AnchorLink from '../components/AnchorLink.astro';
 
-interface ProjectJourneyItem {
-  kind: 'project';
-  id: string;
-  date: Date;
-  project: CollectionEntry<'projects'>;
-}
+const meta = getPageMeta('/projects');
+const projects = await getCollection('projects');
+// Date-sorted journey (projects, job starts, milestones, hackathon wins) shared with projects.md.
+const timeline = await getTimeline();
 
-interface MilestoneJourneyItem {
-  kind: 'milestone';
-  id: string;
-  date: Date;
-  milestone: ProjectMilestone;
-}
-
-interface CareerJourneyItem {
-  kind: 'career';
-  id: string;
-  date: Date;
-  title: string;
-}
-
-interface HackathonJourneyItem {
-  kind: 'hackathon';
-  id: string;
-  date: Date;
-  win: HackathonWin;
-}
-
-type JourneyItem =
-  | ProjectJourneyItem
-  | MilestoneJourneyItem
-  | CareerJourneyItem
-  | HackathonJourneyItem;
-
-const projects = (await getCollection('projects')).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-);
-const latestProjectDate = projects.at(0)?.data.date.valueOf() ?? Number.POSITIVE_INFINITY;
-
-const timeline: JourneyItem[] = [
-  ...projects.map(
-    (project): ProjectJourneyItem => ({
-      kind: 'project',
-      id: `project-${project.id}`,
-      date: project.data.date,
-      project,
-    }),
-  ),
-  ...jobs
-    .filter((job) => job.start.valueOf() <= latestProjectDate)
-    .map(
-      (job): CareerJourneyItem => ({
-        kind: 'career',
-        id: `career-${job.id}`,
-        date: job.start,
-        title: `Started at ${job.company}`,
-      }),
-    ),
-  ...projectMilestones
-    .map(
-      (milestone): MilestoneJourneyItem => ({
-        kind: 'milestone',
-        id: `milestone-${milestone.id}`,
-        date: new Date(`${milestone.date}T00:00:00Z`),
-        milestone,
-      }),
-    )
-    .filter((milestone) => milestone.date.valueOf() <= latestProjectDate),
-  ...hackathonWins.map(
-    (win): HackathonJourneyItem => ({
-      kind: 'hackathon',
-      id: `hackathon-${win.id}`,
-      date: new Date(`${win.date}T00:00:00Z`),
-      win,
-    }),
-  ),
-].sort((a, b) => b.date.valueOf() - a.date.valueOf());
-
-function milestoneDate(date: Date, includeDay: boolean): string {
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: includeDay ? 'numeric' : undefined,
-    timeZone: 'UTC',
-  });
-}
-
+const entryFor = (slug: string) => projects.find((project) => project.id === slug)!;
 let eventIndex = 0;
 ---
 
-<Layout title="Projects" description="Selected software projects by Matthew Polak.">
+<Layout title={meta.title} description={meta.description}>
   <header class="page-intro projects-intro">
     <span class="page-intro__index page-intro__index--projects" aria-hidden="true"></span>
-    <h1>Stuff I built</h1>
+    <h1>{meta.heading}</h1>
   </header>
 
   <ol class="project-journey">
@@ -112,15 +31,8 @@ let eventIndex = 0;
       timeline.map((item) => {
         const side = item.kind === 'project' ? undefined : eventIndex++ % 2 === 0 ? 'left' : 'right';
 
-        const anchor = item.kind === 'project' ? item.project.id : item.id;
-        const anchorLabel =
-          item.kind === 'project'
-            ? item.project.data.title
-            : item.kind === 'career'
-              ? item.title
-              : item.kind === 'hackathon'
-                ? item.win.project
-                : item.milestone.title;
+        const anchor = item.kind === 'project' ? item.slug : item.id;
+        const anchorLabel = timelineTitle(item);
 
         return (
           <li
@@ -138,16 +50,16 @@ let eventIndex = 0;
             <div class="journey-entry__content">
               {item.kind === 'project' ? (
                 <ProjectCard
-                  project={item.project}
-                  playground={playgroundPages.find((demo) => demo.slug === item.project.id)?.path}
+                  project={entryFor(item.slug)}
+                  playground={playgroundPages.find((demo) => demo.slug === item.slug)?.path}
                   action={
-                    item.project.id === 'minecraft'
+                    item.slug === 'minecraft'
                       ? { id: 'play-minecraft', label: 'Try in browser' }
-                      : item.project.id === 'quasi'
+                      : item.slug === 'quasi'
                         ? { id: 'try-quasi', label: 'Try in browser' }
-                        : item.project.id === 'baerscript'
+                        : item.slug === 'baerscript'
                           ? { id: 'try-baerscript', label: 'Try in browser' }
-                        : item.project.id === 'jai'
+                        : item.slug === 'jai'
                           ? { id: 'try-jai', label: 'Try in browser' }
                         : undefined
                   }
@@ -155,13 +67,13 @@ let eventIndex = 0;
               ) : item.kind === 'hackathon' ? (
                 <article class="hackathon-win">
                   <p class="hackathon-win__meta">
-                    <time datetime={item.win.date}>{milestoneDate(item.date, true)}</time>
+                    <time datetime={item.win.date}>{timelineDate(item)}</time>
                     <span aria-hidden="true">·</span>
                     <span>{item.win.awards.join(' · ')}</span>
                   </p>
                   <h2>
                     {item.win.project}
-                    <span> at {item.win.hackathon}</span>
+                    <span> {timelineCopy.hackathonAt(item.win.hackathon)}</span>
                     <AnchorLink id={anchor} label={anchorLabel} />
                   </h2>
                   <p class="hackathon-win__description">{item.win.description}</p>
@@ -177,7 +89,7 @@ let eventIndex = 0;
               ) : (
                 <article class:list={['milestone', `milestone--${item.kind}`]}>
                   <time class="milestone__date" datetime={item.date.toISOString().slice(0, 10)}>
-                    {milestoneDate(item.date, item.kind === 'milestone')}
+                    {timelineDate(item)}
                   </time>
                   <h2>
                     {item.kind === 'career' ? item.title : item.milestone.title}

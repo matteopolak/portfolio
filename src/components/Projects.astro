@@ -1,11 +1,14 @@
 ---
-import { projects } from '../lib/config';
-import { bold } from '../lib/bold';
+import { getProfile } from '../lib/content';
+import { sectionHeadings } from '../data/pages';
+import { boldHtml } from '../lib/bold';
 import { ExternalLink } from '@lucide/astro';
+
+const { projects } = getProfile();
 ---
 
 <section class="resume-section">
-  <h2 class="section-title">Selected work</h2>
+  <h2 class="section-title">{sectionHeadings.projects}</h2>
   <div class="resume-list">
     {
       projects.map((project) => (
@@ -13,7 +16,7 @@ import { ExternalLink } from '@lucide/astro';
           <div class="resume-entry__heading">
             <div>
               <h3 class="resume-entry__title">
-                <a href={`https://github.com/${project.github}`}>
+                <a href={project.repository}>
                   {project.title}
                 </a>
               </h3>
@@ -23,18 +26,18 @@ import { ExternalLink } from '@lucide/astro';
             </div>
             <a
               class="resume-entry__aside"
-              href={`https://github.com/${project.github}`}
+              href={project.repository}
               target="_blank"
               rel="noopener noreferrer"
             >
               {project.github} <ExternalLink aria-hidden="true" size={14} />
             </a>
           </div>
-          {project.achievements.length > 0 && (
+          {project.bullets.length > 0 && (
             <ul>
-              {project.achievements.map((achievement) => (
+              {project.bullets.map((achievement) => (
                 <li>
-                  <Fragment set:html={bold(achievement)} />
+                  <Fragment set:html={boldHtml(achievement)} />
                 </li>
               ))}
             </ul>

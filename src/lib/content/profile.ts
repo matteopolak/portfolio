@@ -18,6 +18,8 @@ export interface ProfileJob {
   location: string;
   start: string;
   end?: string;
+  startLabel: string;
+  endLabel?: string;
   period: string;
   bullets: string[];
 }
@@ -50,6 +52,8 @@ export interface Profile {
     gpa: string;
     start: string;
     end: string;
+    startLabel: string;
+    endLabel: string;
     period: string;
   };
   skills: { label: string; items: string[] }[];
@@ -82,6 +86,8 @@ export function buildProfile(config: Config): Profile {
       location: job.location,
       start: isoMonth(job.start),
       end: job.end ? isoMonth(job.end) : undefined,
+      startLabel: formatDate(job.start),
+      endLabel: job.end ? formatDate(job.end) : undefined,
       period: `${formatDate(job.start)} — ${job.end ? formatDate(job.end) : 'Present'}`,
       bullets: [...job.achievements],
     })),
@@ -98,6 +104,8 @@ export function buildProfile(config: Config): Profile {
       gpa: config.education.gpa,
       start: isoMonth(config.education.start),
       end: isoMonth(config.education.end),
+      startLabel: formatDate(config.education.start),
+      endLabel: formatDate(config.education.end),
       period: `${formatDate(config.education.start)} — ${formatDate(config.education.end)}`,
     },
     skills: skillGroups.map(({ key, label }) => ({

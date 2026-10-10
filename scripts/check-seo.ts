@@ -5,8 +5,15 @@
  * viewport, theme-color, a single <h1> or JSON-LD that does not parse. It also
  * checks that titles and descriptions are unique and that every page is in
  * sitemap.xml, with robots.txt pointing at it and the RSS feed present.
+ * Every page but the playgrounds must announce its markdown variant
+ * (`<link rel="alternate" type="text/markdown">`), the file must exist in
+ * dist, and its frontmatter title/description and first heading must match
+ * the HTML page (docs/markdown-variants.md). llms.txt must exist and link
+ * only markdown files that exist.
  */
 import { readdir, readFile } from 'node:fs/promises';
+import { documentTitle } from '../src/data/pages.ts';
+import { markdownPathFor } from '../src/lib/content/routes.ts';
 import { join, relative, resolve } from 'node:path';
 
 const origin = 'https://matteopolak.com';
@@ -122,6 +129,48 @@ for (const file of files) {
   const h1 = (html.match(/<h1\b/gu) ?? []).length;
   if (h1 !== 1) fail(`expected one <h1>, found ${h1}`);
 
+  // Markdown alternate: announced, present, and consistent with the page.
+  const markdownPath = markdownPathFor(path);
+  const alternate =
+    /<link\b[^>]*type="text\/markdown"[^>]*href="([^"]*)"/u.exec(html)?.[1];
+  if (!markdownPath) {
+    if (alternate) fail('playground pages must not have a markdown alternate');
+  } else if (alternate !== origin + markdownPath)
+    fail(`markdown alternate ${alternate} should be ${origin + markdownPath}`);
+  else {
+    const markdown = await readFile(join(dist, markdownPath), 'utf8').catch(
+      () => undefined
+    );
+    if (markdown === undefined) fail(`${markdownPath} is missing from dist`);
+    else {
+      const frontmatter = /^---\n([\s\S]*?)\n---\n/u.exec(markdown)?.[1] ?? '';
+      const field = (key: string) => {
+        const raw = new RegExp(`^${key}: (.*)$`, 'mu').exec(frontmatter)?.[1];
+        return raw === undefined ? undefined : (JSON.parse(raw) as string);
+      };
+      if (field('url') !== canonical)
+        fail('markdown url differs from canonical');
+      if (field('description') !== description)
+        fail('markdown description differs from the HTML meta description');
+      const name = meta(html, 'name', 'author') ?? '';
+      if (
+        decode(title ?? '') !==
+        documentTitle(name, field('title') ?? '', path === '/')
+      )
+        fail('markdown title differs from the HTML <title>');
+      const heading = /^# (.+)$/mu.exec(markdown)?.[1];
+      const htmlHeading = decode(
+        (/<h1\b[^>]*>([\s\S]*?)<\/h1>/u.exec(html)?.[1] ?? '')
+          .replace(/<[^>]*>/gu, '')
+          .trim()
+      );
+      if (heading !== htmlHeading)
+        fail(
+          `markdown heading "${heading}" differs from <h1> "${htmlHeading}"`
+        );
+    }
+  }
+
   const blocks = [
     ...html.matchAll(
       /<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gu
@@ -152,6 +201,23 @@ const feed = await read('rss.xml');
 if (!feed.includes('<rss')) errors.push('rss.xml: missing');
 if (/<link>https:[^<]*\/blog\/[^<]*\/<\/link>/u.test(feed))
   errors.push('rss.xml: item links have trailing slashes');
+
+const llms = await read('llms.txt');
+if (!llms.startsWith('# ')) errors.push('llms.txt: missing or has no H1');
+for (const [, target] of llms.matchAll(
+  /\]\((https:\/\/matteopolak\.com\/[^)]*\.(?:md|txt))\)/gu
+)) {
+  const exists = await readFile(
+    join(dist, new URL(target).pathname),
+    'utf8'
+  ).then(
+    () => true,
+    () => false
+  );
+  if (!exists) errors.push(`llms.txt: ${target} is missing from dist`);
+}
+if (sitemap.includes('.md</loc>'))
+  errors.push('sitemap.xml: markdown variants must not be listed');
 
 if (errors.length) {
   console.error(

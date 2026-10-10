@@ -11,6 +11,7 @@
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
 | [theme-switching.md](./theme-switching.md) | Curated colour themes, nav theme button, persistence and contrast tests |
 | [webmcp.md](./webmcp.md) | WebMCP tools for browser agents, origin trial token and how to add a tool |
+| [markdown-variants.md](./markdown-variants.md) | `.md` versions of pages, llms.txt and the shared content layer every format reads |
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |

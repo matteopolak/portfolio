@@ -1,6 +1,8 @@
 ---
 import config from '../lib/config';
 import { canonicalPathname } from '../lib/urls';
+import { HEADLINE, feedTitle } from '../data/pages';
+import { markdownPathFor } from '../lib/content/routes';
 import faviconSvgUrl from '../assets/favicon.svg?url&no-inline';
 import appleTouchIconUrl from '../generated/favicons/apple-touch-icon.png?url&no-inline';
 import favicon32Url from '../generated/favicons/favicon-32x32.png?url&no-inline';
@@ -22,6 +24,8 @@ const personId = new URL('/#person', Astro.site).href;
 const websiteId = new URL('/#website', Astro.site).href;
 const pageId = `${canonicalUrl.href}#webpage`;
 const canonicalPath = canonicalPathname(Astro.url.pathname);
+// Every page but the playgrounds has a markdown variant (docs/markdown-variants.md).
+const markdownPath = markdownPathFor(canonicalPath);
 const sectionNames: Record<string, string> = {
   blog: 'Blog',
   projects: 'Projects',
@@ -65,7 +69,7 @@ const structuredData = {
         `https://github.com/${config.github}`,
         `https://www.linkedin.com/in/${config.linkedin}`,
       ],
-      jobTitle: 'Software Engineer',
+      jobTitle: HEADLINE,
     },
     {
       '@type': 'WebSite',
@@ -151,7 +155,12 @@ const originTrialToken = import.meta.env.PUBLIC_WEBMCP_ORIGIN_TRIAL_TOKEN?.trim(
 <title>{title}</title>
 
 <link rel="canonical" href={canonicalUrl} />
-<link rel="alternate" type="application/rss+xml" title={`${config.name} — Blog`} href="/rss.xml" />
+{
+  markdownPath && (
+    <link rel="alternate" type="text/markdown" href={new URL(markdownPath, Astro.site).href} />
+  )
+}
+<link rel="alternate" type="application/rss+xml" title={feedTitle(config.name)} href="/rss.xml" />
 <link rel="manifest" href="/manifest.webmanifest" />
 
 <!-- Open Graph -->

@@ -71,3 +71,10 @@ export const timelineCopy = {
   careerStart: (company: string) => `Started at ${company}`,
   hackathonAt: (hackathon: string) => `at ${hackathon}`,
 };
+
+/** The RSS feed's title (also its `<link rel="alternate">` title). */
+export const feedTitle = (name: string) => `${name} — Blog`;
+
+/** `<title>` of a page: the home page leads with the headline. */
+export const documentTitle = (name: string, title: string, isHome: boolean) =>
+  isHome ? `${name} — ${HEADLINE}` : `${title} — ${name}`;

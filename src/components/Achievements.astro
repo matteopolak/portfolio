@@ -1,37 +1,34 @@
 ---
-import config from '../lib/config';
-import { bold } from '../lib/bold';
-import type { AchievementLinked } from '../types/config';
+import { getProfile } from '../lib/content';
+import { sectionHeadings } from '../data/pages';
+import { boldHtml } from '../lib/bold';
+import { joinNatural } from '../lib/content/format';
 
-function joinLinks(entry: AchievementLinked): string {
-  const links = entry.item.map((item) => {
-    if (item.pop !== undefined) {
-      return `<a href="${item.url}" target="_blank" rel="noopener noreferrer"><span>${item.name}</span> <strong>${item.pop}</strong></a>`;
-    }
-    return `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.name}</a>`;
-  });
-  let joined: string;
-  if (links.length === 1) {
-    joined = links[0];
-  } else if (links.length === 2) {
-    joined = `${links[0]} and ${links[1]}`;
-  } else {
-    joined = `${links.slice(0, -1).join(', ')}, and ${links[links.length - 1]}`;
-  }
-  return entry.prefix + joined;
-}
+const { achievements } = getProfile();
+const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 ---
 
 <section class="resume-section">
-  <h2 class="section-title">Achievements</h2>
+  <h2 class="section-title">{sectionHeadings.achievements}</h2>
   <ul class="achievement-list">
     {
-      Object.values(config.achievement).map((entry) => (
+      achievements.map((entry) => (
         <li>
-          {'text' in entry ? (
-            <Fragment set:html={bold(entry.text)} />
+          {entry.kind === 'text' ? (
+            <Fragment set:html={boldHtml(entry.text)} />
           ) : (
-            <Fragment set:html={joinLinks(entry)} />
+            <Fragment
+              set:html={
+                escape(entry.prefix) +
+                joinNatural(
+                  entry.items.map((item) =>
+                    item.pop !== undefined
+                      ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer"><span>${escape(item.name)}</span> <strong>${item.pop}</strong></a>`
+                      : `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${escape(item.name)}</a>`
+                  )
+                )
+              }
+            />
           )}
         </li>
       ))

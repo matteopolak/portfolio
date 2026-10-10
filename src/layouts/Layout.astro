@@ -7,6 +7,7 @@ import { ClientRouter } from 'astro:transitions';
 
 import config from '../lib/config';
 import { canonicalPathname } from '../lib/urls';
+import { documentTitle as buildDocumentTitle } from '../data/pages';
 
 interface Props {
   title: string;
@@ -17,7 +18,7 @@ interface Props {
 
 const { title, description, type, publishedTime } = Astro.props;
 const isHome = canonicalPathname(Astro.url.pathname) === '/';
-const documentTitle = isHome ? `${config.name} — Software Engineer` : `${title} — ${config.name}`;
+const documentTitle = buildDocumentTitle(config.name, title, isHome);
 ---
 
 <!doctype html>

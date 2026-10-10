@@ -2,5 +2,9 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
 
+# Markdown variants of the pages (docs/markdown-variants.md).
+/*.md
+  Content-Type: text/markdown; charset=utf-8
+
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable

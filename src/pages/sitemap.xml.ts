@@ -1,13 +1,7 @@
-import { getCollection } from 'astro:content';
 import type { APIRoute } from 'astro';
-import { playgroundPages } from '../data/code-demos';
+import { getRoutes } from '../lib/content';
 
 export const prerender = true;
-
-interface SitemapEntry {
-  pathname: string;
-  lastModified?: Date;
-}
 
 function escapeXml(value: string): string {
   return value
@@ -18,10 +12,6 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-function slug(id: string): string {
-  return id.replace(/\.md$/, '');
-}
-
 export const GET: APIRoute = async ({ site }) => {
   if (!site) {
     throw new Error(
@@ -29,27 +19,14 @@ export const GET: APIRoute = async ({ site }) => {
     );
   }
 
-  const posts = (await getCollection('blog'))
-    .filter((post) => post.data.published !== false)
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-
-  const entries: SitemapEntry[] = [
-    { pathname: '/' },
-    { pathname: '/projects' },
-    { pathname: '/blog' },
-    { pathname: '/playground' },
-    ...playgroundPages.map(({ path }) => ({ pathname: path })),
-    ...posts.map((post) => ({
-      pathname: `/blog/${slug(post.id)}`,
-      lastModified: post.data.date,
-    })),
-  ];
+  // Same route list as the WebMCP `navigate` allow-list; markdown variants are alternates, not listed.
+  const entries = await getRoutes();
 
   const urls = entries
-    .map(({ pathname, lastModified }) => {
-      const location = escapeXml(new URL(pathname, site).href);
+    .map(({ path, lastModified }) => {
+      const location = escapeXml(new URL(path, site).href);
       const lastmod = lastModified
-        ? `\n    <lastmod>${lastModified.toISOString().slice(0, 10)}</lastmod>`
+        ? `\n    <lastmod>${lastModified}</lastmod>`
         : '';
 
       return `  <url>\n    <loc>${location}</loc>${lastmod}\n  </url>`;

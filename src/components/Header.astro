@@ -1,6 +1,9 @@
 ---
-import config from '../lib/config';
+import { getProfile } from '../lib/content';
 import GeometricMark from './GeometricMark.astro';
+
+const profile = getProfile();
+const link = (label: string) => profile.links.find((l) => l.label === label)!.url;
 ---
 
 <header class="home-hero">
@@ -9,19 +12,19 @@ import GeometricMark from './GeometricMark.astro';
       class="page-intro__index page-intro__index--home home-hero__index"
       aria-hidden="true"
     ></div>
-    <h1>{config.name}</h1>
+    <h1>{profile.name}</h1>
     <address class="home-hero__contact">
       <span class="home-hero__location">
         <GeometricMark name="canada" />
-        Ontario, Canada
+        {profile.location}
       </span>
-      <a class="home-hero__social" href={`https://github.com/${config.github}`}>
+      <a class="home-hero__social" href={link('GitHub')}>
         <GeometricMark name="github" />
         GitHub
       </a>
       <a
         class="home-hero__social"
-        href={`https://www.linkedin.com/in/${config.linkedin}`}
+        href={link('LinkedIn')}
       >
         <GeometricMark name="linkedin" />
         LinkedIn

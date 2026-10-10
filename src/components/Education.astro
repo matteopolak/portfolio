@@ -1,10 +1,12 @@
 ---
-import config, { formatDate } from '../lib/config';
-const { education } = config;
+import { getProfile } from '../lib/content';
+import { sectionHeadings } from '../data/pages';
+
+const { education } = getProfile();
 ---
 
 <section class="resume-section">
-  <h2 class="section-title">Education</h2>
+  <h2 class="section-title">{sectionHeadings.education}</h2>
   <article class="resume-entry">
     <div class="resume-entry__heading">
       <div>
@@ -14,13 +16,9 @@ const { education } = config;
       <div class="resume-entry__aside">
         <div>GPA {education.gpa}</div>
         <div>
-          <time datetime={education.start.toISOString().slice(0, 7)}>
-            {formatDate(education.start)}
-          </time>{' '}
+          <time datetime={education.start}>{education.startLabel}</time>{' '}
           —{' '}
-          <time datetime={education.end.toISOString().slice(0, 7)}>
-            {formatDate(education.end)}
-          </time>
+          <time datetime={education.end}>{education.endLabel}</time>
         </div>
       </div>
     </div>
