@@ -61,4 +61,10 @@ const isDraft = post.data.published === false;
   if (document.querySelector('lodestone-game')) {
     void import('../../lib/lodestone-game');
   }
+  // Bundled scripts run once; re-check charts after each ClientRouter navigation.
+  document.addEventListener('astro:page-load', () => {
+    if (document.querySelector('[data-chart-data]')) {
+      void import('../../lib/charts/data-dialog').then((m) => m.enhanceChartData());
+    }
+  });
 </script>

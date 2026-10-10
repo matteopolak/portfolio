@@ -1,7 +1,7 @@
 import type { ChartComponentName, ChartDataByKind } from './schema.ts';
 
 /*
- * One tabular view of each chart's data: the visually-hidden "Show data" table
+ * One tabular view of each chart's data: the visually-hidden data table (also shown in the chart's Data dialog and its CSV)
  * in HTML and the compact table in the markdown variant are both built from it.
  */
 export interface ChartTable {
@@ -19,12 +19,16 @@ export function timeSeriesTable(
     ...new Set(data.series.flatMap((s) => s.points.map((p) => p.t))),
   ].sort();
   return {
-    columns: ['Date', ...data.series.map((s) => s.name)],
+    // Units go in the headers so cells stay plain numbers (clean CSV).
+    columns: [
+      'Date',
+      ...data.series.map((s) => (data.unit ? `${s.name} (${data.unit})` : s.name)),
+    ],
     rows: dates.map((date) => [
       date,
       ...data.series.map((s) => {
         const point = s.points.find((p) => p.t === date);
-        return point ? number(point.v, data.unit) : '';
+        return point ? number(point.v) : '';
       }),
     ]),
   };

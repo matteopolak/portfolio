@@ -80,6 +80,7 @@
           <a
             href="#{heading.slug}"
             data-toc-id={heading.slug}
+            title={heading.text}
             class:is-visible={visible.has(heading.slug)}
             aria-current={visible.has(heading.slug) ? 'location' : undefined}
           >
