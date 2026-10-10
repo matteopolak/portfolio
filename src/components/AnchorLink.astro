@@ -13,7 +13,10 @@ const { id, label } = Astro.props;
   .anchor-link {
     position: relative;
     z-index: 2;
-    margin-left: 0.4em;
+    /* Padding grows the hit area to at least 24x24px; negative margins keep the layout unchanged. */
+    display: inline-block;
+    padding: 0.45rem 0.55rem;
+    margin: -0.45rem -0.55rem -0.45rem calc(0.4em - 0.55rem);
     color: var(--muted);
     font-size: 0.7em;
     font-weight: 700;

@@ -2005,6 +2005,7 @@ export async function createSession(
         const active = tab === g.tabs.active;
         const item = document.createElement('div');
         item.className = 'ide-filetab';
+        item.setAttribute('role', 'presentation');
         item.dataset.tabIndex = String(index);
         if (active) item.dataset.active = 'true';
         if (tab.preview) item.dataset.preview = 'true';
@@ -2067,6 +2068,8 @@ export async function createSession(
         close.type = 'button';
         close.className = 'ide-filetab-close';
         close.tabIndex = -1;
+        // Keyboard and screen reader users close tabs with Delete on the tab.
+        close.setAttribute('aria-hidden', 'true');
         close.dataset.tabClose = '';
         close.title = 'Close (Delete)';
         close.setAttribute(

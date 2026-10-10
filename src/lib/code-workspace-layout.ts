@@ -203,6 +203,14 @@ function divider(
   handle.setAttribute('aria-orientation', vertical ? 'vertical' : 'horizontal');
   handle.setAttribute('aria-valuemin', String(options.minimum));
   handle.tabIndex = 0;
+  const publish = () => {
+    handle.setAttribute('aria-valuenow', String(Math.round(options.current())));
+    handle.setAttribute(
+      'aria-valuemax',
+      String(Math.round(Math.max(options.minimum, options.maximum())))
+    );
+  };
+  publish();
   const set = (value: number) => {
     const maximum = Math.max(options.minimum, options.maximum());
     const bounded = Math.max(options.minimum, Math.min(value, maximum));
