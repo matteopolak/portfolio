@@ -1,5 +1,7 @@
 import { tagHighlighter, highlightTree, tags } from '@lezer/highlight';
+import type { DocStyle } from './jai/doc-comments.ts';
 import {
+  docCommentTags,
   formatPercentTag,
   formatSpecifierTag,
   jaiLanguage,
@@ -78,40 +80,89 @@ const highlighter = tagHighlighter([
   { tag: tags.number, class: 'number' },
   { tag: [tags.processingInstruction, tags.annotation], class: 'directive' },
   { tag: [tags.operator, tags.punctuation], class: 'punctuation' },
+  // Markdown in comments: added on top of `comment` (see jai/doc-comments.ts).
+  ...Object.entries(docCommentTags).map(([style, tag]) => ({
+    tag,
+    class: `doc-${style}`,
+  })),
 ]);
 
 export interface JaiSpan {
   text: string;
   /** Absent for text with no colour of its own (whitespace, unknown tokens). */
   token?: JaiToken;
+  /** Markdown styles inside a comment (`**bold**`, `` `code` ``, `[link]`). */
+  doc?: DocStyle[];
 }
 
 /** The source split into per-line runs of coloured text. Joined, the text equals the input. */
 export function highlightJai(source: string): JaiSpan[][] {
   const lines: JaiSpan[][] = [[]];
-  const push = (text: string, token?: JaiToken) => {
+  const push = (text: string, token?: JaiToken, doc?: DocStyle[]) => {
     const parts = text.split('\n');
     parts.forEach((part, index) => {
       if (index > 0) lines.push([]);
-      if (part) lines[lines.length - 1].push({ text: part, token });
+      if (part)
+        lines[lines.length - 1].push({
+          text: part,
+          token,
+          ...(doc?.length ? { doc } : {}),
+        });
     });
   };
   const tree = jaiLanguage.parser.parse(source);
   let position = 0;
   highlightTree(tree, highlighter, (from, to, classes) => {
     if (from > position) push(source.slice(position, from));
+    const names = classes.split(' ');
+    const doc = names
+      .filter((name) => name.startsWith('doc-'))
+      .map((name) => name.slice(4) as DocStyle);
     // Several classes can match one range; the last is the most specific.
-    const token = classes.split(' ').pop() as JaiToken;
-    push(source.slice(from, to), token in jaiTokenStyles ? token : undefined);
+    const token = names.filter((name) => !name.startsWith('doc-')).pop();
+    push(
+      source.slice(from, to),
+      token && token in jaiTokenStyles ? (token as JaiToken) : undefined,
+      doc
+    );
     position = to;
   });
   if (position < source.length) push(source.slice(position));
   return lines;
 }
 
+/**
+ * How comment Markdown changes a comment's style, as in the editor: bold
+ * `**strong**` and headings, upright `` `code` ``, links in the type colour,
+ * list markers in the punctuation colour. Markers stay visible.
+ */
+function withDoc(
+  style: JaiTokenStyle,
+  doc: readonly DocStyle[]
+): JaiTokenStyle {
+  const has = (name: DocStyle) => doc.includes(name);
+  const colour = has('link')
+    ? jaiTokenStyles.type
+    : has('list')
+      ? jaiTokenStyles.punctuation
+      : style;
+  return {
+    light: colour.light,
+    dark: colour.dark,
+    bold: style.bold || has('strong') || has('heading'),
+    italic: style.italic && !has('code') && !has('list'),
+  };
+}
+
 /** The inline style of a span: the two palettes as variables, like Shiki's dual themes. */
-export function jaiSpanStyle(token: JaiToken): string {
-  const { light, dark, bold, italic } = jaiTokenStyles[token] as JaiTokenStyle;
+export function jaiSpanStyle(
+  token: JaiToken,
+  doc: readonly DocStyle[] = []
+): string {
+  const { light, dark, bold, italic } = withDoc(
+    jaiTokenStyles[token] as JaiTokenStyle,
+    doc
+  );
   return [
     `--shiki-light:${light}`,
     `--shiki-dark:${dark}`,
@@ -147,9 +198,9 @@ export function jaiBlockHast(source: string): HastElement {
       el(
         'span',
         { className: ['line'] },
-        line.map(({ text, token }) =>
+        line.map(({ text, token, doc }) =>
           token
-            ? el('span', { style: jaiSpanStyle(token) }, [
+            ? el('span', { style: jaiSpanStyle(token, doc) }, [
                 { type: 'text', value: text },
               ])
             : { type: 'text', value: text }

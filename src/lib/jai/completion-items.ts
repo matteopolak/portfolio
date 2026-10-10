@@ -4,8 +4,12 @@
  * in a file without `#import "Basic";` adds that line, and a name from
  * another project file adds its `#load`). Accepting such an item, by Tab,
  * Enter or a click, inserts the name and applies those edits in the same
- * transaction, so one undo takes both back. Pure helpers; `code-editor.ts`
- * asks the server and shows the list.
+ * transaction, so one undo takes both back.
+ *
+ * Documentation is Markdown (jailsp always sends MarkupContent of kind
+ * `markdown`); it is rendered only when the item is selected. Long lists come
+ * without it, and `completionItem/resolve` fills it in then. Pure helpers;
+ * `code-editor.ts` asks the server, renders and shows the list.
  */
 import {
   insertCompletionText,
@@ -15,6 +19,7 @@ import {
 import type { ChangeSpec } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { offsetAt } from './language-client.ts';
+import { documentation, type Documentation } from './lsp-features.ts';
 import type { CompletionItem, TextEdit } from './lsp-types.ts';
 
 /**
@@ -82,10 +87,37 @@ const completionTypes: Record<number, string> = {
   14: 'keyword',
 };
 
-/** The CodeMirror completion for one server item (plain-text `info` from `infoText`). */
+/** Builds the info panel's DOM for documentation (see `documentationContent`). */
+export type RenderDocumentation = (doc: Documentation) => Node;
+/** `completionItem/resolve`: the item with its documentation, or null. */
+export type ResolveCompletion = (
+  item: CompletionItem
+) => Promise<CompletionItem | null | undefined>;
+
+/**
+ * The info panel of an item. Plain text stays a string, which CodeMirror
+ * shows as text; Markdown is rendered when the item is selected. An item
+ * without documentation is resolved then, if the server can.
+ */
+export function completionInfo(
+  item: CompletionItem,
+  render: RenderDocumentation,
+  resolve?: ResolveCompletion
+): Completion['info'] {
+  const doc = documentation(item.documentation);
+  if (doc) return doc.kind === 'plaintext' ? doc.value : () => render(doc);
+  if (!resolve) return undefined;
+  return async () => {
+    const resolved = documentation((await resolve(item))?.documentation);
+    return resolved ? render(resolved) : null;
+  };
+}
+
+/** The CodeMirror completion for one server item. */
 export function completionOption(
   item: CompletionItem,
-  infoText: (documentation: CompletionItem['documentation']) => string
+  render: RenderDocumentation,
+  resolve?: ResolveCompletion
 ): Completion {
   const insert = item.insertText ?? item.label;
   const edits = item.additionalTextEdits ?? [];
@@ -94,7 +126,7 @@ export function completionOption(
     label: item.label,
     // An auto-import shows where the name comes from (`Basic`, `util/strings.jai`).
     detail: item.labelDetails?.description ?? item.detail,
-    info: infoText(item.documentation) || undefined,
+    info: completionInfo(item, render, resolve),
     type: completionTypes[item.kind ?? 0] ?? 'variable',
     ...(autoImport
       ? { boost: AUTO_IMPORT_BOOST, apply: applyWithEdits(insert, edits) }

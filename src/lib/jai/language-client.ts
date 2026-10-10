@@ -77,6 +77,18 @@ export function resourceFromUri(uri: string): UriResource | undefined {
   return { kind: 'library', path: library, uri };
 }
 
+/**
+ * A document link's target split into a URI and the line it points at. Doc
+ * comment links (`[print]`) target `file:///stdlib/Basic/Print.jai#L1213`,
+ * a 1-based line; `#import` links have no fragment.
+ */
+export function linkTarget(target: string): { uri: string; range?: Range } {
+  const match = /^([^#]*)#L(\d+)$/u.exec(target);
+  if (!match || Number(match[2]) < 1) return { uri: target };
+  const position = { line: Number(match[2]) - 1, character: 0 };
+  return { uri: match[1], range: { start: position, end: position } };
+}
+
 /** The workspace path of a `file:///jai-script/` URI; undefined for any other URI. */
 export function pathFromUri(uri: string): string | undefined {
   const resource = resourceFromUri(uri);
@@ -300,8 +312,11 @@ export class LanguageClient {
             typeDefinition: { linkSupport: false },
             rename: { prepareSupport: true },
             hover: { contentFormat: ['markdown', 'plaintext'] },
+            // Doc comments: Markdown documentation with each signature and
+            // parameter (jailsp sends plain text unless asked).
             signatureHelp: {
               signatureInformation: {
+                documentationFormat: ['markdown', 'plaintext'],
                 parameterInformation: { labelOffsetSupport: true },
               },
             },
@@ -333,7 +348,7 @@ export class LanguageClient {
             completion: {
               completionItem: {
                 snippetSupport: false,
-                documentationFormat: ['plaintext'],
+                documentationFormat: ['markdown', 'plaintext'],
               },
             },
           },

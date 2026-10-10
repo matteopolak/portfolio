@@ -10,19 +10,15 @@
  *   `.jai-hover__divider`, a rule with the label set into it.
  * - A fenced block whose every line is a `name :: (` declaration is an
  *   overload set: a count, then one row per declaration.
+ * - A list whose every item starts with a code span (bold for the hovered
+ *   one) and an arrow, `` - `%` → `count: s64` ``, is a format-string hover:
+ *   it gets `.jai-hover__format`. Any other list (parameter docs) stays a list.
  */
 import { Marked, Renderer, type Token, type Tokens } from 'marked';
 import { escapeHtml } from './markdown-render.ts';
-import type { MarkupText } from './jai/lsp-types.ts';
-
-/** The text of a hover result when the server sent it as Markdown. */
-export function markdownHover(contents: MarkupText): string | undefined {
-  if (typeof contents !== 'object' || Array.isArray(contents)) return;
-  const { kind, value } = contents as { kind?: unknown; value?: unknown };
-  return kind === 'markdown' && typeof value === 'string' ? value : undefined;
-}
 
 const overloadLine = /^[^\s:]+ :: \(/u;
+const formatItem = /^(\*\*)?`[^`\n]+`\1 → /u;
 
 const codeBlock = (text: string, language: string, className = '') =>
   `<pre${className ? ` class="${className}"` : ''} data-lang="${escapeHtml(language)}"><code>${escapeHtml(text)}</code></pre>\n`;
@@ -37,6 +33,12 @@ const marked = new Marked({
       return this.parser.parseInline(tokens);
     },
     image: ({ text }: Tokens.Image) => escapeHtml(text),
+    list(this: Renderer, token: Tokens.List) {
+      const html = Renderer.prototype.list.call(this, token);
+      return token.items.every((item) => formatItem.test(item.text))
+        ? html.replace(/^<([ou]l)/u, '<$1 class="jai-hover__format"')
+        : html;
+    },
     code({ text, lang }: Tokens.Code) {
       const language = (lang ?? '').trim().split(/\s/u)[0].toLowerCase();
       const lines = text.split('\n');
