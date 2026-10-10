@@ -6,6 +6,7 @@ import {
 } from './workspace-chrome.ts';
 import type { Editor, EditorLanguage } from './code-editor.ts';
 import { confirmDialog } from './workspace-actions.ts';
+import type { RunFinished, RunRequest } from './run-target.ts';
 import {
   initializeWorkspaceLayout,
   showPane,
@@ -93,6 +94,19 @@ export function initializeCodePlayground(
   let editedDuringBoot = false;
   let cleanupBoot: (() => void) | undefined;
   let autoRun: AutoRunner | undefined;
+  // `runCode` waits here for the next finished run (see run-target.ts).
+  let waiter: ((result: RunFinished) => void) | undefined;
+  /** Shows a finished run and hands it to a waiting `runCode`. */
+  function finish(text: string, kind: 'stdout' | 'error') {
+    output!.write(text, kind);
+    const resolve = waiter;
+    waiter = undefined;
+    resolve?.(
+      kind === 'error'
+        ? { stdout: '', stderr: text, exitCode: 1 }
+        : { stdout: text, stderr: '', exitCode: 0 }
+    );
+  }
 
   function emit(type: string, message?: string) {
     root.dispatchEvent(
@@ -172,8 +186,8 @@ export function initializeCodePlayground(
             reject(new Error(data.error));
           } else if (data.type === 'result') {
             clearTimeout(timeout);
-            if (data.error !== undefined) output!.write(data.error, 'error');
-            else output!.write(data.output ?? '');
+            if (data.error !== undefined) finish(data.error, 'error');
+            else finish(data.output ?? '', 'stdout');
             idle();
           }
         }
@@ -186,7 +200,7 @@ export function initializeCodePlayground(
           rejectBoot = undefined;
           reject(error);
         } else {
-          output!.write(error.message, 'error');
+          finish(error.message, 'error');
           stopWorker();
           idle();
         }
@@ -264,16 +278,13 @@ export function initializeCodePlayground(
       worker?.postMessage({ source });
       timeout = setTimeout(() => {
         stopWorker();
-        output!.write(`Stopped after ${EXECUTION_TIMEOUT_MS} ms`, 'error');
+        finish(`Stopped after ${EXECUTION_TIMEOUT_MS} ms`, 'error');
         idle();
         chrome!.setRun({ disabled: false, running: false });
       }, EXECUTION_TIMEOUT_MS);
     } catch (error) {
       if (current === generation && currentJob === runJob) {
-        output!.write(
-          error instanceof Error ? error.message : String(error),
-          'error'
-        );
+        finish(error instanceof Error ? error.message : String(error), 'error');
         idle();
         chrome!.setRun({ disabled: false, running: false });
       }
@@ -286,6 +297,36 @@ export function initializeCodePlayground(
     output!.write('Stopped', 'error');
     idle();
     chrome!.setRun({ disabled: false, running: false });
+  }
+  /** Replaces the editor's text with `request.code` and runs it (WebMCP `run_code`). */
+  async function runCode(
+    request: RunRequest,
+    runSignal: AbortSignal
+  ): Promise<RunFinished> {
+    await prepare();
+    if (!editor || signal.aborted)
+      throw new Error('The editor is not available');
+    const finished = new Promise<RunFinished>((resolve, reject) => {
+      waiter = resolve;
+      runSignal.addEventListener('abort', () => reject(runSignal.reason), {
+        once: true,
+      });
+    });
+    showPane(panel, 'output');
+    editor.view.dispatch({
+      changes: {
+        from: 0,
+        to: editor.view.state.doc.length,
+        insert: request.code,
+      },
+    });
+    // `play` supersedes the debounced run the edit scheduled.
+    void autoRun?.play();
+    try {
+      return await finished;
+    } finally {
+      waiter = undefined;
+    }
   }
   panel.addEventListener(
     'keydown',
@@ -311,5 +352,5 @@ export function initializeCodePlayground(
     },
     { once: true }
   );
-  return { prepare, isReady: () => ready, destroy };
+  return { prepare, isReady: () => ready, destroy, runCode };
 }

@@ -52,7 +52,7 @@ jobs:
         run: pnpm check
 
       - name: run tests
-        run: pnpm test:lodestone && pnpm test:jai && pnpm test:palette && pnpm test:workspace
+        run: pnpm test:lodestone && pnpm test:jai && pnpm test:palette && pnpm test:workspace && pnpm test:webmcp
 
       - name: build static site
         run: pnpm build

@@ -39,7 +39,7 @@ import {
   type EditorNode,
   type SplitSide,
 } from '../workspace-layout-model.ts';
-import { Workspace, type WorkspaceDocument } from './workspace.ts';
+import { SourcePath, Workspace, type WorkspaceDocument } from './workspace.ts';
 import { defaultStarter, loadStarter, type Starter } from './starter.ts';
 import { confirmDialog, pickFolder, readFolder } from '../workspace-actions.ts';
 import { initializeFileTree } from './file-tree.ts';
@@ -2548,6 +2548,15 @@ export async function createSession(
     shell?.output(stream, text);
     summary.unread();
   };
+  /** Tells listeners (the WebMCP `run_code` tool) a run finished: see `RunFinished` in run-target.ts. */
+  function announceRun(detail: {
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+    diagnostics?: string[];
+  }) {
+    panel.dispatchEvent(new CustomEvent('code-run-finished', { detail }));
+  }
   // What the run wrote after it last waited, then diagnostics; the shell adds the exit note.
   function showResult(result: RunOutput) {
     const seen = { ...shown };
@@ -2579,6 +2588,12 @@ export async function createSession(
     }
     summary.finish(failed ? ['Failed'] : []);
     shell?.finish(result.exitCode);
+    announceRun({
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      diagnostics: errors,
+    });
   }
   function idle() {
     running = false;
@@ -2612,6 +2627,11 @@ export async function createSession(
           showError(data.error);
           summary.finish(['Failed']);
           shell?.finish(null);
+          announceRun({
+            stdout: '',
+            stderr: data.error,
+            exitCode: null,
+          });
         } else showResult(data.result);
         render?.ended();
         idle();
@@ -2622,6 +2642,11 @@ export async function createSession(
       showError(event.message || 'Execution failed');
       summary.finish(['Failed']);
       shell?.finish(null);
+      announceRun({
+        stdout: '',
+        stderr: event.message || 'Execution failed',
+        exitCode: null,
+      });
       terminate(worker);
       execution = undefined;
       render?.stopped();
@@ -2980,6 +3005,26 @@ export async function createSession(
       new CustomEvent('code-workspace-restart', { detail: { starter: next } })
     );
   }
+  /*
+   * `run_code` (src/lib/webmcp): put the given source in `filename` (default
+   * main.jai, created when missing), keep every other file, and restart the
+   * session so it compiles and runs once it is up; `announceRun` reports it.
+   */
+  panel.addEventListener(
+    'code-agent-load',
+    (event) => {
+      const { code, filename } = (
+        event as CustomEvent<{ code: string; filename?: string }>
+      ).detail;
+      const path = SourcePath.parse(filename || 'main.jai').name;
+      const files = Object.fromEntries(
+        workspace.documents.map(({ path: name, text }) => [name, text])
+      );
+      files[path] = code;
+      restartWith({ files, open: [...new Set(['main.jai', path])] }, false);
+    },
+    { signal }
+  );
   const notify = (message: string) => {
     chrome.setStatus(message);
     showError(message);

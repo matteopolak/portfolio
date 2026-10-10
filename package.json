@@ -26,7 +26,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "test:webmcp": "node --test tests/webmcp.test.ts"
   },
   "dependencies": {
     "@astrojs/rss": "4.0.19",

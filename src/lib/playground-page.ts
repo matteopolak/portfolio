@@ -1,5 +1,7 @@
+import { registerRunTarget } from './run-target';
 import {
   codeDemos,
+  runTargetFor,
   setDemoLoading,
   watchDemoLoading,
   wireFullscreen,
@@ -25,6 +27,9 @@ export function initializePlaygroundPage() {
   watchDemoLoading(root, signal);
   wireFullscreen(root, panel, signal);
   const playground = demo.initialize(root, signal);
+  const target = runTargetFor(demo.id, playground);
+  if (target)
+    signal.addEventListener('abort', registerRunTarget(target), { once: true });
   setDemoLoading(root, 0, 'Loading playground…');
   playground.prepare().then(
     () => {

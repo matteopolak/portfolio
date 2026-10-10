@@ -7,6 +7,7 @@ import {
   whenWorkspaceMounted,
   type WorkspaceChrome,
 } from './workspace-chrome.ts';
+import type { RunFinished, RunRequest } from './run-target.ts';
 type SessionLoader = (
   panel: HTMLElement,
   revision: string,
@@ -107,6 +108,35 @@ export function initializeJaiPlayground(
       });
     return pending;
   }
+  /** Writes `request.code` into the workspace and runs it (WebMCP `run_code`). */
+  async function runCode(
+    request: RunRequest,
+    runSignal: AbortSignal
+  ): Promise<RunFinished> {
+    await prepare();
+    return new Promise<RunFinished>((resolve, reject) => {
+      const done = (event: Event) => {
+        cleanup();
+        resolve((event as CustomEvent<RunFinished>).detail);
+      };
+      const abort = () => {
+        cleanup();
+        reject(runSignal.reason);
+      };
+      const cleanup = () => {
+        panel.removeEventListener('code-run-finished', done);
+        runSignal.removeEventListener('abort', abort);
+      };
+      panel.addEventListener('code-run-finished', done);
+      runSignal.addEventListener('abort', abort, { once: true });
+      // The session restarts with the new file and runs once it is up.
+      panel.dispatchEvent(
+        new CustomEvent('code-agent-load', {
+          detail: { code: request.code, filename: request.filename },
+        })
+      );
+    });
+  }
   panel.addEventListener(
     'code-workspace-restart',
     (event) => {
@@ -124,5 +154,5 @@ export function initializeJaiPlayground(
     },
     { once: true }
   );
-  return { prepare, destroy, isReady: () => ready };
+  return { prepare, destroy, isReady: () => ready, runCode };
 }
