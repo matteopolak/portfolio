@@ -894,18 +894,18 @@
   }
 
   .bauhaus-pattern :global(.fill-red) {
-    fill: var(--red);
-    color: var(--red);
+    fill: var(--accent-1);
+    color: var(--accent-1);
   }
 
   .bauhaus-pattern :global(.fill-blue) {
-    fill: var(--blue);
-    color: var(--blue);
+    fill: var(--accent-2);
+    color: var(--accent-2);
   }
 
   .bauhaus-pattern :global(.fill-yellow) {
-    fill: var(--yellow);
-    color: var(--yellow);
+    fill: var(--accent-3);
+    color: var(--accent-3);
   }
 
   .pattern-region {

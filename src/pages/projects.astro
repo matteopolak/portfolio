@@ -244,7 +244,7 @@ let eventIndex = 0;
     left: 50%;
     width: 1px;
     transform: translateX(-50%);
-    background: oklch(72% 0 0);
+    background: color-mix(in oklch, var(--ink) 45%, var(--paper));
     content: '';
   }
 
@@ -273,16 +273,16 @@ let eventIndex = 0;
     aspect-ratio: 1;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: var(--blue);
+    background: var(--accent-2);
   }
 
   .journey-entry--career .journey-entry__node {
-    background: var(--red);
+    background: var(--accent-1);
   }
 
   .journey-entry--hackathon .journey-entry__node {
     width: 0.54rem;
-    background: color-mix(in oklch, var(--red) 52%, var(--blue));
+    background: color-mix(in oklch, var(--accent-1) 52%, var(--accent-2));
   }
 
   .milestone {

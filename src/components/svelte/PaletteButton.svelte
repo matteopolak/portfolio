@@ -1,39 +1,61 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { generatePalette, type GeneratedPalette } from '../../lib/palette';
-
-  type PaletteWindow = Window &
-    typeof globalThis & { bauhausPalette?: GeneratedPalette };
+  import {
+    defaultTheme,
+    nextTheme,
+    THEME_STORAGE_KEY,
+    themeById,
+    type Theme,
+  } from '../../lib/themes';
 
   let shuffling = $state(false);
+  let theme = $state<Theme>(defaultTheme);
   let timer = 0;
 
-  const applyPalette = (palette: GeneratedPalette) => {
-    const root = document.documentElement;
-    root.style.setProperty('--red', palette.red);
-    root.style.setProperty('--blue', palette.blue);
-    root.style.setProperty('--yellow', palette.yellow);
-
-    for (const [selector, color] of [
-      ['.mark-red', palette.red],
-      ['.mark-blue', palette.blue],
-      ['.mark-yellow', palette.yellow],
-    ] as const) {
-      document.querySelectorAll<SVGElement>(selector).forEach((element) => {
-        element.style.fill = color;
-      });
+  const currentTheme = () => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+      /* Blocked storage: the choice lasts for this page. */
     }
+    return (
+      themeById(document.documentElement.dataset.siteTheme ?? saved) ??
+      defaultTheme
+    );
   };
 
-  const reapply = () => {
-    const palette = (window as PaletteWindow).bauhausPalette;
-    if (palette) applyPalette(palette);
+  // The logo marks get their fill directly: an inherited registered colour that
+  // animates inside an SVG mask can drop paint, so the CSS variables are not used for them.
+  const paintMarks = (next: Theme) => {
+    next.accents.forEach((accent, index) => {
+      document
+        .querySelectorAll<SVGElement>(`.mark-${index + 1}`)
+        .forEach((element) => {
+          element.style.fill = accent.fill;
+        });
+    });
   };
 
-  const shuffle = () => {
-    const palette = generatePalette();
-    (window as PaletteWindow).bauhausPalette = palette;
-    applyPalette(palette);
+  const apply = (next: Theme) => {
+    const root = document.documentElement;
+    if (next === defaultTheme) delete root.dataset.siteTheme;
+    else root.dataset.siteTheme = next.id;
+    paintMarks(next);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', next.paper);
+    theme = next;
+  };
+
+  const cycle = () => {
+    const next = nextTheme(theme.id);
+    apply(next);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next.id);
+    } catch {
+      /* Blocked storage: the choice lasts for this page. */
+    }
 
     // Restart the CSS animation if it is already running.
     shuffling = false;
@@ -45,7 +67,9 @@
   };
 
   // The island persists across ClientRouter navigations (transition:persist),
-  // but the new page's logo marks are fresh DOM and need the palette again.
+  // but the new page's logo marks are fresh DOM and need the theme again.
+  const reapply = () => apply(currentTheme());
+
   onMount(() => {
     reapply();
     document.addEventListener('astro:page-load', reapply);
@@ -60,14 +84,14 @@
   class="site-nav__palette"
   class:is-shuffling={shuffling}
   type="button"
-  aria-label="Generate a new color palette"
-  title="Generate a new color palette"
+  aria-label="Theme: {theme.name} — switch theme"
+  title="Theme: {theme.name} — switch theme"
   data-palette-generator
-  onclick={shuffle}
+  onclick={cycle}
 >
-  <span class="palette-dot palette-dot--red"></span>
-  <span class="palette-dot palette-dot--blue"></span>
-  <span class="palette-dot palette-dot--yellow"></span>
+  <span class="palette-dot palette-dot--1"></span>
+  <span class="palette-dot palette-dot--2"></span>
+  <span class="palette-dot palette-dot--3"></span>
 </button>
 
 <style>
@@ -93,16 +117,16 @@
     background: var(--ink);
   }
 
-  .palette-dot--red {
-    background: var(--red);
+  .palette-dot--1 {
+    background: var(--accent-1);
   }
 
-  .palette-dot--blue {
-    background: var(--blue);
+  .palette-dot--2 {
+    background: var(--accent-2);
   }
 
-  .palette-dot--yellow {
-    background: var(--yellow);
+  .palette-dot--3 {
+    background: var(--accent-3);
   }
 
   .site-nav__palette:hover .palette-dot {
@@ -128,6 +152,12 @@
   @keyframes palette-pop {
     50% {
       transform: translateY(-0.35rem) scale(1.25);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-nav__palette.is-shuffling .palette-dot {
+      animation: none;
     }
   }
 

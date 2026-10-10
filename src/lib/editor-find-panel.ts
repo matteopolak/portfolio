@@ -576,7 +576,7 @@ export const findPanelTheme = EditorView.theme(
       border: '1px solid var(--ide-rule)',
       borderRadius: '3px',
     },
-    '.cm-find__field:focus-within': { borderColor: 'var(--yellow)' },
+    '.cm-find__field:focus-within': { borderColor: 'var(--accent-3)' },
     '.cm-find .cm-find__input': {
       flex: '1',
       minWidth: '0',
@@ -611,8 +611,8 @@ export const findPanelTheme = EditorView.theme(
     },
     '.cm-find .cm-find__option[aria-pressed="true"]': {
       color: 'var(--ide-fg-strong)',
-      backgroundColor: 'color-mix(in oklch, var(--blue) 28%, transparent)',
-      borderColor: 'var(--blue)',
+      backgroundColor: 'color-mix(in oklch, var(--accent-2) 28%, transparent)',
+      borderColor: 'var(--accent-2)',
     },
     '.cm-find .cm-find__button svg': {
       width: '1rem',

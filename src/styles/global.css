@@ -25,47 +25,14 @@
   --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 }
 
-@property --red {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: oklch(75% 0.13 25);
-}
-
-@property --blue {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: oklch(77% 0.1 240);
-}
-
-@property --yellow {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: oklch(91% 0.14 95);
-}
-
 :root {
+  /* Theme colours (--paper, --ink, --accent-N ...) are defined per theme in
+     src/lib/themes.ts and injected by Head.astro. */
   /* Side of one Bauhaus grid cell; never scales with the viewport. */
   --bauhaus-cell: 30px;
-  --paper: oklch(97.598% 0.02449 91.61);
-  --paper-bright: oklch(98.623% 0.01422 84.583);
-  --ink: oklch(20.463% 0 0);
-  --muted: oklch(43% 0.026 274.321);
-  --red: oklch(75% 0.13 25);
-  --blue: oklch(77% 0.1 240);
-  --yellow: oklch(91% 0.14 95);
-  /* Readable accents on paper: the fills above are pastel, so coloured text,
-     focus rings and glyphs use these darker mixes (AAA, see tests/palette-contrast.test.ts). */
-  --red-text: color-mix(in oklch, var(--red) 30%, var(--ink));
-  --blue-text: color-mix(in oklch, var(--blue) 30%, var(--ink));
-  --yellow-text: color-mix(in oklch, var(--yellow) 30%, var(--ink));
-  --rule: oklch(20.463% 0 0);
-  --soft-rule: oklch(20.463% 0 0 / 0.22);
+  --rule: var(--ink);
+  --soft-rule: color-mix(in oklch, var(--ink) 22%, transparent);
   --page-title-gap: 1rem;
-  color-scheme: light;
-  transition:
-    --red 500ms ease,
-    --blue 500ms ease,
-    --yellow 500ms ease;
 }
 
 * {
@@ -77,7 +44,7 @@ html {
   overflow-y: auto;
   background: var(--paper);
   scroll-behavior: smooth;
-  scrollbar-color: oklch(20.463% 0 0 / 0.42) transparent;
+  scrollbar-color: color-mix(in oklch, var(--ink) 42%, transparent) transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -98,12 +65,12 @@ html::-webkit-scrollbar-track {
 html::-webkit-scrollbar-thumb {
   border: 0.2rem solid transparent;
   border-radius: 999px;
-  background: oklch(20.463% 0 0 / 0.42);
+  background: color-mix(in oklch, var(--ink) 42%, transparent);
   background-clip: padding-box;
 }
 
 html::-webkit-scrollbar-thumb:hover {
-  background: oklch(20.463% 0 0 / 0.62);
+  background: color-mix(in oklch, var(--ink) 62%, transparent);
   background-clip: padding-box;
 }
 
@@ -133,11 +100,11 @@ a {
 }
 
 a:hover {
-  color: var(--blue-text);
+  color: var(--accent-2-text);
 }
 
 :focus-visible {
-  outline: 3px solid var(--blue-text);
+  outline: 3px solid var(--accent-2-text);
   outline-offset: 4px;
 }
 
@@ -191,7 +158,7 @@ a:hover {
 .eyebrow::before {
   width: 1.7rem;
   height: 0.55rem;
-  background: var(--red);
+  background: var(--accent-1);
   content: '';
 }
 
@@ -217,19 +184,19 @@ a:hover {
   display: block;
   width: 4.5rem;
   height: 0.7rem;
-  background: var(--blue);
+  background: var(--accent-2);
 }
 
 .page-intro__index--home {
-  background: var(--red);
+  background: var(--accent-1);
 }
 
 .page-intro__index--blog {
-  background: var(--blue);
+  background: var(--accent-2);
 }
 
 .page-intro__index--projects {
-  background: var(--yellow);
+  background: var(--accent-3);
 }
 
 /* Kept global so Astro navigation and component HMR share one hit-target layer. */
@@ -257,7 +224,7 @@ a:hover {
 }
 
 body .site-main .project-card:hover {
-  background-color: oklch(93.5% 0 0 / 0.96);
+  background-color: color-mix(in oklch, var(--ink) 8%, var(--paper-bright));
 }
 
 .resume-section {
@@ -275,7 +242,7 @@ body .site-main .project-card:hover {
   left: 12.25rem;
   width: 2px;
   transform: translateX(-50%);
-  background: oklch(19.573% 0 0 / 0.2);
+  background: color-mix(in oklch, var(--ink) 20%, transparent);
   content: '';
 }
 
@@ -301,19 +268,19 @@ body .site-main .project-card:hover {
   aspect-ratio: 1;
   border: 2px solid var(--paper);
   border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 0 1px var(--red);
+  background: var(--accent-1);
+  box-shadow: 0 0 0 1px var(--accent-1);
   content: '';
 }
 
 .resume-section:nth-of-type(3n + 2) .section-title::before {
-  background: var(--blue);
-  box-shadow: 0 0 0 1px var(--blue);
+  background: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2);
 }
 
 .resume-section:nth-of-type(3n + 3) .section-title::before {
-  background: var(--yellow);
-  box-shadow: 0 0 0 1px var(--yellow);
+  background: var(--accent-3);
+  box-shadow: 0 0 0 1px var(--accent-3);
 }
 
 .resume-list {
@@ -379,19 +346,19 @@ body .site-main .project-card:hover {
   top: 0;
   right: calc(100% + 0.55rem);
   content: '■';
-  color: var(--red-text);
+  color: var(--accent-1-text);
   font-size: 0.58em;
   line-height: 2.5;
 }
 
 .resume-list .resume-entry:nth-child(4n + 2) li::before {
   content: '●';
-  color: var(--blue-text);
+  color: var(--accent-2-text);
 }
 
 .resume-list .resume-entry:nth-child(4n + 3) li::before {
   content: '◆';
-  color: var(--yellow-text);
+  color: var(--accent-3-text);
 }
 
 .resume-list .resume-entry:nth-child(4n + 4) li::before {
@@ -401,7 +368,7 @@ body .site-main .project-card:hover {
 
 .achievement-list li::before {
   content: '◆';
-  color: var(--blue-text);
+  color: var(--accent-2-text);
 }
 
 .tag-line {
@@ -424,7 +391,7 @@ body .site-main .project-card:hover {
 }
 
 .skills-list > div:nth-child(odd) {
-  background: oklch(99.393% 0.00818 91.48 / 0.72);
+  background: color-mix(in oklch, var(--paper-bright) 72%, transparent);
 }
 
 .skills-list dt {
@@ -452,32 +419,32 @@ body .site-main .project-card:hover {
   gap: 1.5rem;
   margin: 0;
   padding: 1.8rem 1.25rem;
-  background-color: oklch(97.598% 0.02449 91.61 / 0.78);
+  background-color: color-mix(in oklch, var(--paper) 78%, transparent);
   transition:
     background-color 160ms ease,
     transform 160ms ease;
 }
 
 .editorial-item:nth-child(odd) {
-  background-color: oklch(99.393% 0.00818 91.48 / 0.88);
+  background-color: color-mix(in oklch, var(--paper-bright) 88%, transparent);
 }
 
 .editorial-item:hover {
-  background-color: oklch(97.598% 0.02449 91.61 / 0.92);
+  background-color: color-mix(in oklch, var(--paper) 92%, transparent);
   background-image: linear-gradient(
-    oklch(20.463% 0 0 / 0.055),
-    oklch(20.463% 0 0 / 0.055)
+    color-mix(in oklch, var(--ink) 5.5%, transparent),
+    color-mix(in oklch, var(--ink) 5.5%, transparent)
   );
   transform: translateX(0.22rem);
 }
 
 .editorial-item:has(.editorial-item__title:focus-visible) {
-  outline: 3px solid var(--blue-text);
+  outline: 3px solid var(--accent-2-text);
   outline-offset: 2px;
 }
 
 .editorial-item__number {
-  color: var(--blue-text);
+  color: var(--accent-2-text);
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -554,7 +521,7 @@ body .site-main .project-card:hover {
   width: 5rem;
   height: 1rem;
   margin-bottom: 1.5rem;
-  background: var(--red);
+  background: var(--accent-1);
   content: '';
 }
 
@@ -604,17 +571,17 @@ body .site-main .project-card:hover {
   width: 0.75rem;
   height: 0.75rem;
   margin-right: 0.7rem;
-  background: var(--red);
+  background: var(--accent-1);
   content: '';
 }
 
 .prose h2:nth-of-type(4n + 2)::before {
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--accent-2);
 }
 
 .prose h2:nth-of-type(4n + 3)::before {
-  background: var(--yellow);
+  background: var(--accent-3);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
@@ -646,15 +613,15 @@ body .site-main .project-card:hover {
 }
 
 .prose li::marker {
-  color: var(--red-text);
+  color: var(--accent-1-text);
   font-weight: 800;
 }
 
 .prose blockquote {
   margin-left: 0;
   padding: 1rem 1.25rem;
-  border-left: 0.65rem solid var(--blue);
-  background: oklch(99.393% 0.00818 91.48 / 0.75);
+  border-left: 0.65rem solid var(--accent-2);
+  background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
   font-size: 1.05rem;
 }
 
@@ -675,7 +642,11 @@ body .site-main .project-card:hover {
   margin: 1.75rem 0;
   padding: 1rem 0;
   border: 0;
-  background: oklch(99.393% 0.00818 91.48 / 0.82) !important;
+  background: color-mix(
+    in oklch,
+    var(--paper-bright) 82%,
+    transparent
+  ) !important;
   backdrop-filter: blur(5px);
   font-size: 0.8rem;
   line-height: 1.65;
@@ -696,7 +667,7 @@ body .site-main .project-card:hover {
   display: inline-block;
   width: 1.5rem;
   margin-right: 0.85rem;
-  color: oklch(19.573% 0 0 / 0.32);
+  color: color-mix(in oklch, var(--ink) 32%, transparent);
   text-align: right;
   content: counter(line);
   counter-increment: line;
@@ -724,7 +695,7 @@ body .site-main .project-card:hover {
 }
 
 .prose th {
-  background: var(--yellow);
+  background: var(--accent-3);
   font-weight: 800;
 }
 
@@ -747,7 +718,7 @@ body .site-main .project-card:hover {
   width: 1.2rem;
   height: 1.2rem;
   margin-bottom: 0.8rem;
-  background: var(--yellow);
+  background: var(--accent-3);
   content: '';
 }
 
@@ -775,7 +746,7 @@ body .site-main .project-card:hover {
 }
 
 .toc a:hover {
-  color: var(--blue-text);
+  color: var(--accent-2-text);
 }
 
 .toc a.is-visible {
@@ -793,7 +764,7 @@ body .site-main .project-card:hover {
 .toc__progress {
   width: 0;
   height: 100%;
-  background: var(--blue);
+  background: var(--accent-2);
   transition: width 120ms linear;
 }
 
@@ -927,4 +898,9 @@ body .site-main .project-card:hover {
 
 .site-main:focus {
   outline: none;
+}
+
+/* Black brand marks stay visible on dark themes (--mono-logo-filter, see themes.ts). */
+.mark[data-mark='github'] img {
+  filter: var(--mono-logo-filter);
 }

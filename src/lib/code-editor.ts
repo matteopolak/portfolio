@@ -170,11 +170,11 @@ const theme = EditorView.theme(
     },
     '.cm-content': {
       padding: '14px 0 40px',
-      caretColor: 'var(--yellow)',
+      caretColor: 'var(--accent-3)',
     },
     '.cm-line': { padding: '0 16px 0 4px' },
     '.cm-cursor, .cm-dropCursor': {
-      borderLeftColor: 'var(--yellow)',
+      borderLeftColor: 'var(--accent-3)',
       borderLeftWidth: '2px',
     },
     '.cm-gutters': {
@@ -241,13 +241,13 @@ const theme = EditorView.theme(
     },
     '.cm-completionMatchedText': {
       textDecoration: 'none',
-      color: 'var(--yellow)',
+      color: 'var(--accent-3-light)',
     },
     '.cm-completionInfo': { padding: '8px 10px', maxWidth: '28rem' },
     '.cm-tooltip-lint, .cm-diagnostic': { fontFamily: 'var(--ide-mono)' },
-    '.cm-diagnostic-error': { borderLeftColor: 'var(--red)' },
-    '.cm-diagnostic-warning': { borderLeftColor: 'var(--yellow)' },
-    '.cm-diagnostic-info': { borderLeftColor: 'var(--blue)' },
+    '.cm-diagnostic-error': { borderLeftColor: 'var(--accent-1)' },
+    '.cm-diagnostic-warning': { borderLeftColor: 'var(--accent-3)' },
+    '.cm-diagnostic-info': { borderLeftColor: 'var(--accent-2)' },
     '.cm-diagnostic': { display: 'flex', flexWrap: 'wrap', gap: '4px 8px' },
     '.cm-diagnosticText': { flex: '1 1 100%', whiteSpace: 'pre-wrap' },
     '.cm-diagnosticAction': {
@@ -259,7 +259,7 @@ const theme = EditorView.theme(
       cursor: 'pointer',
     },
     '.cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible': {
-      backgroundColor: 'var(--blue)',
+      backgroundColor: 'var(--accent-2)',
       color: 'var(--ide-bg)',
     },
     '.jai-lint': { display: 'grid', gap: '2px' },
@@ -272,18 +272,18 @@ const theme = EditorView.theme(
       textDecoration: 'none',
     },
     '.jai-lint__rule:hover': {
-      color: 'var(--blue)',
+      color: 'var(--accent-2-light)',
       textDecoration: 'underline',
     },
     '.cm-lint-unused': { opacity: '0.6' },
     '.cm-lintRange-error': {
       backgroundImage: 'none',
-      textDecoration: 'underline wavy var(--red)',
+      textDecoration: 'underline wavy var(--accent-1)',
       textUnderlineOffset: '3px',
     },
     '.cm-lintRange-warning': {
       backgroundImage: 'none',
-      textDecoration: 'underline wavy var(--yellow)',
+      textDecoration: 'underline wavy var(--accent-3)',
       textUnderlineOffset: '3px',
     },
     '.cm-searchMatch': {
@@ -474,7 +474,7 @@ const theme = EditorView.theme(
       padding: '1px',
       width: '1.2em',
       height: '1.2em',
-      color: 'var(--yellow)',
+      color: 'var(--accent-3-light)',
       background: 'none',
       border: 'none',
       borderRadius: '3px',
@@ -503,7 +503,7 @@ const theme = EditorView.theme(
       fontWeight: '650',
       textDecoration: 'underline',
       textUnderlineOffset: '3px',
-      textDecorationColor: 'var(--yellow)',
+      textDecorationColor: 'var(--accent-3)',
     },
     '.cm-lsp-signature__count': {
       marginRight: '1ch',
@@ -548,7 +548,7 @@ const theme = EditorView.theme(
       outline: 'none',
       font: '13px var(--ide-mono)',
     },
-    '.jai-picker__input:focus': { borderColor: 'var(--blue)' },
+    '.jai-picker__input:focus': { borderColor: 'var(--accent-2)' },
     '.jai-picker__list': {
       margin: '0',
       padding: '3px 0',
@@ -614,7 +614,7 @@ const theme = EditorView.theme(
       font: 'inherit',
     },
     '.cm-fat-cursor': {
-      background: 'var(--blue) !important',
+      background: 'var(--accent-2) !important',
       color: 'var(--ide-sunken) !important',
       opacity: '0.75',
     },
@@ -628,7 +628,7 @@ const theme = EditorView.theme(
       padding: '6px 10px',
       color: 'var(--ide-fg-strong)',
       backgroundColor: 'var(--ide-raised)',
-      border: '1px solid var(--blue)',
+      border: '1px solid var(--accent-2)',
       borderRadius: '6px',
       outline: 'none',
       font: '13px var(--ide-mono)',

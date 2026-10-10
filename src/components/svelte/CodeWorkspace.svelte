@@ -640,7 +640,7 @@
   }
 
   pre:focus-visible {
-    outline: 2px solid var(--yellow);
+    outline: 2px solid var(--accent-3);
     outline-offset: -2px;
   }
 
@@ -727,26 +727,30 @@
     --ide-muted: oklch(76% 0.012 270);
     --ide-faint: oklch(75% 0.01 270);
     --ide-active-line: oklch(100% 0 0 / 0.035);
-    --ide-selection: color-mix(in oklch, var(--blue) 24%, transparent);
+    --ide-selection: color-mix(in oklch, var(--accent-2) 24%, transparent);
     --ide-selection-match: oklch(100% 0 0 / 0.07);
-    --ide-search: color-mix(in oklch, var(--yellow) 22%, transparent);
-    --ide-search-outline: color-mix(in oklch, var(--yellow) 55%, transparent);
-    --ide-syntax-keyword: color-mix(in oklch, var(--yellow) 88%, white);
-    --ide-syntax-type: color-mix(in oklch, var(--blue) 52%, white);
+    --ide-search: color-mix(in oklch, var(--accent-3) 22%, transparent);
+    --ide-search-outline: color-mix(in oklch, var(--accent-3) 55%, transparent);
+    --ide-syntax-keyword: color-mix(in oklch, var(--accent-3-light) 88%, white);
+    --ide-syntax-type: color-mix(in oklch, var(--accent-2-light) 52%, white);
     --ide-syntax-function: oklch(94% 0.035 91);
     --ide-syntax-string: oklch(81% 0.11 150);
     /* Format specifiers (`%`, `%1`) in print-family strings: violet, away from the green strings. */
     --ide-syntax-format: oklch(78% 0.15 310);
     --ide-syntax-format-percent: oklch(76% 0.07 310);
-    --ide-syntax-number: color-mix(in oklch, var(--red) 55%, white);
-    --ide-syntax-directive: color-mix(in oklch, var(--red) 72%, white);
+    --ide-syntax-number: color-mix(in oklch, var(--accent-1-light) 55%, white);
+    --ide-syntax-directive: color-mix(
+      in oklch,
+      var(--accent-1-light) 72%,
+      white
+    );
     --ide-syntax-comment: oklch(76% 0.014 270);
     --ide-syntax-punct: oklch(80% 0.01 270);
-    --ide-error: color-mix(in oklch, var(--red) 58%, white);
+    --ide-error: color-mix(in oklch, var(--accent-1-light) 58%, white);
     --ide-mono:
       ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas,
       'Liberation Mono', monospace;
-    --ide-accent: var(--red);
+    --ide-accent: var(--accent-1);
 
     position: relative;
     display: grid;
@@ -765,11 +769,11 @@
   }
 
   .ide--quasi {
-    --ide-accent: var(--blue);
+    --ide-accent: var(--accent-2);
   }
 
   .ide--baerscript {
-    --ide-accent: var(--yellow);
+    --ide-accent: var(--accent-3);
   }
 
   .ide:fullscreen {
@@ -791,7 +795,7 @@
   .ide button:focus-visible,
   .ide a:focus-visible,
   .ide [tabindex]:focus-visible {
-    outline: 2px solid var(--yellow);
+    outline: 2px solid var(--accent-3);
     outline-offset: -2px;
   }
 
@@ -885,11 +889,11 @@
   .ide-tool--vim:global([aria-pressed='true']) {
     color: var(--ide-fg-strong) !important;
     background: var(--ide-raised) !important;
-    box-shadow: inset 0 0 0 1px var(--blue);
+    box-shadow: inset 0 0 0 1px var(--accent-2);
   }
 
   .ide-tool--vim:global([aria-pressed='true']) svg {
-    color: color-mix(in oklch, var(--blue) 45%, white);
+    color: color-mix(in oklch, var(--accent-2-light) 45%, white);
   }
 
   .ide-status {
@@ -921,8 +925,8 @@
     height: 2rem;
     padding: 0 0.7rem 0 0.6rem;
     margin-left: 0.25rem;
-    color: var(--ink) !important;
-    background: var(--yellow) !important;
+    color: var(--accent-3-on) !important;
+    background: var(--accent-3) !important;
     font-size: 0.8rem !important;
     font-weight: 700 !important;
     transition: filter 120ms ease;
@@ -951,8 +955,8 @@
   }
 
   .ide-run--stop {
-    color: var(--ink) !important;
-    background: var(--red) !important;
+    color: var(--accent-1-on) !important;
+    background: var(--accent-1) !important;
   }
 
   .ide-icon {
@@ -978,8 +982,8 @@
   }
 
   .ide-icon--close:hover {
-    color: var(--ink) !important;
-    background: var(--red) !important;
+    color: var(--accent-1-on) !important;
+    background: var(--accent-1) !important;
   }
 
   .ide-icon--fullscreen {
@@ -1079,7 +1083,7 @@
   .ide-tree :global(.tree-item[aria-current]) {
     color: var(--ide-fg-strong) !important;
     background: var(--ide-raised) !important;
-    box-shadow: inset 2px 0 var(--blue);
+    box-shadow: inset 2px 0 var(--accent-2);
   }
 
   .ide-tree :global(.tree-icon) {
@@ -1089,20 +1093,20 @@
   }
 
   .ide-tree :global(.folder .tree-icon) {
-    color: color-mix(in oklch, var(--yellow) 75%, var(--ide-muted));
+    color: color-mix(in oklch, var(--accent-3-light) 75%, var(--ide-muted));
   }
 
   /* File-type tints, shared by tree rows and tabs (icons from jai/file-icons.ts). */
   .ide :global(svg[data-icon='jai']) {
-    color: color-mix(in oklch, var(--red) 62%, white);
+    color: color-mix(in oklch, var(--accent-1-light) 62%, white);
   }
 
   .ide :global(svg[data-icon='config']) {
-    color: color-mix(in oklch, var(--blue) 50%, white);
+    color: color-mix(in oklch, var(--accent-2-light) 50%, white);
   }
 
   .ide :global(svg[data-icon='markdown']) {
-    color: color-mix(in oklch, var(--blue) 35%, var(--ide-fg));
+    color: color-mix(in oklch, var(--accent-2-light) 35%, var(--ide-fg));
   }
 
   .ide :global(svg[data-icon='text']),
@@ -1187,7 +1191,7 @@
     padding: 0 0.45rem;
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
-    border: 1px solid var(--blue);
+    border: 1px solid var(--accent-2);
     border-radius: 0;
     outline: none;
     font: 0.875rem/1 var(--ide-mono);
@@ -1291,7 +1295,7 @@
   .ide-filetabs :global(.ide-filetab[data-active]) {
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
-    box-shadow: inset 0 2px var(--blue);
+    box-shadow: inset 0 2px var(--accent-2);
   }
 
   /* With several groups, only the focused group's tab keeps the blue rule. */
@@ -1453,7 +1457,7 @@
   }
 
   .ide-render__stage:global([data-state='unsupported']) .ide-empty-title {
-    color: var(--yellow);
+    color: var(--accent-3);
   }
 
   .ide-render__stage :global(canvas) {
@@ -1480,7 +1484,7 @@
   .ide-render__stage:global([data-state='drawing']):has(
       :global(canvas:focus)
     )::after {
-    box-shadow: inset 0 0 0 1px var(--blue);
+    box-shadow: inset 0 0 0 1px var(--accent-2);
   }
 
   /* The shared loader covers the body only, so close and retry stay usable. */
@@ -1651,7 +1655,7 @@
       display: none;
       width: 0.45rem;
       height: 0.45rem;
-      background: var(--yellow);
+      background: var(--accent-3);
     }
 
     .ide[data-output-unread='true'] .ide-tab-dot {
@@ -1771,7 +1775,7 @@
     .ide .ide-divider[role='separator']:hover,
     .ide .ide-divider:focus-visible,
     .ide .ide-divider.active {
-      background: var(--blue);
+      background: var(--accent-2);
       outline: none;
     }
 
@@ -1799,9 +1803,9 @@
       position: absolute;
       z-index: 40;
       pointer-events: none;
-      background: color-mix(in oklch, var(--blue) 20%, transparent);
+      background: color-mix(in oklch, var(--accent-2) 20%, transparent);
       box-shadow: inset 0 0 0 1px
-        color-mix(in oklch, var(--blue) 65%, transparent);
+        color-mix(in oklch, var(--accent-2) 65%, transparent);
       transition:
         left 80ms ease,
         top 80ms ease,
@@ -1814,7 +1818,7 @@
     }
 
     .ide .ide-drop[data-insert] {
-      background: var(--blue);
+      background: var(--accent-2);
       box-shadow: none;
       transition: none;
     }
@@ -1933,13 +1937,13 @@
   }
 
   :global(.ide-confirm .ide-confirm__danger) {
-    color: var(--ink);
-    background: var(--red);
+    color: var(--accent-1-on);
+    background: var(--accent-1);
     border-color: transparent;
   }
 
   :global(.ide-confirm button:focus-visible) {
-    outline: 2px solid var(--yellow);
+    outline: 2px solid var(--accent-3);
     outline-offset: 2px;
   }
 </style>

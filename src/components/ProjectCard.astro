@@ -87,19 +87,19 @@ const date = project.data.date.toLocaleDateString('en-US', {
   .project-card {
     position: relative;
     padding: clamp(1.25rem, 2.4vw, 1.75rem);
-    background: oklch(99.393% 0.00818 91.48 / 0.9);
+    background: color-mix(in oklch, var(--paper-bright) 90%, transparent);
     transition:
       background-color 160ms ease,
       transform 160ms ease;
   }
 
   .project-card:hover {
-    background-color: oklch(93.5% 0 0 / 0.96);
+    background-color: color-mix(in oklch, var(--ink) 8%, var(--paper-bright));
     transform: translateY(-0.16rem);
   }
 
   .project-card:has(.project-card__title:focus-visible) {
-    outline: 3px solid var(--blue-text);
+    outline: 3px solid var(--accent-2-text);
     outline-offset: 3px;
   }
 
@@ -140,15 +140,15 @@ const date = project.data.date.toLocaleDateString('en-US', {
   }
 
   .project-ai__development--paired::before {
-    background: var(--blue);
+    background: var(--accent-2);
   }
 
   .project-ai__development--agent-orchestrated::before {
-    background: var(--red);
+    background: var(--accent-1);
   }
 
   .project-ai__feature::before {
-    background: var(--yellow);
+    background: var(--accent-3);
   }
 
   .project-card__heading {
@@ -213,8 +213,8 @@ const date = project.data.date.toLocaleDateString('en-US', {
     min-height: 1.9rem;
     padding: 0.32rem 0.5rem;
     border: 0;
-    color: var(--ink);
-    background: var(--blue);
+    color: var(--accent-2-on);
+    background: var(--accent-2);
     font-size: 0.68rem;
     line-height: 1;
     text-decoration: none;
@@ -226,7 +226,8 @@ const date = project.data.date.toLocaleDateString('en-US', {
   }
 
   .project-links button {
-    background: var(--red);
+    color: var(--accent-1-on);
+    background: var(--accent-1);
   }
 
   .project-links a:last-child {
@@ -236,8 +237,8 @@ const date = project.data.date.toLocaleDateString('en-US', {
 
   .project-links a:hover,
   .project-links button:hover {
-    color: var(--ink);
-    background: var(--yellow);
+    color: var(--accent-3-on);
+    background: var(--accent-3);
   }
 
   @media (max-width: 52rem) {
