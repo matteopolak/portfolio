@@ -37,7 +37,7 @@ const markdownTags = styleTags({
 const markdownColors = HighlightStyle.define([
   {
     tag: [tags.heading, headingMark],
-    color: 'color-mix(in oklch, var(--blue) 55%, white)',
+    color: 'color-mix(in oklch, var(--accent-2-light) 55%, white)',
     fontWeight: '700',
   },
   { tag: tags.strong, color: 'var(--ide-fg-strong)', fontWeight: '700' },
@@ -53,7 +53,10 @@ const markdownColors = HighlightStyle.define([
   // Fenced blocks without a known language, and the fence's info string.
   { tag: tags.monospace, color: 'var(--ide-syntax-string)' },
   { tag: tags.labelName, color: 'var(--ide-syntax-type)' },
-  { tag: tags.link, color: 'color-mix(in oklch, var(--blue) 55%, white)' },
+  {
+    tag: tags.link,
+    color: 'color-mix(in oklch, var(--accent-2-light) 55%, white)',
+  },
   {
     tag: tags.url,
     color: 'var(--ide-muted)',

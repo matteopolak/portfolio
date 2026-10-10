@@ -65,13 +65,13 @@ import ProjectDemoLoading from './svelte/ProjectDemoLoading.svelte';
   }
 
   .project-demo-modal__actions button:hover {
-    color: var(--ink);
-    background: var(--blue);
+    color: var(--accent-2-on);
+    background: var(--accent-2);
   }
 
   .project-demo-modal__actions button:last-child:hover {
-    color: var(--ink);
-    background: var(--red);
+    color: var(--accent-1-on);
+    background: var(--accent-1);
   }
 
   :global([data-project-demo][data-demo-state='error']) [data-project-demo-fullscreen] {
@@ -79,7 +79,7 @@ import ProjectDemoLoading from './svelte/ProjectDemoLoading.svelte';
   }
 
   .project-demo-modal__actions button:focus-visible {
-    outline: 3px solid var(--yellow);
+    outline: 3px solid var(--accent-3);
     outline-offset: 3px;
   }
 

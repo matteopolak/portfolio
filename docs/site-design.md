@@ -34,7 +34,7 @@ The GitHub and LinkedIn marks use a `1.25rem` visual height. The Canada flag use
 
 The article table of contents uses both ink color and bold weight for sections currently visible in the viewport. Every link keeps the same explicit line height in both states, so the stronger active treatment does not move labels vertically as the reader scrolls.
 
-`GeometricMark.astro` displays the standard Canadian flag plus the actual GitHub and LinkedIn marks. `CompanyLogo.astro` uses standalone employer brandmarks beside ordinary company-name text. Every mark is a local SVG under `public/logos/`; see [logo-assets.md](./logo-assets.md) for provenance and replacement guidance. The navigation M uses a heavy clip-path silhouette containing nested, offset paper, blue, red, and yellow fields. The clip path avoids the transient disappearance that can occur when inherited OKLCH colors animate inside an SVG luminance mask. Nesting keeps every visible junction between exactly two colors. Its paper field uses an explicit SVG fill rather than relying on the component stylesheet, preventing a transient browser style replacement from falling back to SVG's default black. It sits in an ink tile; the favicon reuses the same geometry over a rounded cream background but substitutes ink for the mark's paper field so the silhouette remains legible. Adjacent navigation links use small palette-colored selection dots and gray hover states, while the résumé download is a yellow action tile.
+`GeometricMark.astro` displays the standard Canadian flag plus the actual GitHub and LinkedIn marks. `CompanyLogo.astro` uses standalone employer brandmarks beside ordinary company-name text. Every mark is a local SVG under `public/logos/`; see [logo-assets.md](./logo-assets.md) for provenance and replacement guidance. The navigation M uses a heavy clip-path silhouette containing nested, offset paper and accent fields. The clip path avoids the transient disappearance that can occur when inherited OKLCH colors animate inside an SVG luminance mask. Nesting keeps every visible junction between exactly two colors. Its paper field uses an explicit SVG fill rather than relying on the component stylesheet, preventing a transient browser style replacement from falling back to SVG's default black. It sits in an ink tile; the favicon reuses the same geometry over a rounded cream background but substitutes ink for the mark's paper field so the silhouette remains legible. Adjacent navigation links use small palette-colored selection dots and gray hover states, while the résumé download is an accent-3 action tile.
 
 Résumé section labels align toward a continuous vertical spine in the gutter immediately to their right. Each label has a colored node on the spine; when the rail moves to the screen's right edge on phones, the node is vertically centered from the label's actual line box rather than a fixed font offset. The phone layout removes the desktop sticky offset and uses a `1.75rem` row gap, keeping the label clearly separated from its content. List markers are always filled shapes, with one consistent shape and palette color per entry.
 
@@ -42,7 +42,7 @@ The homepage, Blog, and Projects use a shared thick horizontal bar above the pag
 
 ## How to change it
 
-- Change the palette in the custom properties at the top of `src/styles/global.css`. Keep foreground/background pairings high contrast.
+- Change colours in `src/lib/themes.ts` (see [theme-switching.md](./theme-switching.md)). Keep foreground/background pairings high contrast.
 - Change shared spacing and widths in `.site-shell`, `.resume-section`, `.editorial-item`, and `.article-layout`.
 - Keep `data-astro-history="push"` on links between site pages. Without it, Astro falls back to its automatic history heuristic, which may decline to add an entry when a route cannot be transitioned.
 - Change generator rules in `src/lib/bauhaus.ts`, SVG construction and dynamic sizing in `BauhausPattern.astro`, or cluster dimensions, density, seed namespace, and page positions in `BauhausField.astro`. Client navigation preserves a composition; a full reload deliberately generates another.
@@ -53,21 +53,15 @@ Keep interface copy in natural case. Reserve geometric color blocks for hierarch
 
 ## Configuration
 
-The design has no environment variables or runtime flags. The site is intentionally light-only. The principal design tokens are:
+The design has no environment variables or runtime flags. Colours are theme tokens, defined per theme in `src/lib/themes.ts` and emitted into the page by `Head.astro` (see [theme-switching.md](./theme-switching.md)). `src/styles/global.css` only holds theme-independent tokens:
 
 ```css
---paper: oklch(97.598% 0.02449 91.61);
---ink: oklch(20.463% 0 0);
---muted: oklch(43% 0.026 274.321);
---red: oklch(75% 0.13 25); /* #f58b84, was #fa2b03 */
---blue: oklch(77% 0.1 240); /* #76bdee, was #147fb6 */
---yellow: oklch(91% 0.14 95); /* #fee06b, was #ffba08 */
---red-text: color-mix(in oklch, var(--red) 30%, var(--ink));
---blue-text: color-mix(in oklch, var(--blue) 30%, var(--ink));
---yellow-text: color-mix(in oklch, var(--yellow) 30%, var(--ink));
+--bauhaus-cell: 30px;
+--rule: var(--ink);
+--soft-rule: color-mix(in oklch, var(--ink) 22%, transparent);
 ```
 
-The primary colours are a soft pastel red, blue and yellow so they can carry dark text. Rule: text and icons on a red, blue or yellow fill are always `--ink` (7.6:1 to 13.8:1); coloured text, glyphs and focus rings on paper use the `*-text` mixes (AAA on paper) instead of the fills. Paper and ink are unchanged, so the favicon and the generated OG image (which only use those two) are too. The target is WCAG AAA (7:1 text, 4.5:1 large text) with AA (4.5:1 / 3:1) as a hard floor; `tests/palette-contrast.test.ts` (`pnpm test:palette`) computes every pair the site uses, including the editor theme, prints a table, fails below AA and warns below AAA. The ink and paper tones are neutral and warm; the main portfolio interface uses OKLCH consistently; standalone SVG assets and the isolated Lodestone embed shell retain their existing color values.
+The default theme (Ember) is a brick red, ochre and deep teal on warm paper, with the same tokens in every theme: `--paper`, `--paper-bright`, `--ink`, `--muted`, and `--accent-1..3` with `-on`, `-text` and `-light` variants. Rule: text on an accent fill uses that accent's `-on` colour; coloured text, glyphs and focus rings on paper use `-text`. The target is WCAG AAA (7:1 text, 4.5:1 large text) with AA as a hard floor; `tests/palette-contrast.test.ts` (`pnpm test:palette`) checks every pair for every theme, including the editor theme. The favicon and the generated OG image do not change with the theme. The main portfolio interface uses OKLCH consistently; standalone SVG assets and the isolated Lodestone embed shell retain their existing color values.
 
 `prefers-reduced-motion: reduce` disables the occasional rotation of complete four-dot groups.
 

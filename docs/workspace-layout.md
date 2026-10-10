@@ -51,7 +51,7 @@ Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split 
 - **A new dockable panel:** add its id to `PanelId`, `PANELS` and `DEFAULT_DOCKS`, give its head `data-panel-handle`, and register its element in `initializeWorkspaceLayout`. Saved layouts without it fail to parse and fall back to the default, so teach `parseLayout` to add it if that matters.
 - **A new non-file view:** prefer a view tab over a panel; see [jai-render-tab.md](./jai-render-tab.md).
 - **Drop behaviour:** zone geometry is in the model (`dropZone`, `dockZone`); what a drop does is `dropTab` in `workspace-ui.ts` and the panel `drop` in `code-workspace-layout.ts`.
-- **Styles:** layout, dock, split, divider and drop-overlay rules are in the `<style is:global>` block at the end of `CodeWorkspace.astro`, anchored at `.ide`, because those elements are created in script. Use `--ide-*` tokens; the drop highlight uses `--blue`.
+- **Styles:** layout, dock, split, divider and drop-overlay rules are in the `<style is:global>` block at the end of `CodeWorkspace.astro`, anchored at `.ide`, because those elements are created in script. Use `--ide-*` tokens; the drop highlight uses `--accent-2`.
 - Code that needs the current editor should go through `editor`/`group` after `activateGroup`, not cache a view.
 
 ## Configuration

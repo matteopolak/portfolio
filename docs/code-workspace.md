@@ -33,7 +33,7 @@ Highlighting is chosen per file: in the Jai workspace, `.jai` files use the Jai 
 - **Loader.** `ProjectDemoLoading` covers only the body, so close and Retry stay usable while it is shown.
 - **Tab bar** (`data-pane-tab`). It is shown only at phone widths.
 
-All colors come from `--ide-*` custom properties declared on `.ide`. Accents are derived from the site's `--red`, `--blue` and `--yellow`, so the palette generator recolors the editor as well. `src/lib/code-editor.ts` builds the CodeMirror theme and syntax highlighting from the same variables.
+All colors come from `--ide-*` custom properties declared on `.ide`. Accents are derived from the site's `--accent-1`, `--accent-2` and `--accent-3`, so switching theme recolors the editor as well. `src/lib/code-editor.ts` builds the CodeMirror theme and syntax highlighting from the same variables.
 
 `src/lib/code-workspace-layout.ts` wires the shared chrome:
 

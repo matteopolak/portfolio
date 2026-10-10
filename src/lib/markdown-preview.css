@@ -53,7 +53,7 @@
 .ide .ide-group-actions button[aria-pressed='true'] {
   color: var(--ide-fg-strong);
   background: var(--ide-raised);
-  box-shadow: inset 0 -2px var(--blue);
+  box-shadow: inset 0 -2px var(--accent-2);
 }
 
 .ide .ide-group-actions svg {
@@ -88,7 +88,7 @@
 }
 
 .ide .md-preview:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--accent-3);
   outline-offset: -2px;
 }
 
@@ -137,9 +137,9 @@
 }
 
 .ide .md-preview a {
-  color: color-mix(in oklch, var(--blue) 55%, white);
+  color: color-mix(in oklch, var(--accent-2-light) 55%, white);
   text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--blue) 50%, transparent);
+  text-decoration-color: color-mix(in oklch, var(--accent-2) 50%, transparent);
   text-underline-offset: 0.18em;
 }
 
@@ -191,7 +191,7 @@
 .ide .md-preview li > input[type='checkbox']:first-child {
   margin: 0 0.45rem 0 -1.3rem;
   vertical-align: -0.1em;
-  accent-color: var(--blue);
+  accent-color: var(--accent-2);
 }
 
 .ide .md-preview blockquote {

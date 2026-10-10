@@ -11,7 +11,7 @@ A VS Code-style find and replace widget for every CodeMirror editor (the `/playg
 - The panel is a normal top panel, but `findPanelTheme` makes `.cm-panels-top` `position: absolute` in the editor's top-right corner, so it overlays the text. Vim's `/` and `:` prompts are bottom panels and are unaffected.
 - The inputs and toggles write a `SearchQuery` with `setSearchQuery`; `findNext`, `findPrevious`, `replaceNext` and `replaceAll` do the work. Typing searches live: the first match from the selection is selected without taking focus, and all matches are highlighted by CodeMirror's own `.cm-searchMatch`.
 - The counter iterates `query.getCursor(state)` and stops at 1000 (`COUNT_CAP`), showing `N of 1000+`.
-- Colours come from the editor's `--ide-*` tokens (the editor is always dark), the active toggle uses `--blue` and focus uses `--yellow`.
+- Colours come from the editor's `--ide-*` tokens (the editor is always dark), the active toggle uses `--accent-2` and focus uses `--accent-3`.
 
 | Key                  | Action                                                            |
 | -------------------- | ----------------------------------------------------------------- |

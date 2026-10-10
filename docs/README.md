@@ -9,7 +9,7 @@
 | [continuous-integration.md](./continuous-integration.md)                                           | Per-commit formatting, lint, test, and static-build quality gate                       |
 | [favicon-pipeline.md](./favicon-pipeline.md)                                                       | Single-source SVG favicon generation and cache-safe asset delivery                    |
 | [logo-assets.md](./logo-assets.md)                                                                 | Local company, social, and country SVG assets                                          |
-| [palette-generator.md](./palette-generator.md)                                                     | Large-screen OKLCH palette generator and contrast constraints                          |
+| [theme-switching.md](./theme-switching.md) | Curated colour themes, nav theme button, persistence and contrast tests |
 | [project-journey.md](./project-journey.md)                                                         | Projects timeline, curated milestones, and AI-development metadata                     |
 | [project-demo-modals.md](./project-demo-modals.md)                                                 | Shared modal, animation, loading and lifecycle contract for interactive project demos  |
 | [code-workspace.md](./code-workspace.md)                                                           | Shared jai/Quasi/BaerScript editor: layout, theme tokens, mobile tabs and output pane  |

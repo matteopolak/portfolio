@@ -31,9 +31,9 @@ const isActive = (href: string) =>
       </defs>
       <g clip-path="url(#nav-m-clip)">
         <rect width="56" height="56" fill="var(--paper)" />
-        <circle class="mark-blue" cx="48" cy="48" r="52" />
-        <circle class="mark-red" cx="48" cy="48" r="34" />
-        <circle class="mark-yellow" cx="48" cy="48" r="17" />
+        <circle class="mark-2" cx="48" cy="48" r="52" />
+        <circle class="mark-1" cx="48" cy="48" r="34" />
+        <circle class="mark-3" cx="48" cy="48" r="17" />
       </g>
     </svg>
   </a>
@@ -85,18 +85,18 @@ const isActive = (href: string) =>
     height: auto;
   }
 
-  .mark-red {
-    fill: var(--red);
+  .mark-1 {
+    fill: var(--accent-1);
     transition: fill 500ms ease;
   }
 
-  .mark-blue {
-    fill: var(--blue);
+  .mark-2 {
+    fill: var(--accent-2);
     transition: fill 500ms ease;
   }
 
-  .mark-yellow {
-    fill: var(--yellow);
+  .mark-3 {
+    fill: var(--accent-3);
     transition: fill 500ms ease;
   }
 
@@ -149,34 +149,34 @@ const isActive = (href: string) =>
     width: 0.42rem;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: var(--red);
+    background: var(--accent-1);
     transform: translateX(-50%);
     content: '';
   }
 
   .site-nav__link:nth-child(2).is-active::after {
-    background: var(--blue);
+    background: var(--accent-2);
   }
 
   .site-nav__link:nth-child(3).is-active::after {
-    background: var(--yellow);
+    background: var(--accent-3);
   }
 
   .site-nav__link:not(.is-active):hover {
     color: var(--ink);
-    background: oklch(90.177% 0.01865 86.151);
+    background: color-mix(in oklch, var(--ink) 8%, var(--paper));
   }
 
   .site-nav__resume {
     margin-left: auto;
     padding: 0.65rem 0.8rem;
-    color: var(--ink);
-    background: var(--yellow);
+    color: var(--accent-3-on);
+    background: var(--accent-3);
   }
 
   .site-nav__resume:hover {
-    color: var(--ink);
-    background: var(--red);
+    color: var(--accent-1-on);
+    background: var(--accent-1);
   }
 
   .site-nav__resume :global(svg) {

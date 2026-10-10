@@ -107,6 +107,7 @@ const structuredData = {
 };
 
 const serializedStructuredData = JSON.stringify(structuredData).replaceAll('<', '\\u003c');
+import { themeCss } from '../lib/themes';
 ---
 
 <meta charset="utf-8" />
@@ -122,6 +123,24 @@ const serializedStructuredData = JSON.stringify(structuredData).replaceAll('<', 
 <link rel="apple-touch-icon" sizes="180x180" href={appleTouchIconUrl} />
 <meta name="apple-mobile-web-app-title" content="Matthew Polak" />
 <meta name="theme-color" content="#fdf7e5" />
+<style is:inline set:html={themeCss()}></style>
+<script is:inline>
+  // Applies the saved theme before first paint and keeps it across client-side navigations.
+  (function () {
+    try {
+      var saved = localStorage.getItem('site-theme');
+      if (saved && /^[a-z]+$/.test(saved))
+        document.documentElement.dataset.siteTheme = saved;
+    } catch (error) {
+      // Blocked storage: the default theme stays.
+    }
+    document.addEventListener('astro:before-swap', function (event) {
+      var current = document.documentElement.dataset.siteTheme;
+      if (current) event.newDocument.documentElement.dataset.siteTheme = current;
+      else delete event.newDocument.documentElement.dataset.siteTheme;
+    });
+  })();
+</script>
 <title>{title}</title>
 
 <link rel="canonical" href={canonicalUrl} />
