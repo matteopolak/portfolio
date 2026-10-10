@@ -29,3 +29,7 @@ The workflow requires no secrets and has only read access to repository contents
 The workflow uses `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`, and `typst-community/setup-typst`. The build may read public GitHub Release metadata and assets through the existing synchronization scripts.
 
 The workflow also runs `pnpm check:seo` after the build (see [seo.md](./seo.md)).
+
+## Lighthouse job
+
+The `lighthouse` job in `ci.yml` builds the site, runs `pnpm lighthouse` (mobile and desktop presets, see [performance.md](./performance.md)) and uploads `.lighthouseci` as the `lighthouse-reports` artifact. Accessibility, SEO and best-practices scores are enforced; performance only warns.
