@@ -137,9 +137,10 @@ export function decodeSemanticTokens(
   return spans;
 }
 
-const markupText = (value: MarkupText | undefined): string => {
+/** The text of a string, MarkupContent or MarkedString list (joined as paragraphs). */
+export const markupText = (value: MarkupText | undefined): string => {
   if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.map(markupText).join('\n');
+  if (Array.isArray(value)) return value.map(markupText).join('\n\n');
   return typeof value?.value === 'string' ? value.value : '';
 };
 

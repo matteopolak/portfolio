@@ -75,14 +75,12 @@ export function applyWithEdits(
   };
 }
 
-const completionType = (kind: number | undefined) =>
-  kind === 3
-    ? 'function'
-    : kind === 7
-      ? 'class'
-      : kind === 14
-        ? 'keyword'
-        : 'variable';
+/** CodeMirror's completion type by LSP CompletionItemKind (Function, Class, Keyword). */
+const completionTypes: Record<number, string> = {
+  3: 'function',
+  7: 'class',
+  14: 'keyword',
+};
 
 /** The CodeMirror completion for one server item (plain-text `info` from `infoText`). */
 export function completionOption(
@@ -97,7 +95,7 @@ export function completionOption(
     // An auto-import shows where the name comes from (`Basic`, `util/strings.jai`).
     detail: item.labelDetails?.description ?? item.detail,
     info: infoText(item.documentation) || undefined,
-    type: completionType(item.kind),
+    type: completionTypes[item.kind ?? 0] ?? 'variable',
     ...(autoImport
       ? { boost: AUTO_IMPORT_BOOST, apply: applyWithEdits(insert, edits) }
       : { apply: insert }),

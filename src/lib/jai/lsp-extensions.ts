@@ -31,8 +31,10 @@ import { foldService } from '@codemirror/language';
 import {
   positionAt,
   offsetAt,
+  rangeOffsets,
   type LanguageClient,
 } from './language-client.ts';
+import { isApple, linkModifier } from '../platform.ts';
 import {
   decodeSemanticTokens,
   inlayLabel,
@@ -76,8 +78,6 @@ export interface LanguageHost {
   codeActions(view: EditorView, pos: number): void;
   /** Published diagnostics touching `range`, sent as a code action request's context. */
   diagnosticsAt?(range: Range): Diagnostic[];
-  /** Mac uses Cmd for link clicks, others Ctrl. */
-  modifier(event: MouseEvent | KeyboardEvent): boolean;
 }
 
 /** Dispatch with this effect after the server (re)initializes to fetch everything. */
@@ -267,8 +267,7 @@ class BulbWidget extends WidgetType {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'cm-lsp-bulb';
-    const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
-    button.title = `Show code actions (${mac ? '⌘' : 'Ctrl+'}.)`;
+    button.title = `Show code actions (${isApple() ? '⌘' : 'Ctrl+'}.)`;
     button.setAttribute('aria-label', 'Show code actions');
     button.innerHTML =
       '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75a4.25 4.25 0 0 0-2.5 7.69V11h5V9.44A4.25 4.25 0 0 0 8 1.75ZM6 12.75h4M6.75 14.5h2.5"/></svg>';
@@ -318,7 +317,6 @@ function signatureTooltip(help: SignatureHelp, pos: number): Tooltip | null {
 
 const wordChar = /[_\p{L}\p{N}]/u;
 
-/** All the decorating features, for one editor. */
 /** Semantic tokens as decorations. */
 function tokenEffect(
   result: { data?: number[] } | null,
@@ -565,21 +563,16 @@ export function languageFeatures(host: LanguageHost): Extension {
         if (!reply) return;
         const marks = [];
         for (const item of reply.result ?? []) {
-          try {
-            const from = offsetAt(reply.text, item.range.start),
-              to = offsetAt(reply.text, item.range.end);
-            if (to > from)
-              marks.push(
-                Decoration.mark({
-                  class:
-                    item.kind === 3
-                      ? 'cm-lsp-highlight cm-lsp-highlight--write'
-                      : 'cm-lsp-highlight',
-                }).range(from, to)
-              );
-          } catch {
-            /* Out-of-range highlights are skipped. */
-          }
+          const span = rangeOffsets(reply.text, item.range);
+          if (span && span.to > span.from)
+            marks.push(
+              Decoration.mark({
+                class:
+                  item.kind === 3
+                    ? 'cm-lsp-highlight cm-lsp-highlight--write'
+                    : 'cm-lsp-highlight',
+              }).range(span.from, span.to)
+            );
         }
         // A lone occurrence is just the name under the cursor.
         this.dispatch(
@@ -607,14 +600,9 @@ export function languageFeatures(host: LanguageHost): Extension {
         if (!reply) return;
         const links: LinkRange[] = [];
         for (const link of reply.result ?? []) {
-          if (typeof link.target !== 'string') continue;
-          try {
-            const from = offsetAt(reply.text, link.range.start),
-              to = offsetAt(reply.text, link.range.end);
-            if (to > from) links.push({ from, to, target: link.target });
-          } catch {
-            /* Skipped. */
-          }
+          const span = rangeOffsets(reply.text, link.range);
+          if (typeof link.target === 'string' && span && span.to > span.from)
+            links.push({ ...span, target: link.target });
         }
         this.dispatch(setLinks.of(links));
       }
@@ -735,7 +723,7 @@ export function languageFeatures(host: LanguageHost): Extension {
 
   const links = EditorView.domEventHandlers({
     mousemove(event, view) {
-      const link = host.modifier(event)
+      const link = linkModifier(event)
         ? linkAt(
             view.state,
             view.posAtCoords({ x: event.clientX, y: event.clientY }, false)
@@ -752,12 +740,12 @@ export function languageFeatures(host: LanguageHost): Extension {
       return false;
     },
     keyup(event, view) {
-      if (!host.modifier(event) && view.state.field(hoveredLinkField))
+      if (!linkModifier(event) && view.state.field(hoveredLinkField))
         view.dispatch({ effects: setHoveredLink.of(null) });
       return false;
     },
     mousedown(event, view) {
-      if (event.button !== 0 || !host.modifier(event)) return false;
+      if (event.button !== 0 || !linkModifier(event)) return false;
       const link = linkAt(
         view.state,
         view.posAtCoords({ x: event.clientX, y: event.clientY }, false)
