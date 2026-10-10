@@ -24,7 +24,7 @@ Islands remount on `ClientRouter` navigations, so converted code does not use `a
 - **Workers stay in TS.** `new Worker(new URL('./worker.ts', import.meta.url))` and `?worker` imports live in `.ts` files (`jai/workspace-ui.ts`, `quasi-playground.ts`, `baerscript-playground.ts`), never in `.svelte`.
 - **Logic covered by `node --test` stays `.ts`** (tests cannot import `.svelte` or `.svelte.ts`). That is why `workspace-chrome.ts` is a plain interface + registry, and `bauhaus-regenerate.ts` is pure.
 - **Do not move server-rendered nodes before hydration.** The dock layout (`code-workspace-layout.ts`) re-parents nodes of `CodeWorkspace.svelte`; runtimes therefore call `whenWorkspaceMounted(panel)` before `initializeWorkspaceLayout`.
-- `.svelte` files are checked by `svelte-check` (part of `pnpm check`) and `oxlint` (rune globals in `oxlint.config.ts`); `oxfmt` does not format them.
+- `.svelte` files are checked by `svelte-check` (part of `pnpm check`) and `oxlint` (rune globals in `oxlint.config.ts`); `oxfmt` formats them (`svelte: true` in `oxfmt.config.ts`).
 - Svelte prunes selectors that match no element in the template, so attributes set only by imperative code (`[aria-pressed]`, `[data-state]`) are wrapped in `:global(...)` in `CodeWorkspace.svelte`.
 - Not converted: the Jai workspace UI (`jai/workspace-ui.ts`, file tree, tabs, render pane) and demo modals (`project-actions.ts`) remain imperative; their DOM is moved around by the layout engine, which does not mix with Svelte-managed nodes.
 

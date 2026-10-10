@@ -25,8 +25,14 @@
       frame = 0;
       const bounds = article.getBoundingClientRect();
       const top = bounds.top + window.scrollY;
-      const end = Math.max(top + 1, bounds.bottom + window.scrollY - window.innerHeight);
-      progress = Math.min(100, Math.max(0, ((window.scrollY - top) / (end - top)) * 100));
+      const end = Math.max(
+        top + 1,
+        bounds.bottom + window.scrollY - window.innerHeight
+      );
+      progress = Math.min(
+        100,
+        Math.max(0, ((window.scrollY - top) / (end - top)) * 100)
+      );
 
       const viewportTop = 96;
       const next = new Set<string>();
@@ -62,7 +68,11 @@
   <nav id="toc" class="toc" aria-label="Table of contents">
     <p class="toc__label">On this page</p>
     <div class="toc__bar">
-      <div id="toc-progress" class="toc__progress" style:width="{progress}%"></div>
+      <div
+        id="toc-progress"
+        class="toc__progress"
+        style:width="{progress}%"
+      ></div>
     </div>
     <ul>
       {#each filtered as heading (heading.slug)}

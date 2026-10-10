@@ -102,10 +102,21 @@
           aria-keyshortcuts="Shift+Alt+F"
           title="Format file ({formatShortcut})"
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M8.5 8.5H17M8.5 12H17M3 15.5h14M3.5 7.75 6 10.25l-2.5 2.5"></path></svg>
+          <svg viewBox="0 0 20 20" aria-hidden="true"
+            ><path
+              d="M3 4.5h14M8.5 8.5H17M8.5 12H17M3 15.5h14M3.5 7.75 6 10.25l-2.5 2.5"
+            ></path></svg
+          >
         </button>
       {/if}
-      <button type="button" class="ide-icon ide-tool ide-tool--vim" data-code-vim aria-pressed="false" aria-label="Vim mode" title="Vim mode">
+      <button
+        type="button"
+        class="ide-icon ide-tool ide-tool--vim"
+        data-code-vim
+        aria-pressed="false"
+        aria-label="Vim mode"
+        title="Vim mode"
+      >
         <!-- Monochrome Vim mark: a diamond with the slab V cut out (even-odd). -->
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path
@@ -115,17 +126,42 @@
         </svg>
       </button>
       {#if language === 'jai' && files}
-        <button type="button" class="ide-icon ide-tool" data-code-show-render aria-label="Show the Render tab" title="Render">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
+        <button
+          type="button"
+          class="ide-icon ide-tool"
+          data-code-show-render
+          aria-label="Show the Render tab"
+          title="Render"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true"
+            ><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"
+            ></path></svg
+          >
         </button>
       {/if}
-      <button type="button" class="ide-icon ide-tool ide-tool--layout" data-code-reset-layout aria-label="Reset layout" title="Reset layout">
+      <button
+        type="button"
+        class="ide-icon ide-tool ide-tool--layout"
+        data-code-reset-layout
+        aria-label="Reset layout"
+        title="Reset layout"
+      >
         <!-- Panels back to the default layout: a window with a side bar and a bottom panel. -->
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3.5h14v13H3zM7.5 3.5v13M7.5 12h9.5"></path></svg>
+        <svg viewBox="0 0 20 20" aria-hidden="true"
+          ><path d="M3 3.5h14v13H3zM7.5 3.5v13M7.5 12h9.5"></path></svg
+        >
       </button>
     </div>
-    <span class="ide-status" data-code-status role="status" aria-live="polite">{status}</span>
-    <button type="button" class="ide-text-button" data-code-retry hidden={!retryVisible} onclick={() => handlers.retry?.()}>Retry</button>
+    <span class="ide-status" data-code-status role="status" aria-live="polite"
+      >{status}</span
+    >
+    <button
+      type="button"
+      class="ide-text-button"
+      data-code-retry
+      hidden={!retryVisible}
+      onclick={() => handlers.retry?.()}>Retry</button
+    >
     <button
       type="button"
       class="ide-run"
@@ -136,7 +172,9 @@
       title="Run"
       onclick={() => handlers.run?.()}
     >
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5 16 10 6 16.5Z"></path></svg>
+      <svg viewBox="0 0 20 20" aria-hidden="true"
+        ><path d="M6 3.5 16 10 6 16.5Z"></path></svg
+      >
       <span>Run</span>
       <kbd data-code-shortcut>{shortcut}</kbd>
     </button>
@@ -149,11 +187,21 @@
       title="Stop"
       onclick={() => handlers.cancel?.()}
     >
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5h10v10H5z"></path></svg>
+      <svg viewBox="0 0 20 20" aria-hidden="true"
+        ><path d="M5 5h10v10H5z"></path></svg
+      >
       <span>Stop</span>
     </button>
-    <button type="button" class="ide-icon ide-icon--fullscreen" data-code-fullscreen aria-label="Enter full screen" title="Full screen">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+    <button
+      type="button"
+      class="ide-icon ide-icon--fullscreen"
+      data-code-fullscreen
+      aria-label="Enter full screen"
+      title="Full screen"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"
+        ><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg
+      >
     </button>
     {#if mode === 'modal'}
       <a
@@ -164,14 +212,32 @@
         aria-label="Open the {label} playground as a full page"
         title="Open in playground"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg
+        >
       </a>
-      <button type="button" class="ide-icon ide-icon--close" data-code-close aria-label="Close editor" title="Close">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+      <button
+        type="button"
+        class="ide-icon ide-icon--close"
+        data-code-close
+        aria-label="Close editor"
+        title="Close"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="m6 6 12 12M18 6 6 18"></path></svg
+        >
       </button>
     {:else}
-      <a class="ide-icon ide-icon--back" href="/projects#{language}" data-code-back aria-label="Back to projects" title="Back to projects">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+      <a
+        class="ide-icon ide-icon--back"
+        href="/projects#{language}"
+        data-code-back
+        aria-label="Back to projects"
+        title="Back to projects"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="M19 12H5M11 6l-6 6 6 6"></path></svg
+        >
       </a>
     {/if}
   </header>
@@ -185,11 +251,31 @@
             <div class="ide-pane-head" data-panel-handle>
               <span>Files</span>
               <span class="ide-pane-actions">
-                <button type="button" class="ide-icon ide-icon--small" data-tree-new-file aria-label="New file" title="New file">
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"></path></svg>
+                <button
+                  type="button"
+                  class="ide-icon ide-icon--small"
+                  data-tree-new-file
+                  aria-label="New file"
+                  title="New file"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true"
+                    ><path
+                      d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"
+                    ></path></svg
+                  >
                 </button>
-                <button type="button" class="ide-icon ide-icon--small" data-tree-new-folder aria-label="New folder" title="New folder">
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"></path></svg>
+                <button
+                  type="button"
+                  class="ide-icon ide-icon--small"
+                  data-tree-new-folder
+                  aria-label="New folder"
+                  title="New folder"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true"
+                    ><path
+                      d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"
+                    ></path></svg
+                  >
                 </button>
               </span>
             </div>
@@ -201,9 +287,19 @@
       <div class="ide-center">
         <div class="ide-editors" data-code-editors>
           {#if files}
-            <section class="ide-group" data-code-group data-active aria-label="Editor">
+            <section
+              class="ide-group"
+              data-code-group
+              data-active
+              aria-label="Editor"
+            >
               <div class="ide-group-head">
-                <div class="ide-filetabs" role="tablist" aria-label="Open files" data-code-tabs></div>
+                <div
+                  class="ide-filetabs"
+                  role="tablist"
+                  aria-label="Open files"
+                  data-code-tabs
+                ></div>
                 <div class="ide-group-actions" data-code-group-actions></div>
               </div>
               <div class="ide-editor" data-code-editor></div>
@@ -222,17 +318,46 @@
             <div class="ide-output__head" data-panel-handle>
               <span class="ide-output__title">Output</span>
               <span class="ide-output__summary" data-code-summary></span>
-              <button type="button" class="ide-output__button" data-code-clear aria-label="Clear output" title="Clear output">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6h11M8 6V4h4v2M6 6l.75 10h6.5L14 6"></path></svg>
+              <button
+                type="button"
+                class="ide-output__button"
+                data-code-clear
+                aria-label="Clear output"
+                title="Clear output"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true"
+                  ><path d="M4.5 6h11M8 6V4h4v2M6 6l.75 10h6.5L14 6"
+                  ></path></svg
+                >
               </button>
-              <button type="button" class="ide-output__button ide-output__toggle" data-code-output-toggle aria-expanded="true" aria-label="Collapse output" title="Collapse output">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg>
+              <button
+                type="button"
+                class="ide-output__button ide-output__toggle"
+                data-code-output-toggle
+                aria-expanded="true"
+                aria-label="Collapse output"
+                title="Collapse output"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true"
+                  ><path d="m6 8 4 4 4-4"></path></svg
+                >
               </button>
             </div>
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-            <pre data-code-output data-empty="Run the program to see its output." aria-label="Program output" aria-live="polite" tabindex="0"></pre>
+            <pre
+              data-code-output
+              data-empty="Run the program to see its output."
+              aria-label="Program output"
+              aria-live="polite"
+              tabindex="0"></pre>
             <!-- The Jai playground shows an xterm.js terminal here instead of the pre (src/lib/jai/terminal.ts). -->
-            <div class="ide-terminal" data-code-terminal role="group" aria-label="Program terminal" hidden></div>
+            <div
+              class="ide-terminal"
+              data-code-terminal
+              role="group"
+              aria-label="Program terminal"
+              hidden
+            ></div>
           </section>
         </div>
       </div>
@@ -242,11 +367,20 @@
       group whose active tab is Render, and back here (hidden) otherwise.
     -->
     {#if language === 'jai' && files}
-      <section class="ide-render" data-code-render-view aria-label="Render" hidden>
+      <section
+        class="ide-render"
+        data-code-render-view
+        aria-label="Render"
+        hidden
+      >
         <div class="ide-render__stage" data-code-render data-state="idle">
           <div class="ide-render__message" data-code-render-message>
-            <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
-            <p data-code-render-detail>A program that draws with WebGPU shows here.</p>
+            <p class="ide-empty-title" data-code-render-title>
+              Nothing is rendering
+            </p>
+            <p data-code-render-detail>
+              A program that draws with WebGPU shows here.
+            </p>
           </div>
         </div>
       </section>
@@ -257,17 +391,38 @@
   <!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
   <nav class="ide-tabs" aria-label="Workspace panels">
     {#if files}
-      <button type="button" data-pane-tab="files" aria-selected={pane === 'files'} onclick={() => chrome.setPane('files')}>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15z"></path></svg>
+      <button
+        type="button"
+        data-pane-tab="files"
+        aria-selected={pane === 'files'}
+        onclick={() => chrome.setPane('files')}
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true"
+          ><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15z"></path></svg
+        >
         Files
       </button>
     {/if}
-    <button type="button" data-pane-tab="code" aria-selected={pane === 'code'} onclick={() => chrome.setPane('code')}>
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 6-4 4 4 4M13 6l4 4-4 4"></path></svg>
+    <button
+      type="button"
+      data-pane-tab="code"
+      aria-selected={pane === 'code'}
+      onclick={() => chrome.setPane('code')}
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true"
+        ><path d="m7 6-4 4 4 4M13 6l4 4-4 4"></path></svg
+      >
       Code
     </button>
-    <button type="button" data-pane-tab="output" aria-selected={pane === 'output'} onclick={() => chrome.setPane('output')}>
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6 8l2.5 2L6 12M10.5 12.5h3.5"></path></svg>
+    <button
+      type="button"
+      data-pane-tab="output"
+      aria-selected={pane === 'output'}
+      onclick={() => chrome.setPane('output')}
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true"
+        ><path d="M3 4.5h14v11H3zM6 8l2.5 2L6 12M10.5 12.5h3.5"></path></svg
+      >
       Output
       <span class="ide-tab-dot" aria-hidden="true"></span>
     </button>
@@ -514,7 +669,9 @@
     --ide-syntax-comment: oklch(60% 0.014 270);
     --ide-syntax-punct: oklch(74% 0.01 270);
     --ide-error: color-mix(in oklch, var(--red) 58%, white);
-    --ide-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    --ide-mono:
+      ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas,
+      'Liberation Mono', monospace;
     --ide-accent: var(--red);
 
     position: relative;
@@ -599,7 +756,10 @@
 
   /* `--ide-editor-offset` is measured by code-workspace-layout.ts; the fallback is the default tree width. */
   .ide[data-left-dock] .ide-bar {
-    --ide-editor-start: min(var(--ide-editor-offset, calc(15rem + 1px)), calc(100% - 19rem));
+    --ide-editor-start: min(
+      var(--ide-editor-offset, calc(15rem + 1px)),
+      calc(100% - 19rem)
+    );
   }
 
   /* The left dock's divider continues through the bar, so the tools read as the editor's. */
@@ -829,7 +989,8 @@
     width: 100%;
     min-width: 0;
     height: 1.875rem;
-    padding: 0 2rem 0 calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
+    padding: 0 2rem 0
+      calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
     color: var(--ide-fg) !important;
     font: 0.875rem/1 var(--ide-mono) !important;
     text-align: left;
@@ -897,12 +1058,17 @@
     position: relative;
   }
 
-  .ide-tree :global(.children[data-tree-children]:not([data-tree-children=''])::before) {
+  .ide-tree
+    :global(
+      .children[data-tree-children]:not([data-tree-children=''])::before
+    ) {
     position: absolute;
     top: 0;
     bottom: 0;
     /* Under the parent folder's chevron. */
-    left: calc(var(--tree-gutter) - 0.575rem + (var(--depth, 1) - 1) * var(--tree-indent));
+    left: calc(
+      var(--tree-gutter) - 0.575rem + (var(--depth, 1) - 1) * var(--tree-indent)
+    );
     width: 1px;
     content: '';
     background: var(--ide-rule);
@@ -938,9 +1104,12 @@
 
   .ide-tree :global(.tree-name-input) {
     display: block;
-    width: calc(100% - var(--tree-gutter) - var(--depth, 0) * var(--tree-indent) - 0.5rem);
+    width: calc(
+      100% - var(--tree-gutter) - var(--depth, 0) * var(--tree-indent) - 0.5rem
+    );
     height: 1.75rem;
-    margin: 0.05rem 0.5rem 0.05rem calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
+    margin: 0.05rem 0.5rem 0.05rem
+      calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
     padding: 0 0.45rem;
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
@@ -1052,7 +1221,10 @@
   }
 
   /* With several groups, only the focused group's tab keeps the blue rule. */
-  :global(.ide-split) .ide-group:not([data-active]) .ide-filetabs :global(.ide-filetab[data-active]) {
+  :global(.ide-split)
+    .ide-group:not([data-active])
+    .ide-filetabs
+    :global(.ide-filetab[data-active]) {
     box-shadow: inset 0 2px var(--ide-faint);
   }
 
@@ -1231,7 +1403,9 @@
     pointer-events: none;
   }
 
-  .ide-render__stage:global([data-state='drawing']):has(:global(canvas:focus))::after {
+  .ide-render__stage:global([data-state='drawing']):has(
+      :global(canvas:focus)
+    )::after {
     box-shadow: inset 0 0 0 1px var(--blue);
   }
 
@@ -1409,228 +1583,231 @@
     .ide[data-output-unread='true'] .ide-tab-dot {
       display: block;
     }
-
   }
 
   :global {
-  /*
+    /*
    * Dock, split and drag chrome. code-workspace-layout.ts and workspace-ui.ts
    * build these elements in script, so they carry no scoped-style attribute;
    * every rule is anchored at `.ide` instead.
    */
-  .ide .ide-layout {
-    display: flex;
-    grid-area: 1 / 1;
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-layout {
+      display: flex;
+      grid-area: 1 / 1;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  .ide .ide-center {
-    display: flex;
-    flex: 1 1 0;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-center {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  .ide .ide-editors {
-    display: flex;
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-editors {
+      display: flex;
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  /* A dock holds one or two panels: stacked at the sides, side by side above or below. */
-  .ide .ide-dock {
-    display: flex;
-    flex: none;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-  }
+    /* A dock holds one or two panels: stacked at the sides, side by side above or below. */
+    .ide .ide-dock {
+      display: flex;
+      flex: none;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
 
-  .ide .ide-dock[data-dock='left'],
-  .ide .ide-dock[data-dock='right'] {
-    flex-direction: column;
-  }
+    .ide .ide-dock[data-dock='left'],
+    .ide .ide-dock[data-dock='right'] {
+      flex-direction: column;
+    }
 
-  .ide .ide-dock > .ide-files,
-  .ide .ide-dock > .ide-output {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-dock > .ide-files,
+    .ide .ide-dock > .ide-output {
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  /* The drawing size, at the right of the Render tab's group head. */
-  .ide .ide-render-size {
-    align-self: center;
-    padding: 0 0.6rem;
-    color: var(--ide-faint);
-    font: 400 0.72rem/1 var(--ide-mono);
-    white-space: nowrap;
-  }
+    /* The drawing size, at the right of the Render tab's group head. */
+    .ide .ide-render-size {
+      align-self: center;
+      padding: 0 0.6rem;
+      color: var(--ide-faint);
+      font: 400 0.72rem/1 var(--ide-mono);
+      white-space: nowrap;
+    }
 
-  .ide .ide-render-size:empty {
-    display: none;
-  }
+    .ide .ide-render-size:empty {
+      display: none;
+    }
 
-  .ide .ide-split {
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-split {
+      display: flex;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  .ide .ide-split[data-direction='column'] {
-    flex-direction: column;
-  }
+    .ide .ide-split[data-direction='column'] {
+      flex-direction: column;
+    }
 
-  .ide .ide-split > * {
-    min-width: 0;
-    min-height: 0;
-  }
+    .ide .ide-split > * {
+      min-width: 0;
+      min-height: 0;
+    }
 
-  .ide .ide-divider {
-    position: relative;
-    z-index: 6;
-    flex: none;
-    background: var(--ide-rule);
-    touch-action: none;
-    transition: background 120ms ease;
-  }
+    .ide .ide-divider {
+      position: relative;
+      z-index: 6;
+      flex: none;
+      background: var(--ide-rule);
+      touch-action: none;
+      transition: background 120ms ease;
+    }
 
-  .ide .ide-divider::after {
-    position: absolute;
-    content: '';
-  }
+    .ide .ide-divider::after {
+      position: absolute;
+      content: '';
+    }
 
-  .ide .ide-divider--col {
-    width: 1px;
-    cursor: col-resize;
-  }
+    .ide .ide-divider--col {
+      width: 1px;
+      cursor: col-resize;
+    }
 
-  .ide .ide-divider--col::after {
-    inset: 0 -4px;
-  }
+    .ide .ide-divider--col::after {
+      inset: 0 -4px;
+    }
 
-  .ide .ide-divider--row {
-    height: 1px;
-    cursor: row-resize;
-  }
+    .ide .ide-divider--row {
+      height: 1px;
+      cursor: row-resize;
+    }
 
-  .ide .ide-divider--row::after {
-    inset: -4px 0;
-  }
+    .ide .ide-divider--row::after {
+      inset: -4px 0;
+    }
 
-  .ide .ide-divider[role='separator']:hover,
-  .ide .ide-divider:focus-visible,
-  .ide .ide-divider.active {
-    background: var(--blue);
-    outline: none;
-  }
+    .ide .ide-divider[role='separator']:hover,
+    .ide .ide-divider:focus-visible,
+    .ide .ide-divider.active {
+      background: var(--blue);
+      outline: none;
+    }
 
-  /* A collapsed output keeps its rule but cannot be resized. */
-  .ide[data-output-collapsed='true'] .ide-divider:has(+ .ide-dock > .ide-output),
-  .ide[data-output-collapsed='true'] .ide-dock:has(> .ide-output) + .ide-divider {
-    pointer-events: none;
-  }
+    /* A collapsed output keeps its rule but cannot be resized. */
+    .ide[data-output-collapsed='true']
+      .ide-divider:has(+ .ide-dock > .ide-output),
+    .ide[data-output-collapsed='true']
+      .ide-dock:has(> .ide-output)
+      + .ide-divider {
+      pointer-events: none;
+    }
 
-  .ide.resizing,
-  .ide.dragging {
-    user-select: none;
-  }
+    .ide.resizing,
+    .ide.dragging {
+      user-select: none;
+    }
 
-  .ide.dragging,
-  .ide.dragging * {
-    cursor: grabbing !important;
-  }
+    .ide.dragging,
+    .ide.dragging * {
+      cursor: grabbing !important;
+    }
 
-  /* Drag and drop: the region a drop would take, and the dragged item's name. */
-  .ide .ide-drop {
-    position: absolute;
-    z-index: 40;
-    pointer-events: none;
-    background: color-mix(in oklch, var(--blue) 20%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--blue) 65%, transparent);
-    transition:
-      left 80ms ease,
-      top 80ms ease,
-      width 80ms ease,
-      height 80ms ease;
-  }
-
-  .ide .ide-drop[hidden] {
-    display: none;
-  }
-
-  .ide .ide-drop[data-insert] {
-    background: var(--blue);
-    box-shadow: none;
-    transition: none;
-  }
-
-  .ide .ide-drag-label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 41;
-    max-width: 16rem;
-    overflow: hidden;
-    padding: 0.3rem 0.6rem;
-    color: var(--ide-fg-strong);
-    background: var(--ide-raised);
-    border: 1px solid var(--ide-rule);
-    box-shadow: 0 0.5rem 1.5rem oklch(0% 0 0 / 0.4);
-    font: 0.78rem/1.2 var(--ide-mono);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    pointer-events: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
+    /* Drag and drop: the region a drop would take, and the dragged item's name. */
     .ide .ide-drop {
+      position: absolute;
+      z-index: 40;
+      pointer-events: none;
+      background: color-mix(in oklch, var(--blue) 20%, transparent);
+      box-shadow: inset 0 0 0 1px
+        color-mix(in oklch, var(--blue) 65%, transparent);
+      transition:
+        left 80ms ease,
+        top 80ms ease,
+        width 80ms ease,
+        height 80ms ease;
+    }
+
+    .ide .ide-drop[hidden] {
+      display: none;
+    }
+
+    .ide .ide-drop[data-insert] {
+      background: var(--blue);
+      box-shadow: none;
       transition: none;
     }
-  }
 
-  /*
+    .ide .ide-drag-label {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 41;
+      max-width: 16rem;
+      overflow: hidden;
+      padding: 0.3rem 0.6rem;
+      color: var(--ide-fg-strong);
+      background: var(--ide-raised);
+      border: 1px solid var(--ide-rule);
+      box-shadow: 0 0.5rem 1.5rem oklch(0% 0 0 / 0.4);
+      font: 0.78rem/1.2 var(--ide-mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ide .ide-drop {
+        transition: none;
+      }
+    }
+
+    /*
    * Phones: one pane at a time. The dock and split containers step aside
    * (`display: contents`), so the tree, the focused editor group and the
    * output share the body's single grid cell and `data-pane` picks one.
    */
-  @media (max-width: 42rem) {
-    .ide .ide-layout,
-    .ide .ide-center,
-    .ide .ide-dock,
-    .ide .ide-editors,
-    .ide .ide-split {
-      display: contents;
-    }
+    @media (max-width: 42rem) {
+      .ide .ide-layout,
+      .ide .ide-center,
+      .ide .ide-dock,
+      .ide .ide-editors,
+      .ide .ide-split {
+        display: contents;
+      }
 
-    .ide .ide-divider {
-      display: none;
-    }
+      .ide .ide-divider {
+        display: none;
+      }
 
-    .ide .ide-files,
-    .ide .ide-group,
-    .ide .ide-output,
-    .ide .ide-editors > .ide-editor {
-      grid-area: 1 / 1;
-    }
+      .ide .ide-files,
+      .ide .ide-group,
+      .ide .ide-output,
+      .ide .ide-editors > .ide-editor {
+        grid-area: 1 / 1;
+      }
 
-    .ide .ide-files,
-    .ide .ide-group:not([data-active]),
-    .ide[data-pane='files'] .ide-group,
-    .ide[data-pane='output'] .ide-group,
-    .ide[data-pane='files'] .ide-editors > .ide-editor,
-    .ide[data-pane='output'] .ide-editors > .ide-editor,
-    .ide[data-pane='code'] .ide-output,
-    .ide[data-pane='files'] .ide-output {
-      display: none;
-    }
+      .ide .ide-files,
+      .ide .ide-group:not([data-active]),
+      .ide[data-pane='files'] .ide-group,
+      .ide[data-pane='output'] .ide-group,
+      .ide[data-pane='files'] .ide-editors > .ide-editor,
+      .ide[data-pane='output'] .ide-editors > .ide-editor,
+      .ide[data-pane='code'] .ide-output,
+      .ide[data-pane='files'] .ide-output {
+        display: none;
+      }
 
-    .ide[data-pane='files'] .ide-files {
-      display: flex;
+      .ide[data-pane='files'] .ide-files {
+        display: flex;
+      }
     }
   }
-}
 </style>
