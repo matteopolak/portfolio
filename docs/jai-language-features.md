@@ -21,16 +21,20 @@ simply shows less with it. Never assume a provider exists.
 
 | File | Role |
 | --- | --- |
-| `src/lib/jai/lsp-features.ts` | Pure logic: `provides`, the semantic-token legend (`tokenLegend`, `tokenClass`, `decodeSemanticTokens`), `inlayLabel`, `signatureParts`. Tested directly. |
+| `src/lib/jai/lsp-features.ts` | Pure logic: `provides`, the semantic-token legend (`tokenLegend`, `tokenClass`, `decodeSemanticTokens`), `inlayLabel`, `signatureParts`/`signatureView`, `documentation` (Markdown vs plain text). Tested directly. |
 | `src/lib/jai/lsp-extensions.ts` | CodeMirror side of everything that decorates text: one `ViewPlugin` schedules requests, and `StateField`s hold the results (tokens, inlays, highlights, lenses, the lightbulb, links, folds, the signature tooltip). |
-| `src/lib/jai/language-client.ts` | `resourceFromUri` / `pathFromUri`, and `openReadonly`/`closeReadonly` for library previews. |
+| `src/lib/jai/language-client.ts` | `initialize` capabilities, `resourceFromUri` / `pathFromUri`, `linkTarget` (`#L<line>` fragments), `rangeOffsets`, and `openReadonly`/`closeReadonly` for library previews. |
+| `src/lib/jai/completion-items.ts` | Server completion items to CodeMirror options; `completionInfo` picks text, rendered Markdown or a lazy `completionItem/resolve`. |
+| `src/lib/jai/doc-comments.ts` | Markdown inside comments for highlighting (`docCommentSegments`); pure, used by the tokenizer and the blog highlighter. |
 | `src/lib/jai/language-actions.ts` | Requests that touch the workspace: `positionRequest`, `definitionTarget`, `resolveLocation`, `prepareRename`, `renameSymbol`, `planWorkspaceEdit`, `applyWorkspaceEdit`. |
 | `src/lib/jai/lint-fixes.ts` | Pure logic for jailint findings: `lintRule`, `lintMessage`, `diagnosticsAt` (a code action's `context.diagnostics`), `fixesFor`, `combineFixes` (Fix all). Tested directly. |
 | `src/lib/jai/nav-history.ts` | Go Back / Go Forward model (`NavHistory`): entries, coalescing, rename/delete remapping. Tested directly; wiring in [Navigation history](code-workspace.md#navigation-history). |
 | `src/lib/jai/picker.ts` | The small list used for code actions, references, polymorph instances and symbol search. |
 | `src/lib/jai/workspace-ui.ts` | Wires it together: what the current language document is, key bindings, navigation into tabs, applying edits. |
-| `src/lib/code-editor.ts` | Theme classes (`cm-sem-*`, `cm-inlay-hint`, `cm-lsp-*`, `jai-picker*`), hover rendering, F2/F12/Cmd-click. |
-| `src/lib/hover-markdown.ts` | Markdown hover to HTML (section dividers, overload rows); pure, unit-tested. |
+| `src/lib/code-editor.ts` | Theme classes (`cm-sem-*`, `cm-inlay-hint`, `cm-lsp-*`, `jai-picker*`), hover and completion wiring, F2/F12/Cmd-click. |
+| `src/lib/code-highlight.ts` | The editor's `HighlightStyle` (including comment Markdown) and DOM rendering of server text: `markdownContent`, `plainHoverContent`, `documentationContent`, `highlighted`. |
+| `src/lib/hover-markdown.ts` | Markdown to sanitized-ready HTML (section dividers, overload rows, format rows); pure, unit-tested. |
+| `src/lib/platform.ts` | `isApple` and `linkModifier` (Cmd on Apple, Ctrl elsewhere) for every Cmd/Ctrl gesture. |
 
 ### Requests and staleness
 
@@ -61,13 +65,13 @@ changed meanwhile, and the plugin still refetches as usual once the file is show
 
 **Markdown hovers.** The client lists `markdown` (then `plaintext`) in
 `textDocument.hover.contentFormat` (`initialize` in `language-client.ts`).
-Servers that support it answer `{ kind: 'markdown' }`; `markdownHover` in
-`hover-markdown.ts` picks those out, and anything else (older bundles, plain
-strings) takes the plain-text path (`hoverContent` in `code-editor.ts`, which
-still splits `name :: (` overload lines into rows). The Markdown is rendered by
-`renderHoverMarkdown` (`marked`; raw HTML is escaped, links and images show
-their text), sanitized with DOMPurify, then coloured in
-`markdownHoverContent`:
+Servers that support it answer `{ kind: 'markdown' }`; `documentation` in
+`lsp-features.ts` sorts a reply into Markdown or plain text, and plain text
+(older bundles, plain strings) takes `plainHoverContent` in `code-highlight.ts`,
+which still splits `name :: (` overload lines into rows. The Markdown is
+rendered by `renderHoverMarkdown` (`marked`; raw HTML is escaped, links and
+images show their text), sanitized with DOMPurify, then coloured in
+`markdownContent` (`code-highlight.ts`):
 
 - Fenced blocks tagged `jai` (or untagged) and inline code use the editor's
   highlighter (`highlighted`). A block that is only a string literal is coloured
@@ -78,13 +82,70 @@ their text), sanitized with DOMPurify, then coloured in
   label set into it. A break followed by anything else stays a rule.
 - A fenced block whose every line is `name :: (...` is an overload set: an
   "N overloads" count and one `.jai-hover__overload` row per line.
-- A list is a format-string hover: each item is a `.jai-hover__format-row`, its
-  leading code span is the specifier (`.jai-hover__format-spec`), and an item
-  that starts with bold is the hovered one (`data-current`).
+- A list whose every item starts with a code span and ` → `
+  (`` `%2` → `arg: Type` ``) is a format-string hover: the renderer marks it
+  `.jai-hover__format`, each item is a `.jai-hover__format-row`, its leading
+  code span is the specifier (`.jai-hover__format-spec`), and an item that
+  starts with bold is the hovered one (`data-current`). Any other list (a doc
+  comment's parameters) keeps ordinary bullets, and headings render bold.
 
 Only standard Markdown is read, so the same hovers render in VS Code and any
 other editor. The server's side is in the compiler's
 `docs/compiler/language-server.md`.
+
+### Doc comments
+
+Comments directly above a declaration are its documentation (Markdown, with
+`[name]` links); the convention and the server side are in the compiler's
+`docs/compiler/doc-comments.md`. The editor shows them in four places:
+
+- **Hover**: the server's Markdown hover already contains the docs.
+- **Completion info.** The client asks for `documentationFormat: ['markdown',
+  'plaintext']`. `completionInfo` (`completion-items.ts`) shows plain text as
+  text and renders Markdown with `documentationContent` (the hover renderer in
+  a `.jai-hover` panel). Long lists (over 24 items) come without docs; when the
+  server sets `completionProvider.resolveProvider`, the info panel calls
+  `completionItem/resolve` for the selected item (`resolvesCompletions` in
+  `code-editor.ts`), and a failed resolve shows no panel.
+- **Signature help.** The client lists `markdown` in
+  `signatureHelp.signatureInformation.documentationFormat`. `signatureView`
+  picks the active signature and parameter; `signatureTooltip`
+  (`lsp-extensions.ts`) shows the label with the active parameter marked, a row
+  with that parameter's doc, then the procedure's doc, scrolling past 16rem.
+  The server only attaches docs when the call parses (`f(a, b)` with its
+  closing paren), so an unfinished call shows the label alone.
+- **Links in the source.** The server reports each resolved `[name]` in a doc
+  comment as a `documentLink` targeting `file:///<path>#L<line>` (1-based).
+  `linkTarget` (`language-client.ts`) splits off the fragment so Cmd/Ctrl-click
+  opens the file at that line; hover and go to definition on a label are
+  answered by the server like any name, and the label's semantic token
+  (`function`, `type`, `property`, `enumMember`, `namespace`, `readonly`
+  variable) colours it on top of the comment colour. Links inside rendered
+  Markdown (hover, completion, signature help) show only their text.
+
+**Comment Markdown highlighting.** Inside `//` and `/* */` comments the
+tokenizer (`comment` in `language.ts`) asks `docCommentSegments`
+(`doc-comments.ts`) for styled runs and emits them as multi-style tokens
+(`comment docStrong`), so each run gets the comment tag plus one of
+`docCommentTags`. Markers stay visible; only the styling changes:
+
+| Markdown | Style (`highlightStyle` in `code-highlight.ts`) |
+| --- | --- |
+| `**bold**` | bold |
+| `*italic*`, `_italic_` | brighter comment colour |
+| `` `code` `` | upright, faint background |
+| `# Heading` (rest of the line) | bold, brighter |
+| `-`, `*`, `+`, `1.` list markers | dimmed, upright |
+| `[name]`, `[text](target)` label and target | tinted toward the type colour |
+
+The rules are the VS Code extension's injection grammar
+(`editors/vscode/syntaxes/jai-doc-comments.tmLanguage.json` in the compiler
+repository): the same regular expressions, earliest match first, ties to the
+earlier rule, no nesting. Headings and list markers count only on a whole-line
+`//` comment or a block comment's continuation line, never after code. Code
+fences inside comments are not highlighted as Jai (the grammar's
+`meta.comment-run` trick needs multi-line state the stream tokenizer does not
+keep).
 
 ### Feature notes
 
@@ -93,7 +154,8 @@ other editor. The server's side is in the compiler's
   servers. Keywords, strings, numbers, operators and plain variables keep the
   tokenizer's colours; the server adds `type`, `function`, `namespace`,
   `typeParameter` (italic), `enumMember` and `readonly` variables (constant
-  colour), `decorator`/`macro` (directive colour), `formatSpecifier`, and
+  colour), `property` (struct fields and doc links to them: plain foreground),
+  `decorator`/`macro` (directive colour), `formatSpecifier`, and
   `function`+`macro` (an `#expand` call: directive colour, italic).
 - **Inlay hints.** Kind 1 (type) widgets sit after the position, kind 2
   (parameter) before it; `paddingLeft`/`paddingRight` become half-character
@@ -124,7 +186,8 @@ other editor. The server's side is in the compiler's
   answer; expansions are only highlighted. One preview tab exists at a time.
 - **Links.** `documentLink` ranges are kept per state. With Cmd (macOS) or Ctrl
   held, hovering underlines one and clicking opens its target (a workspace tab or a
-  stdlib preview); Cmd/Ctrl-click elsewhere is still go to definition.
+  stdlib preview), at the target's line when it has a `#L<line>` fragment (doc
+  comment links); Cmd/Ctrl-click elsewhere is still go to definition.
 - **Navigation keys.** `F12` definition, `Mod-F12` type definition, `Shift-F12`
   references (a list; picking one opens it), `F2` rename, `Mod-p` workspace symbol
   search. Browsers reserve `Cmd-T`, so it is not used.
@@ -232,14 +295,25 @@ problems`) applies every safe fix in the file. The client advertises
   `actions` callback `showDiagnostics` passes. Match fixes by `data.rule` or
   the lint's `code` (`fixRule`), never by title wording.
 - **A new hover layout:** key it off standard Markdown structure in
-  `renderHoverMarkdown` (pure, testable) or `markdownHoverContent` (DOM), never
+  `renderHoverMarkdown` (pure, testable) or `markdownContent` (DOM), never
   off private text conventions, so editors without this client still render it.
+- **Comment Markdown:** change the patterns in `doc-comments.ts` together with
+  the compiler repository's injection grammar, add a case to
+  `tests/jai/doc-comments.test.ts`, and style a new `DocStyle` in
+  `docCommentTags`/`docTokenNames` (`language.ts`), `highlightStyle`
+  (`code-highlight.ts`) and `withDoc` (`highlight-jai.ts`, blog code blocks).
+- Gotcha: a CodeMirror tooltip with `overflow: hidden` clips the completion
+  info panel, which is its child; the autocomplete tooltip is `overflow:
+  visible` and its list clips itself.
 
 Tests: `tests/jai/language-features.test.ts` (URI mapping, WorkspaceEdit
 planning, location normalization, legend mapping and token decoding, inlay
-labels, signature splitting, capability checks) and
+labels, signature splitting and docs, `#L` link targets, capability checks),
 `tests/jai/hover-markdown.test.ts` (Markdown detection, section dividers,
-overload rows, format rows, escaping) and `tests/jai/lint-fixes.test.ts`
+overload rows, format rows versus doc lists, escaping),
+`tests/jai/completion-items.test.ts` (info text, rendered Markdown, lazy
+resolve), `tests/jai/doc-comments.test.ts` (comment Markdown segments, the
+tokenizer's tags, blog span styles) and `tests/jai/lint-fixes.test.ts`
 (rule detection, message split, range matching, fix selection by `data.rule`
 or lint, the fix-all action and per-rule links, `jailint.toml` syncing, Fix
 all merging; with `JAI_WASM_DIR` set, a real lint, its fix and the server's

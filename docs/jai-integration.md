@@ -21,8 +21,10 @@ client, worker and Wasm bridge. The release files used at runtime are
 without either simply hide the button).
 
 Opening the modal initializes separate execution and language-service workers.
-The language client preserves completion, hover and inline diagnostics without Hover text is syntax-highlighted with the editor's own grammar (`highlightedHover` in `src/lib/code-editor.ts`), using the same colors as the source.
-adding a diagnostics panel. File switches retain editor state. Closing aborts
+The language client preserves completion, hover and inline diagnostics without
+adding a diagnostics panel. Hover text is syntax-highlighted with the editor's own
+grammar (`plainHoverContent` and `markdownContent` in `src/lib/code-highlight.ts`),
+using the same colors as the source. File switches retain editor state. Closing aborts
 initialization, terminates both workers and destroys CodeMirror; reopening starts
 fresh. Astro navigation also disposes the session. Run uses a fixed
 200-million-block budget, so a runaway program fails with a runtime error instead of
