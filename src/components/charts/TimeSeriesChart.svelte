@@ -36,6 +36,19 @@
   let enhanced = $state(false);
   let hidden = $state<number[]>([]);
   let hover = $state<{ variant: Variant; x: number } | undefined>();
+  // The tooltip box is sized to its longest row once it renders, since series
+  // names vary in length.
+  let tip = $state<SVGGElement | undefined>();
+  let tipWidth = $state(138);
+  $effect(() => {
+    void hover;
+    void hidden;
+    if (!tip) return;
+    const widths = [...tip.querySelectorAll('text')].map((t) =>
+      t.getComputedTextLength()
+    );
+    tipWidth = Math.ceil(Math.max(0, ...widths)) + 16;
+  });
   onMount(() => {
     enhanced = interactive;
   });
@@ -145,6 +158,13 @@
       {#if enhanced && hover && hover.variant === variant}
         {@const rows = readout(variant)}
         {@const left = hover.x > layout.frame.width / 2}
+        {@const tipX = Math.max(
+          0,
+          Math.min(
+            left ? hover.x - 8 - tipWidth : hover.x + 8,
+            layout.frame.width - tipWidth
+          )
+        )}
         <line
           class="guide"
           x1={hover.x}
@@ -154,18 +174,18 @@
         />
         <g
           class="tip"
-          transform="translate({left ? hover.x - 8 : hover.x + 8} {layout.plot
-            .y1 + 4})"
+          bind:this={tip}
+          transform="translate({tipX} {layout.plot.y1 + 4})"
         >
           <rect
-            x={left ? -138 : 0}
+            x="0"
             y="0"
-            width="138"
+            width={tipWidth}
             height={rows.length * 18 + 10}
             rx="3"
           />
           {#each rows as row, i}
-            <text x={left ? -130 : 8} y={18 + i * 18}
+            <text x="8" y={18 + i * 18}
               >{row.name}: {formatValue(row.point.v)}</text
             >
           {/each}
