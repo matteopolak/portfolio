@@ -3,6 +3,8 @@ import svelte from '@astrojs/svelte';
 import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 import { transformerMetaHighlight } from '@shikijs/transformers';
+import { satteri } from '@astrojs/markdown-satteri';
+import { jaiHastPlugin } from './src/lib/jai-hast-plugin.ts';
 
 export default defineConfig({
   site: 'https://matteopolak.com',
@@ -42,6 +44,9 @@ export default defineConfig({
     format: 'file',
   },
   markdown: {
+    // `jai` fences are highlighted by our own Lezer parser (lib/jai-hast-plugin.ts), not Shiki.
+    syntaxHighlight: { type: 'shiki', excludeLangs: ['jai'] },
+    processor: satteri({ hastPlugins: [jaiHastPlugin as never] }),
     shikiConfig: {
       // Both palettes are emitted as CSS variables; global.css and themeCss() pick one per site theme.
       themes: { light: 'github-light', dark: 'github-dark' },
