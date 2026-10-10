@@ -8,6 +8,8 @@ import {
   shareFlex,
   DOCKS,
   isSideDock,
+  DOCK_SIZES,
+  SPLIT_MIN_WIDTH,
   movePanel,
   panelDock,
   parseLayout,
@@ -399,15 +401,29 @@ function initializeLayout(
     );
   };
 
+  /**
+   * A dock's flex basis. An editor area too narrow to split off the Render
+   * tab (`SPLIT_MIN_WIDTH`) gives an untouched top or bottom dock half the
+   * height, so the code and the output split evenly; a dragged size wins.
+   */
+  function dockBasis(dock: Dock) {
+    if (outputCollapsed(dock)) return 'auto';
+    const size = layout.docks[dock].size;
+    const cramped =
+      !isSideDock(dock) &&
+      size === DOCK_SIZES[dock] &&
+      !isNarrow() &&
+      editors.getBoundingClientRect().width < SPLIT_MIN_WIDTH;
+    return cramped ? '50%' : `${size}px`;
+  }
+
   function dockElement(dock: Dock) {
     const state = layout.docks[dock];
     const open = dockPanels(layout, dock);
     const element = document.createElement('div');
     element.className = 'ide-dock';
     element.dataset.dock = dock;
-    element.style.flexBasis = outputCollapsed(dock)
-      ? 'auto'
-      : `${state.size}px`;
+    element.style.flexBasis = dockBasis(dock);
     // Several panels in one dock: stacked in a side dock, side by side otherwise.
     const stacked = isSideDock(dock);
     open.forEach(({ panel: id, share }, index) => {
@@ -585,7 +601,13 @@ function initializeLayout(
       `${Math.max(0, Math.round(offset))}px`
     );
   }
-  const observer = new ResizeObserver(measureEditorStart);
+  const observer = new ResizeObserver(() => {
+    measureEditorStart();
+    for (const element of root.querySelectorAll<HTMLElement>(
+      '.ide-dock[data-dock="top"], .ide-dock[data-dock="bottom"]'
+    ))
+      element.style.flexBasis = dockBasis(element.dataset.dock as Dock);
+  });
   observer.observe(editors);
   signal.addEventListener('abort', () => observer.disconnect(), {
     once: true,
@@ -602,10 +624,7 @@ function initializeLayout(
     const dock = panelDock(layout, 'output');
     const element =
       dock && root.querySelector<HTMLElement>(`.ide-dock[data-dock="${dock}"]`);
-    if (dock && element)
-      element.style.flexBasis = outputCollapsed(dock)
-        ? 'auto'
-        : `${layout.docks[dock].size}px`;
+    if (dock && element) element.style.flexBasis = dockBasis(dock);
   }
   toggle?.addEventListener(
     'click',

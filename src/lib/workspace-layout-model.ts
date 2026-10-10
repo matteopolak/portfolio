@@ -487,9 +487,10 @@ export function viewGroup(
 
 /**
  * The narrowest editor area (CSS px) that splits off a group for the Render
- * tab: two groups of 320px. Narrower areas take it as a tab instead.
+ * tab: two groups of 480px. Narrower areas take it as a tab instead, and
+ * give the output half the height (`code-workspace-layout.ts`).
  */
-export const SPLIT_MIN_WIDTH = 640;
+export const SPLIT_MIN_WIDTH = 960;
 
 /** Where a tab goes: into the group `group`, or a new group split off `split` on `side`. */
 export type TabPlace = { group: string } | { split: string; side: SplitSide };
