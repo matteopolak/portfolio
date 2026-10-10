@@ -169,8 +169,8 @@ test('bars layout thins crowded labels and keeps bars inside the plot', () => {
 test('tables and descriptions come from the same data', () => {
   const data = parseChartData('timeSeries', series, 'x');
   const table = tableFor('LineChart', data);
-  assert.deepEqual(table.columns, ['Date', 'A', 'B']);
-  assert.deepEqual(table.rows[0], ['2026-01-01', '1 lines', '2 lines']);
+  assert.deepEqual(table.columns, ['Date', 'A (lines)', 'B (lines)']);
+  assert.deepEqual(table.rows[0], ['2026-01-01', '1', '2']);
   assert.equal(markdownTable(table).split('\n')[1], '| --- | --- | --- |');
   assert.match(
     describeChart('LineChart', data),
