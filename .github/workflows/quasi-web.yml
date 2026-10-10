@@ -34,29 +34,30 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: check out portfolio default branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
 
       - name: check out quasi
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.QUASI_REPOSITORY }}
           ref: ${{ inputs.quasi_ref }}
           path: .build/quasi
 
       - name: install rust and the webassembly target
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master 2026-09-12
         with:
+          toolchain: nightly-2026-09-10
           targets: wasm32-unknown-unknown
 
       - name: cache rust builds
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .build/quasi -> target
 
       - name: install wasm-bindgen cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
           tool: wasm-bindgen-cli@0.2.92
 
@@ -117,7 +118,7 @@ jobs:
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: retain workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: quasi-web-${{ steps.bundle.outputs.revision }}
           path: |
@@ -140,16 +141,15 @@ jobs:
 
       - name: install pnpm
         if: ${{ inputs.update_repository != 'none' }}
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 10.32.1
           run_install: false
 
       - name: install node.js
         if: ${{ inputs.update_repository != 'none' }}
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
 
       - name: install portfolio dependencies
