@@ -5,6 +5,8 @@ import type { PageMeta } from './content/page-meta.ts';
 import type { Post } from './content/posts.ts';
 import type { Profile } from './content/profile.ts';
 import type { Project } from './content/projects.ts';
+import { markdownTable, tableFor, describeChart } from './charts/table.ts';
+import type { ChartComponentName } from './charts/schema.ts';
 import {
   timelineDate,
   timelineTitle,
@@ -343,4 +345,23 @@ export function renderLlmsFull(site: SiteMarkdown): string {
       .map((doc) => `Source: ${doc.meta.url}\n\n${doc.body.trim()}`)
       .join('\n\n---\n\n') + '\n'
   );
+}
+
+/**
+ * The markdown stand-in for a chart component in an MDX post: its title, a
+ * table of the same data the chart (and its hidden HTML table) shows, and a
+ * caption. Built from the validated data, so it never drifts from the chart.
+ */
+export function renderChartMarkdown(
+  component: ChartComponentName,
+  data: unknown,
+  { title, caption }: { title?: string; caption?: string }
+): string {
+  return [
+    title ? `**${title}**` : '',
+    markdownTable(tableFor(component, data)),
+    `*${caption ?? describeChart(component, data)}*`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }

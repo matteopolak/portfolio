@@ -1,0 +1,31 @@
+{
+  "categories": [
+    { "id": "model", "label": "Model release" },
+    { "id": "project", "label": "Project" },
+    { "id": "personal", "label": "Personal" }
+  ],
+  "events": [
+    {
+      "date": "2026-01-15",
+      "title": "Started the parser",
+      "detail": "First commit.",
+      "category": "project"
+    },
+    {
+      "date": "2026-03-02",
+      "title": "New agent model released",
+      "category": "model"
+    },
+    {
+      "date": "2026-04-20",
+      "title": "Type checker passes the suite",
+      "category": "project"
+    },
+    {
+      "date": "2026-05-09",
+      "title": "Moved cities",
+      "detail": "Slowed commits for a week.",
+      "category": "personal"
+    }
+  ]
+}

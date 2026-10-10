@@ -1,12 +1,13 @@
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
+import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 import { transformerMetaHighlight } from '@shikijs/transformers';
 
 export default defineConfig({
   site: 'https://matteopolak.com',
   output: 'static',
-  integrations: [svelte()],
+  integrations: [svelte(), mdx()],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
@@ -42,7 +43,9 @@ export default defineConfig({
   },
   markdown: {
     shikiConfig: {
-      theme: 'github-light',
+      // Both palettes are emitted as CSS variables; global.css and themeCss() pick one per site theme.
+      themes: { light: 'github-light', dark: 'github-dark' },
+      defaultColor: false,
       transformers: [transformerMetaHighlight()],
     },
   },

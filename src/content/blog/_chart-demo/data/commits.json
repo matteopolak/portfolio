@@ -1,0 +1,17 @@
+{
+  "unit": "commits",
+  "bars": [
+    { "label": "W1", "value": 14 },
+    { "label": "W2", "value": 31 },
+    { "label": "W3", "value": 27 },
+    { "label": "W4", "value": 52 },
+    { "label": "W5", "value": 44 },
+    { "label": "W6", "value": 12 },
+    { "label": "W7", "value": 38 },
+    { "label": "W8", "value": 61 },
+    { "label": "W9", "value": 57 },
+    { "label": "W10", "value": 23 },
+    { "label": "W11", "value": 40 },
+    { "label": "W12", "value": 66 }
+  ]
+}

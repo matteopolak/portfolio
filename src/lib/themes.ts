@@ -193,6 +193,14 @@ export function themeCss(): string {
       .slice(1)
       .map((theme) => block(`:root[data-site-theme='${theme.id}']`, theme))
       .join('') +
+    // Code blocks carry both Shiki palettes as variables; dark themes use the dark one.
+    themes
+      .filter((theme) => theme.dark)
+      .map(
+        (theme) =>
+          `:root[data-site-theme='${theme.id}'] .astro-code,:root[data-site-theme='${theme.id}'] .astro-code span{color:var(--shiki-dark);font-style:var(--shiki-dark-font-style);font-weight:var(--shiki-dark-font-weight)}`
+      )
+      .join('') +
     `:root{transition:${transition}}` +
     '@media (prefers-reduced-motion:reduce){:root{transition:none}}'
   );

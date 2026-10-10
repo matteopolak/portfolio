@@ -12,6 +12,10 @@ import { playgroundPages } from '../../data/code-demos';
 import { pageCopy, type PageRoute } from '../../data/pages.ts';
 import { buildProfile } from './profile';
 import { buildPosts } from './posts';
+import { componentKinds } from '../charts/schema';
+import { loadChartData } from '../charts/data';
+import { mdxToMarkdown } from '../mdx-markdown';
+import { renderChartMarkdown } from '../markdown-export';
 import { buildProjects } from './projects';
 import { buildTimeline } from './timeline';
 import { buildRoutes } from './routes';
@@ -20,7 +24,20 @@ import { pageMeta } from './page-meta';
 import { buildSiteMarkdown } from './site-markdown';
 
 export const getProfile = () => buildProfile(config);
-export const getPosts = async () => buildPosts(await getCollection('blog'));
+// MDX posts reach every non-HTML format as plain markdown: chart components
+// become a title, a table of their data and a caption.
+const mdxBody = (body: string) =>
+  mdxToMarkdown(body, {
+    chart(component, props) {
+      const data = loadChartData(componentKinds[component], String(props.src));
+      return renderChartMarkdown(component, data, {
+        title: typeof props.title === 'string' ? props.title : undefined,
+        caption: typeof props.caption === 'string' ? props.caption : undefined,
+      });
+    },
+  });
+export const getPosts = async () =>
+  buildPosts(await getCollection('blog'), mdxBody);
 export const getProjects = async () =>
   buildProjects(await getCollection('projects'));
 

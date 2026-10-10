@@ -1,0 +1,8 @@
+{
+  "stats": [
+    { "value": "93k", "label": "Lines of Rust", "note": "across 4 crates" },
+    { "value": "1,204", "label": "Commits" },
+    { "value": "12", "label": "Weeks" },
+    { "value": "3.4M", "label": "Tokens per day", "note": "peak" }
+  ]
+}

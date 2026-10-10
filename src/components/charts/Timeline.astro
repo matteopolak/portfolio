@@ -1,0 +1,188 @@
+---
+import { loadChartData } from '../../lib/charts/data';
+import { parseDate } from '../../lib/charts/geometry';
+import { longDate } from '../../lib/content/format';
+import { chartId } from '../../lib/charts/model';
+
+/** Dated milestones with categories: horizontal columns on wide containers, a vertical list on narrow ones. */
+interface Props {
+  src: string;
+  title?: string;
+  caption?: string;
+}
+const { src, title, caption } = Astro.props;
+const { categories, events } = loadChartData('timeline', src);
+const id = chartId('Timeline', src, title);
+const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+const indexOf = (category: string) => Math.max(0, categories.findIndex((c) => c.id === category));
+const label = (date: string) => longDate(parseDate(date), date.length > 7);
+---
+
+<figure class="timeline" aria-labelledby={title ? `${id}-title` : undefined}>
+  {title && <p class="timeline__title" id={`${id}-title`}>{title}</p>}
+  {
+    categories.length > 1 && (
+      <ul class="timeline__legend">
+        {categories.map((category, index) => (
+          <li>
+            <span class={`marker marker--${index + 1}`} aria-hidden="true" />
+            {category.label}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <ol>
+    {
+      sorted.map((event) => (
+        <li class={`event event--${indexOf(event.category) + 1}`}>
+          <span class={`marker marker--${indexOf(event.category) + 1}`} aria-hidden="true" />
+          <time datetime={event.date}>{label(event.date)}</time>
+          <strong>{event.title}</strong>
+          {categories.length > 1 && (
+            <span class="event__category">{categories[indexOf(event.category)].label}</span>
+          )}
+          {event.detail && <span class="event__detail">{event.detail}</span>}
+        </li>
+      ))
+    }
+  </ol>
+  {caption && <figcaption class="timeline__caption">{caption}</figcaption>}
+</figure>
+
+<style>
+  .timeline {
+    container-type: inline-size;
+    margin: 2rem 0;
+    padding: 1rem 0;
+    border-block: 1px solid var(--soft-rule);
+  }
+
+  .timeline__title {
+    margin: 0 0 0.75rem;
+    font-weight: 750;
+  }
+
+  .timeline__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    margin: 0 0 1rem;
+    padding: 0;
+    font-size: 0.875rem;
+    list-style: none;
+  }
+
+  .timeline__legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  ol {
+    position: relative;
+    margin: 0;
+    padding: 0 0 0 1.5rem;
+    list-style: none;
+  }
+
+  /* Vertical by default (narrow containers). */
+  ol::before {
+    position: absolute;
+    top: 0.4rem;
+    bottom: 0.4rem;
+    left: 0.4rem;
+    width: 2px;
+    background: var(--muted);
+    content: '';
+  }
+
+  .event {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-bottom: 1.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  .event:last-child {
+    padding-bottom: 0;
+  }
+
+  .event .marker {
+    position: absolute;
+    top: 0.2rem;
+    left: -1.5rem;
+  }
+
+  time {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  .event__category,
+  .event__detail {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  .marker {
+    display: inline-block;
+    width: 0.8rem;
+    height: 0.8rem;
+    flex: none;
+    border: 2px solid var(--paper);
+    background: var(--marker);
+    box-shadow: 0 0 0 1px var(--marker);
+  }
+
+  /* Shape is the second channel: circle, square, diamond. */
+  .marker--1 {
+    --marker: var(--accent-1-text);
+    border-radius: 50%;
+  }
+  .marker--2 {
+    --marker: var(--accent-2-text);
+    border-radius: 0;
+  }
+  .marker--3 {
+    --marker: var(--accent-3-text);
+    border-radius: 0;
+    transform: rotate(45deg) scale(0.9);
+  }
+
+  .event .marker--3 {
+    transform: rotate(45deg) scale(0.9);
+  }
+
+  @container (min-width: 40rem) {
+    ol {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      gap: 1.5rem 1.25rem;
+      padding: 1.6rem 0 0;
+    }
+
+    ol::before {
+      top: 0.4rem;
+      right: 0;
+      bottom: auto;
+      left: 0;
+      width: auto;
+      height: 2px;
+    }
+
+    .event {
+      padding-bottom: 0;
+    }
+
+    .event .marker {
+      top: -1.6rem;
+      left: 0;
+    }
+  }
+</style>

@@ -2,13 +2,23 @@
 import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import BlogToc from '../../components/svelte/BlogToc.svelte';
+import { slugOf } from '../../lib/content/format';
+import LineChart from '../../components/charts/LineChart.astro';
+import AreaChart from '../../components/charts/AreaChart.astro';
+import BarChart from '../../components/charts/BarChart.astro';
+import Timeline from '../../components/charts/Timeline.astro';
+import StatGrid from '../../components/charts/StatGrid.astro';
+import Callout from '../../components/charts/Callout.astro';
+
+// Available in every MDX post without an import (docs/blog-charts.md).
+const mdxComponents = { LineChart, AreaChart, BarChart, Timeline, StatGrid, Callout, Aside: Callout };
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
   return posts
     .filter((post) => post.data.published !== false)
     .map((post) => ({
-      params: { slug: post.id.replace(/\.md$/, '') },
+      params: { slug: slugOf(post.id) },
       props: { post },
     }));
 }
@@ -37,7 +47,7 @@ const { Content, headings } = await render(post);
   </header>
   <div class="article-layout">
     <article class="prose">
-      <Content />
+      <Content components={mdxComponents} />
     </article>
     <BlogToc client:idle headings={headings} />
   </div>
