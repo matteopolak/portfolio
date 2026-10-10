@@ -16,6 +16,7 @@ const paths = [
   '/playground/jai',
 ];
 
+// oxlint-disable-next-line no-undef
 module.exports = {
   ci: {
     collect: {
