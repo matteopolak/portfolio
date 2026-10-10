@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import DraftBadge from '../../components/DraftBadge.astro';
 import { getPageMeta, getPosts } from '../../lib/content';
 
 const posts = await getPosts();
@@ -27,6 +28,7 @@ const meta = getPageMeta('/blog');
               >
                 {post.title}
               </a>
+              {post.draft && <DraftBadge />}
             </h2>
             {post.description && (
               <p class="editorial-item__description">{post.description}</p>

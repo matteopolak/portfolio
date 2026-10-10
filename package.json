@@ -29,7 +29,8 @@
     "format:check": "oxfmt --check",
     "test:webmcp": "node --test tests/webmcp.test.ts",
     "test:markdown": "node --test tests/markdown-export.test.ts",
-    "test:charts": "node --test tests/blog-charts.test.ts"
+    "test:charts": "node --test tests/blog-charts.test.ts",
+    "check:drafts": "node scripts/check-drafts.ts"
   },
   "dependencies": {
     "@astrojs/mdx": "8.0.2",

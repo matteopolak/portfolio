@@ -1,5 +1,7 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { render } from 'astro:content';
+import DraftBadge from '../../components/DraftBadge.astro';
+import { getBlogEntries } from '../../lib/content';
 import Layout from '../../layouts/Layout.astro';
 import BlogToc from '../../components/svelte/BlogToc.svelte';
 import { slugOf } from '../../lib/content/format';
@@ -14,17 +16,17 @@ import Callout from '../../components/charts/Callout.astro';
 const mdxComponents = { LineChart, AreaChart, BarChart, Timeline, StatGrid, Callout, Aside: Callout };
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog');
-  return posts
-    .filter((post) => post.data.published !== false)
-    .map((post) => ({
+  // Drafts are only in the collection in dev (see isVisiblePost).
+  const posts = await getBlogEntries();
+  return posts.map((post) => ({
       params: { slug: slugOf(post.id) },
-      props: { post },
-    }));
+    props: { post },
+  }));
 }
 
 const { post } = Astro.props;
 const { Content, headings } = await render(post);
+const isDraft = post.data.published === false;
 ---
 
 <Layout
@@ -32,8 +34,10 @@ const { Content, headings } = await render(post);
   description={post.data.description}
   type="article"
   publishedTime={post.data.date.toISOString()}
+  noindex={isDraft}
 >
   <header class="article-header">
+    {isDraft && <p><DraftBadge /></p>}
     <h1>{post.data.title}</h1>
     <time class="article-date" datetime={post.data.date.toISOString()}>
       {

@@ -15,9 +15,10 @@ interface Props {
   description?: string;
   type?: 'website' | 'article';
   publishedTime?: string;
+  noindex?: boolean;
 }
 
-const { title, pageTitle, description, type = 'website', publishedTime } = Astro.props;
+const { title, pageTitle, description, type = 'website', publishedTime, noindex = false } = Astro.props;
 const canonicalUrl = new URL(canonicalPathname(Astro.url.pathname), Astro.site);
 const socialImageUrl = new URL(ogImageUrl, Astro.site);
 const personId = new URL('/#person', Astro.site).href;
@@ -123,7 +124,10 @@ const originTrialToken = import.meta.env.PUBLIC_WEBMCP_ORIGIN_TRIAL_TOKEN?.trim(
 <meta name="generator" content={Astro.generator} />
 <meta name="author" content={config.name} />
 {description && <meta name="description" content={description} />}
-<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta
+  name="robots"
+  content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'}
+/>
 <link rel="preload" href={openSansUrl} as="font" type="font/woff2" crossorigin="anonymous" />
 <link rel="icon" type="image/svg+xml" sizes="any" href={faviconSvgUrl} />
 <link rel="icon" type="image/png" sizes="32x32" href={favicon32Url} />

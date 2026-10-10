@@ -1,0 +1,25 @@
+---
+/** Marks a draft post. Drafts only exist in dev, so this never ships. */
+---
+
+<span class="draft-badge"><span aria-hidden="true">✎</span> Draft</span>
+
+<style>
+  .draft-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.1rem 0.5rem;
+    border: 2px solid var(--accent-1-text);
+    border-radius: 999px;
+    background: var(--paper-bright);
+    color: var(--accent-1-text);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    margin-inline-start: 0.5rem;
+    vertical-align: middle;
+  }
+</style>

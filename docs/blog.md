@@ -26,7 +26,15 @@ The filename becomes the URL slug (with `.md` / `.mdx` stripped). For example, `
 | `date`        | date (`YYYY-MM-DD`) | yes      | Publication date, used for sorting      |
 | `description` | string              | no       | Short summary shown on the listing page |
 | `tags`        | string[]            | no       | Shown in feeds, search and the markdown variant |
-| `published`   | boolean             | no       | `false` keeps a draft out of every output (pages, RSS, sitemap, llms.txt, `.md` variants, WebMCP); it is not viewable in dev either |
+| `published`   | boolean             | no       | `false` makes the post a draft: shown only in `pnpm dev` (see Drafts), absent from production |
+
+## Drafts
+
+Set `published: false` to keep a post a draft. The rule lives in one place, `isVisiblePost(data, dev)` in `src/lib/content/posts.ts`:
+
+- In `pnpm dev` (`import.meta.env.DEV`) drafts appear in `/blog`, at `/blog/<slug>`, in the `.md` variants and the agent JSON, marked with a **Draft** badge (`DraftBadge.astro`) on the index card and the post header, and the page has `<meta name="robots" content="noindex, nofollow">`.
+- In a production build drafts are filtered at the collection level (`getBlogEntries()` passes `isVisiblePost` to `getCollection`), so nothing references them: no page, `.md`, llms.txt, sitemap, RSS or WebMCP entry, and the post's MDX module and chart data are never bundled.
+- `pnpm check:drafts` (`scripts/check-drafts.ts`, run in CI after the build) fails if a draft's title, `/blog/<slug>` URL or any `draft-marker-*` token (in the post or its `data/*.json`) appears in any file under `dist/`, JS chunks included. Put a `draft-marker-<something>` token in new draft posts you care about; keep at least one draft fixture (`chart-demo.mdx`), otherwise the check fails.
 
 ## How it works
 
