@@ -10,6 +10,16 @@ export default defineConfig({
     builtin: true,
     browser: true,
   },
+  // Svelte 5 compiler runes, available in .svelte and .svelte.ts files.
+  globals: {
+    $state: 'readonly',
+    $derived: 'readonly',
+    $effect: 'readonly',
+    $props: 'readonly',
+    $bindable: 'readonly',
+    $inspect: 'readonly',
+    $host: 'readonly',
+  },
   ignorePatterns: ['dist/', '.build/', '.astro/', 'website/', 'public/quasi/'],
   rules: {
     'constructor-super': 'error',

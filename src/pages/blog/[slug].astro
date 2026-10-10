@@ -1,7 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import BlogToc from '../../components/BlogToc.astro';
+import BlogToc from '../../components/svelte/BlogToc.svelte';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
@@ -39,7 +39,7 @@ const { Content, headings } = await render(post);
     <article class="prose">
       <Content />
     </article>
-    <BlogToc headings={headings} />
+    <BlogToc client:idle headings={headings} />
   </div>
 </Layout>
 

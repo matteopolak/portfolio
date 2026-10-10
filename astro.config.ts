@@ -1,10 +1,12 @@
 import { defineConfig } from 'astro/config';
+import svelte from '@astrojs/svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { transformerMetaHighlight } from '@shikijs/transformers';
 
 export default defineConfig({
   site: 'https://matteopolak.com',
   output: 'static',
+  integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
