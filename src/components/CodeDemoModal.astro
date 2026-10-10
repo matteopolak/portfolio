@@ -1,5 +1,5 @@
 ---
-import CodeWorkspace from './CodeWorkspace.astro';
+import CodeWorkspace from './svelte/CodeWorkspace.svelte';
 import DemoModal from './DemoModal.astro';
 
 interface Props {
@@ -15,5 +15,5 @@ const { id, label, ...workspace } = Astro.props;
 ---
 
 <DemoModal id={id} label={`${label} editor`} variant="workspace">
-  <CodeWorkspace language={id} label={label} {...workspace} />
+  <CodeWorkspace client:idle language={id} label={label} {...workspace} />
 </DemoModal>

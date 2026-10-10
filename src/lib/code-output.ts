@@ -1,3 +1,5 @@
+import { workspaceChromeFor } from './workspace-chrome.ts';
+
 export type OutputKind = 'stdout' | 'error';
 
 export interface CodeOutput {
@@ -40,7 +42,7 @@ export function clearOutput(panel: HTMLElement) {
   }
   const summary = panel.querySelector<HTMLElement>('[data-code-summary]');
   if (summary) summary.textContent = '';
-  delete panel.dataset.outputUnread;
+  workspaceChromeFor(panel)?.setOutputUnread(false);
 }
 
 /**
@@ -62,7 +64,8 @@ export function createCodeOutput(panel: HTMLElement): CodeOutput {
   };
 
   const markUnread = () => {
-    if (panel.dataset.pane !== 'output') panel.dataset.outputUnread = 'true';
+    const chrome = workspaceChromeFor(panel);
+    if (chrome && chrome.getPane() !== 'output') chrome.setOutputUnread(true);
   };
 
   return {

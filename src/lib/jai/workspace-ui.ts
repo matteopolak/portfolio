@@ -19,6 +19,7 @@ import {
   workspaceLayout,
   type DropTarget,
 } from '../code-workspace-layout.ts';
+import { workspaceChromeFor } from '../workspace-chrome.ts';
 import {
   emptyGroup,
   groupDropZone,
@@ -301,10 +302,11 @@ export async function createSession(
   const find = <T extends HTMLElement = HTMLElement>(name: string) =>
     panel.querySelector<T>(`[data-code-${name}]`)!;
   const summary = createRunSummary(panel);
-  const run = find<HTMLButtonElement>('run'),
-    cancel = find<HTMLButtonElement>('cancel'),
-    formatButton = panel.querySelector<HTMLButtonElement>('[data-code-format]'),
-    status = panel.querySelector<HTMLElement>('[data-code-status]');
+  const formatButton =
+    panel.querySelector<HTMLButtonElement>('[data-code-format]');
+  // Run / Stop and the status line are Svelte state (CodeWorkspace.svelte).
+  const chrome = workspaceChromeFor(panel);
+  if (!chrome) throw new Error('The workspace has not mounted');
   // The server-rendered group is the first group; later ones are copies of it.
   const template = find('group');
   const blank = template.cloneNode(true) as HTMLElement;
@@ -2574,9 +2576,7 @@ export async function createSession(
   }
   function idle() {
     running = false;
-    run.disabled = !ready;
-    run.hidden = false;
-    cancel.hidden = true;
+    chrome!.setRun({ disabled: !ready, running: false });
   }
   function connect(worker: Worker) {
     execution = worker;
@@ -2635,9 +2635,7 @@ export async function createSession(
     explicit = false;
     shell?.beginRun(shell.lastArgs);
     summary.start();
-    run.disabled = true;
-    run.hidden = true;
-    cancel.hidden = false;
+    chrome!.setRun({ disabled: true, running: true });
     try {
       const snapshot = workspace.snapshot();
       if (!execution) {
@@ -2712,11 +2710,10 @@ export async function createSession(
       !isFormattable(workspace.selected?.path.name ?? '');
   }
   function announce(message: string) {
-    if (!status) return;
     clearTimeout(statusTimer);
-    status.textContent = message;
+    chrome!.setStatus(message);
     statusTimer = setTimeout(() => {
-      if (status.textContent === message) status.textContent = '';
+      if (chrome!.getStatus() === message) chrome!.setStatus('');
     }, 3000);
   }
   async function loadFormatter() {
@@ -2919,33 +2916,27 @@ export async function createSession(
     { signal }
   );
 
-  run.addEventListener(
-    'click',
-    () => {
+  chrome.setHandlers({
+    run: () => {
       explicit = true;
       showPane(panel, 'output');
       void runner.play();
     },
-    { signal }
-  );
-  cancel.addEventListener(
-    'click',
-    () => {
+    cancel: () => {
       stopCause = 'stop';
       runner.pause();
     },
-    { signal }
-  );
+  });
   panel.addEventListener(
     'keydown',
     (event) => {
       if (
         (event.ctrlKey || event.metaKey) &&
         event.key === 'Enter' &&
-        !run.disabled
+        !chrome!.getRun().disabled
       ) {
         event.preventDefault();
-        run.click();
+        chrome!.triggerRun();
       } else if (
         event.shiftKey &&
         event.altKey &&
@@ -2998,9 +2989,8 @@ export async function createSession(
       nav.clear();
       clearTimeout(traversing);
       preview = undefined;
-      run.disabled = true;
-      run.hidden = false;
-      cancel.hidden = true;
+      chrome!.setRun({ disabled: true, running: false });
+      chrome!.setHandlers({ run: undefined, cancel: undefined });
       if (formatButton) formatButton.disabled = true;
     },
     { once: true }

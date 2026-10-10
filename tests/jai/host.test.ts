@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { initializeJaiPlayground } from '../../src/lib/jai-playground.ts';
 
 const revision = 'a'.repeat(40);
+/** The session starts once the (faked) island has mounted: a few microtasks. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 interface Session {
   root: HTMLElement;
@@ -14,21 +16,27 @@ interface Session {
 
 function harness(enabled = true) {
   const controller = new AbortController();
-  const retry = Object.assign(new EventTarget(), { hidden: true });
-  const status = { textContent: '' };
+  const state = { status: '', retryVisible: false };
+  const chrome = {
+    setStatus: (text: string) => (state.status = text),
+    getStatus: () => state.status,
+    setRetryVisible: (visible: boolean) => (state.retryVisible = visible),
+    isRetryVisible: () => state.retryVisible,
+    setRun() {},
+    getRun: () => ({ disabled: true, running: false }),
+    setPane() {},
+    getPane: () => 'code' as const,
+    setOutputUnread() {},
+    setHandlers() {},
+    triggerRun() {},
+  };
   const sessions: Session[] = [];
   const panel = Object.assign(new EventTarget(), {
     dataset: { jaiEnabled: String(enabled), jaiRevision: revision },
     matches: () => true,
     querySelectorAll: () => [],
+    querySelector: () => null,
     classList: { remove() {} },
-    querySelector: (selector: string) =>
-      (
-        ({
-          '[data-code-status]': status,
-          '[data-code-retry]': retry,
-        }) as Record<string, unknown>
-      )[selector],
   });
   const loader = (root: HTMLElement, sha: string, signal: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
@@ -44,9 +52,10 @@ function harness(enabled = true) {
   const host = initializeJaiPlayground(
     panel as unknown as HTMLElement,
     controller.signal,
-    loader
+    loader,
+    async () => chrome
   );
-  return { host, controller, sessions, status, retry, panel };
+  return { host, controller, sessions, state, panel };
 }
 
 test('unpublished compiler never creates a session', async () => {
@@ -59,13 +68,14 @@ test('unpublished compiler never creates a session', async () => {
 test('readiness waits for the portfolio editor and actual compiler session', async () => {
   const game = harness();
   const first = game.host.prepare();
+  await settle();
   assert.equal(game.host.prepare(), first);
   assert.equal(game.sessions[0]!.sha, revision);
   assert.equal(game.host.isReady(), false);
   game.sessions[0]!.resolve();
   await first;
   assert.equal(game.host.isReady(), true);
-  assert.equal(game.status.textContent, '');
+  assert.equal(game.state.status, '');
   game.controller.abort();
   assert.equal(game.sessions[0]!.signal.aborted, true);
 });
@@ -73,10 +83,12 @@ test('readiness waits for the portfolio editor and actual compiler session', asy
 test('close cancels initialization and reopening uses a fresh session', async () => {
   const game = harness();
   const first = game.host.prepare();
+  await settle();
   const rejection = assert.rejects(first, { name: 'AbortError' });
   game.host.destroy();
   await rejection;
   const second = game.host.prepare();
+  await settle();
   assert.equal(game.sessions.length, 2);
   game.sessions[1]!.resolve();
   await second;
@@ -87,12 +99,14 @@ test('close cancels initialization and reopening uses a fresh session', async ()
 test('failed initialization disposes its workers and allows retry', async () => {
   const game = harness();
   const first = game.host.prepare();
+  await settle();
   const rejection = assert.rejects(first, /Compiler unavailable/);
   game.sessions[0]!.reject(new Error('Compiler unavailable'));
   await rejection;
   assert.equal(game.sessions[0]!.signal.aborted, true);
-  assert.equal(game.retry.hidden, false);
+  assert.equal(game.state.retryVisible, true);
   const second = game.host.prepare();
+  await settle();
   game.sessions[1]!.resolve();
   await second;
   game.controller.abort();

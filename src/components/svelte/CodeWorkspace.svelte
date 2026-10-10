@@ -1,63 +1,112 @@
----
-import CodeOutput from './CodeOutput.astro';
-import ProjectDemoLoading from './ProjectDemoLoading.astro';
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import {
+    registerWorkspaceChrome,
+    type RunState,
+    type WorkspaceChrome,
+    type WorkspaceChromeHandlers,
+    type WorkspacePane,
+  } from '../../lib/workspace-chrome';
+  import ProjectDemoLoading from './ProjectDemoLoading.svelte';
 
-interface Props {
-  language: 'jai' | 'quasi' | 'baerscript';
-  label: string;
-  starter?: string;
-  files?: boolean;
-  enabled?: boolean;
-  revision?: string;
-  /** `modal` (inside DemoModal) or `page` (a /playground route). */
-  mode?: 'modal' | 'page';
-}
+  interface Props {
+    language: 'jai' | 'quasi' | 'baerscript';
+    label: string;
+    starter?: string;
+    files?: boolean;
+    enabled?: boolean;
+    revision?: string;
+    /** `modal` (inside a demo dialog) or `page` (a /playground route). */
+    mode?: 'modal' | 'page';
+  }
 
-const {
-  language,
-  label,
-  starter = '',
-  files = false,
-  enabled = true,
-  revision = '',
-  mode = 'modal',
-} = Astro.props;
----
+  const {
+    language,
+    label,
+    starter = '',
+    files = false,
+    enabled = true,
+    revision = '',
+    mode = 'modal',
+  }: Props = $props();
+
+  let panel: HTMLElement | undefined;
+
+  // The header and the narrow-screen tabs are driven by the runtime through
+  // the `WorkspaceChrome` registered below (see lib/workspace-chrome.ts).
+  let status = $state('');
+  let retryVisible = $state(false);
+  let run = $state<RunState>({ disabled: true, running: false });
+  let pane = $state<WorkspacePane>('code');
+  let outputUnread = $state(false);
+  let shortcut = $state('Ctrl↵');
+  let formatShortcut = $state('Shift+Alt+F');
+  let handlers: WorkspaceChromeHandlers = {};
+
+  const chrome: WorkspaceChrome = {
+    setStatus: (text) => (status = text),
+    getStatus: () => status,
+    setRetryVisible: (visible) => (retryVisible = visible),
+    isRetryVisible: () => retryVisible,
+    setRun: (state) => (run = { ...state }),
+    getRun: () => run,
+    setPane: (next) => {
+      pane = next;
+      if (next === 'output') outputUnread = false;
+    },
+    getPane: () => pane,
+    setOutputUnread: (unread) => (outputUnread = unread),
+    setHandlers: (next) => {
+      handlers = { ...handlers, ...next };
+    },
+    triggerRun: () => {
+      if (!run.disabled) handlers.run?.();
+    },
+  };
+
+  onMount(() => {
+    const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
+    shortcut = mac ? '⌘↵' : 'Ctrl↵';
+    formatShortcut = mac ? '⇧⌥F' : 'Shift+Alt+F';
+    return registerWorkspaceChrome(panel!, chrome);
+  });
+</script>
 
 <section
-  class:list={['ide', `ide--${language}`, !files && 'ide--single']}
+  bind:this={panel}
+  class="ide ide--{language}"
+  class:ide--single={!files}
   data-code-workspace
   data-code-language={language}
   data-code-starter={starter}
   data-jai-revision={revision}
   data-jai-enabled={String(enabled)}
-  data-pane="code"
+  data-pane={pane}
+  data-output-unread={outputUnread ? 'true' : undefined}
   data-left-dock={files ? '' : undefined}
   data-code-fullscreen-target
   data-project-demo-scroll
-  aria-label={`${label} code editor`}
+  aria-label="{label} code editor"
 >
   <header class="ide-bar">
-    {/* Editor tools start at the editor column's left edge, not above the file tree. */}
+    <!-- Editor tools start at the editor column's left edge, not above the file tree. -->
     <div class="ide-tools" role="group" aria-label="Editor tools">
-      {
-        language === 'jai' && files && (
-          <button
-            type="button"
-            class="ide-icon ide-tool"
-            data-code-format
-            hidden={!enabled}
-            disabled
-            aria-label="Format file"
-            aria-keyshortcuts="Shift+Alt+F"
-            title="Format file (Shift+Alt+F)"
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M8.5 8.5H17M8.5 12H17M3 15.5h14M3.5 7.75 6 10.25l-2.5 2.5"></path></svg>
-          </button>
-        )
-      }
+      {#if language === 'jai' && files}
+        <button
+          type="button"
+          class="ide-icon ide-tool"
+          data-code-format
+          hidden={!enabled}
+          disabled
+          aria-label="Format file"
+          aria-keyshortcuts="Shift+Alt+F"
+          title="Format file ({formatShortcut})"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M8.5 8.5H17M8.5 12H17M3 15.5h14M3.5 7.75 6 10.25l-2.5 2.5"></path></svg>
+        </button>
+      {/if}
       <button type="button" class="ide-icon ide-tool ide-tool--vim" data-code-vim aria-pressed="false" aria-label="Vim mode" title="Vim mode">
-        {/* Monochrome Vim mark: a diamond with the slab V cut out (even-odd). */}
+        <!-- Monochrome Vim mark: a diamond with the slab V cut out (even-odd). -->
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path
             fill-rule="evenodd"
@@ -65,142 +114,159 @@ const {
           ></path>
         </svg>
       </button>
-      {
-        language === 'jai' && files && (
-          <button type="button" class="ide-icon ide-tool" data-code-show-render aria-label="Show the Render tab" title="Render">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
-          </button>
-        )
-      }
+      {#if language === 'jai' && files}
+        <button type="button" class="ide-icon ide-tool" data-code-show-render aria-label="Show the Render tab" title="Render">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6.5 12.5l2.5-3 2 2 1.5-1.5 2 2.5"></path></svg>
+        </button>
+      {/if}
       <button type="button" class="ide-icon ide-tool ide-tool--layout" data-code-reset-layout aria-label="Reset layout" title="Reset layout">
-        {/* Panels back to the default layout: a window with a side bar and a bottom panel. */}
+        <!-- Panels back to the default layout: a window with a side bar and a bottom panel. -->
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3.5h14v13H3zM7.5 3.5v13M7.5 12h9.5"></path></svg>
       </button>
     </div>
-    <span class="ide-status" data-code-status role="status" aria-live="polite"></span>
-    <button type="button" class="ide-text-button" data-code-retry hidden>Retry</button>
-    <button type="button" class="ide-run" data-code-run disabled aria-label="Run program" title="Run">
+    <span class="ide-status" data-code-status role="status" aria-live="polite">{status}</span>
+    <button type="button" class="ide-text-button" data-code-retry hidden={!retryVisible} onclick={() => handlers.retry?.()}>Retry</button>
+    <button
+      type="button"
+      class="ide-run"
+      data-code-run
+      disabled={run.disabled}
+      hidden={run.running}
+      aria-label="Run program"
+      title="Run"
+      onclick={() => handlers.run?.()}
+    >
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5 16 10 6 16.5Z"></path></svg>
       <span>Run</span>
-      <kbd data-code-shortcut>Ctrl↵</kbd>
+      <kbd data-code-shortcut>{shortcut}</kbd>
     </button>
-    <button type="button" class="ide-run ide-run--stop" data-code-cancel hidden aria-label="Stop program" title="Stop">
+    <button
+      type="button"
+      class="ide-run ide-run--stop"
+      data-code-cancel
+      hidden={!run.running}
+      aria-label="Stop program"
+      title="Stop"
+      onclick={() => handlers.cancel?.()}
+    >
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5h10v10H5z"></path></svg>
       <span>Stop</span>
     </button>
     <button type="button" class="ide-icon ide-icon--fullscreen" data-code-fullscreen aria-label="Enter full screen" title="Full screen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
     </button>
-    {
-      mode === 'modal' ? (
-        <>
-          <a
-            class="ide-icon ide-icon--page"
-            href={`/playground/${language}`}
-            data-code-open-page
-            data-astro-reload
-            aria-label={`Open the ${label} playground as a full page`}
-            title="Open in playground"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg>
-          </a>
-          <button type="button" class="ide-icon ide-icon--close" data-code-close aria-label="Close editor" title="Close">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
-          </button>
-        </>
-      ) : (
-        <a class="ide-icon ide-icon--back" href={`/projects#${language}`} data-code-back aria-label="Back to projects" title="Back to projects">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
-        </a>
-      )
-    }
+    {#if mode === 'modal'}
+      <a
+        class="ide-icon ide-icon--page"
+        href="/playground/{language}"
+        data-code-open-page
+        data-astro-reload
+        aria-label="Open the {label} playground as a full page"
+        title="Open in playground"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg>
+      </a>
+      <button type="button" class="ide-icon ide-icon--close" data-code-close aria-label="Close editor" title="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+      </button>
+    {:else}
+      <a class="ide-icon ide-icon--back" href="/projects#{language}" data-code-back aria-label="Back to projects" title="Back to projects">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+      </a>
+    {/if}
   </header>
 
   <div class="ide-body">
-    {/* Default layout; code-workspace-layout.ts re-renders it from the saved one. */}
+    <!-- Default layout; code-workspace-layout.ts re-renders it from the saved one. -->
     <div class="ide-layout" data-code-layout>
-      {
-        files && (
-          <div class="ide-dock" data-dock="left" style="flex-basis: 240px">
-            <aside class="ide-files" data-code-files-pane aria-label="Files">
-              <div class="ide-pane-head" data-panel-handle>
-                <span>Files</span>
-                <span class="ide-pane-actions">
-                  <button type="button" class="ide-icon ide-icon--small" data-tree-new-file aria-label="New file" title="New file">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"></path></svg>
-                  </button>
-                  <button type="button" class="ide-icon ide-icon--small" data-tree-new-folder aria-label="New folder" title="New folder">
-                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"></path></svg>
-                  </button>
-                </span>
-              </div>
-              <nav class="ide-tree" data-code-files aria-label="File tree"></nav>
-            </aside>
-          </div>
-        )
-      }
-      {files && <div class="ide-divider ide-divider--col" aria-hidden="true" />}
+      {#if files}
+        <div class="ide-dock" data-dock="left" style="flex-basis: 240px">
+          <aside class="ide-files" data-code-files-pane aria-label="Files">
+            <div class="ide-pane-head" data-panel-handle>
+              <span>Files</span>
+              <span class="ide-pane-actions">
+                <button type="button" class="ide-icon ide-icon--small" data-tree-new-file aria-label="New file" title="New file">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"></path></svg>
+                </button>
+                <button type="button" class="ide-icon ide-icon--small" data-tree-new-folder aria-label="New folder" title="New folder">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"></path></svg>
+                </button>
+              </span>
+            </div>
+            <nav class="ide-tree" data-code-files aria-label="File tree"></nav>
+          </aside>
+        </div>
+        <div class="ide-divider ide-divider--col" aria-hidden="true"></div>
+      {/if}
       <div class="ide-center">
         <div class="ide-editors" data-code-editors>
-          {
-            files ? (
-              <section class="ide-group" data-code-group data-active aria-label="Editor">
-                <div class="ide-group-head">
-                  <div class="ide-filetabs" role="tablist" aria-label="Open files" data-code-tabs />
-                  <div class="ide-group-actions" data-code-group-actions />
-                </div>
-                <div class="ide-editor" data-code-editor />
-                <div class="ide-empty" data-code-empty hidden>
-                  <p class="ide-empty-title">No open files</p>
-                  <p>Open a file from the file tree.</p>
-                </div>
-              </section>
-            ) : (
-              <div class="ide-editor" data-code-editor />
-            )
-          }
+          {#if files}
+            <section class="ide-group" data-code-group data-active aria-label="Editor">
+              <div class="ide-group-head">
+                <div class="ide-filetabs" role="tablist" aria-label="Open files" data-code-tabs></div>
+                <div class="ide-group-actions" data-code-group-actions></div>
+              </div>
+              <div class="ide-editor" data-code-editor></div>
+              <div class="ide-empty" data-code-empty hidden>
+                <p class="ide-empty-title">No open files</p>
+                <p>Open a file from the file tree.</p>
+              </div>
+            </section>
+          {:else}
+            <div class="ide-editor" data-code-editor></div>
+          {/if}
         </div>
         <div class="ide-divider ide-divider--row" aria-hidden="true"></div>
         <div class="ide-dock" data-dock="bottom" style="flex-basis: 176px">
-          <CodeOutput />
+          <section class="ide-output" data-code-output-pane aria-label="Output">
+            <div class="ide-output__head" data-panel-handle>
+              <span class="ide-output__title">Output</span>
+              <span class="ide-output__summary" data-code-summary></span>
+              <button type="button" class="ide-output__button" data-code-clear aria-label="Clear output" title="Clear output">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6h11M8 6V4h4v2M6 6l.75 10h6.5L14 6"></path></svg>
+              </button>
+              <button type="button" class="ide-output__button ide-output__toggle" data-code-output-toggle aria-expanded="true" aria-label="Collapse output" title="Collapse output">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg>
+              </button>
+            </div>
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <pre data-code-output data-empty="Run the program to see its output." aria-label="Program output" aria-live="polite" tabindex="0"></pre>
+            <!-- The Jai playground shows an xterm.js terminal here instead of the pre (src/lib/jai/terminal.ts). -->
+            <div class="ide-terminal" data-code-terminal role="group" aria-label="Program terminal" hidden></div>
+          </section>
         </div>
       </div>
     </div>
-    {
-      /*
-       * The Render tab's contents. workspace-ui.ts moves it into the editor
-       * group whose active tab is Render, and back here (hidden) otherwise.
-       */
-      language === 'jai' && files && (
-        <section class="ide-render" data-code-render-view aria-label="Render" hidden>
-          <div class="ide-render__stage" data-code-render data-state="idle">
-            <div class="ide-render__message" data-code-render-message>
-              <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
-              <p data-code-render-detail>
-                A program that draws with WebGPU shows here.
-              </p>
-            </div>
+    <!--
+      The Render tab's contents. workspace-ui.ts moves it into the editor
+      group whose active tab is Render, and back here (hidden) otherwise.
+    -->
+    {#if language === 'jai' && files}
+      <section class="ide-render" data-code-render-view aria-label="Render" hidden>
+        <div class="ide-render__stage" data-code-render data-state="idle">
+          <div class="ide-render__message" data-code-render-message>
+            <p class="ide-empty-title" data-code-render-title>Nothing is rendering</p>
+            <p data-code-render-detail>A program that draws with WebGPU shows here.</p>
           </div>
-        </section>
-      )
-    }
+        </div>
+      </section>
+    {/if}
     <ProjectDemoLoading seed={language} />
   </div>
 
+  <!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
   <nav class="ide-tabs" aria-label="Workspace panels">
-    {
-      files && (
-        <button type="button" data-pane-tab="files" aria-selected="false">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15z"></path></svg>
-          Files
-        </button>
-      )
-    }
-    <button type="button" data-pane-tab="code" aria-selected="true">
+    {#if files}
+      <button type="button" data-pane-tab="files" aria-selected={pane === 'files'} onclick={() => chrome.setPane('files')}>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15z"></path></svg>
+        Files
+      </button>
+    {/if}
+    <button type="button" data-pane-tab="code" aria-selected={pane === 'code'} onclick={() => chrome.setPane('code')}>
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 6-4 4 4 4M13 6l4 4-4 4"></path></svg>
       Code
     </button>
-    <button type="button" data-pane-tab="output" aria-selected="false">
+    <button type="button" data-pane-tab="output" aria-selected={pane === 'output'} onclick={() => chrome.setPane('output')}>
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14v11H3zM6 8l2.5 2L6 12M10.5 12.5h3.5"></path></svg>
       Output
       <span class="ide-tab-dot" aria-hidden="true"></span>
@@ -209,6 +275,218 @@ const {
 </section>
 
 <style>
+  .ide-output {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--ide-sunken);
+  }
+
+  .ide-output__head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 2.25rem;
+    flex: none;
+    padding: 0 0.35rem 0 1rem;
+    /* The header is the panel's drag handle, like the file tree's. */
+    cursor: grab;
+    user-select: none;
+  }
+
+  .ide-output__title {
+    color: var(--ide-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .ide-output__summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ide-faint);
+    font: 0.72rem/1 var(--ide-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ide-output__button {
+    display: grid;
+    cursor: pointer;
+    width: 1.65rem;
+    height: 1.65rem;
+    place-items: center;
+    color: var(--ide-muted) !important;
+  }
+
+  .ide-output__button:hover {
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-hover) !important;
+  }
+
+  .ide-output__button svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 120ms ease;
+  }
+
+  :global(.ide[data-output-collapsed='true']) .ide-output__toggle svg {
+    transform: rotate(180deg);
+  }
+
+  :global(.ide[data-output-collapsed='true']) :is(pre, .ide-terminal) {
+    display: none;
+  }
+
+  .ide-terminal {
+    flex: 1;
+    min-height: 0;
+    padding: 0.25rem 0 0.25rem 1rem;
+    overflow: hidden;
+    background: var(--ide-sunken);
+  }
+
+  .ide-terminal[hidden] {
+    display: none;
+  }
+
+  /* xterm paints its own background and scrolls its own viewport. */
+  .ide-terminal :global(.xterm) {
+    height: 100%;
+  }
+
+  .ide-terminal :global(.xterm-viewport) {
+    background-color: var(--ide-sunken) !important;
+    overscroll-behavior: contain;
+  }
+
+  .ide-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+    width: 0.6rem;
+  }
+
+  .ide-terminal :global(.xterm-viewport::-webkit-scrollbar-thumb) {
+    background: var(--ide-rule);
+  }
+
+  pre {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0.25rem 1rem 1rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    color: var(--ide-fg);
+    font: 0.8rem/1.65 var(--ide-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  pre {
+    transition: opacity 140ms ease;
+  }
+
+  pre:global([data-state='stale']) {
+    opacity: 0.4;
+  }
+
+  pre:global(.is-fresh) {
+    animation: ide-output-in 180ms ease-out;
+  }
+
+  @keyframes ide-output-in {
+    from {
+      opacity: 0.4;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    pre,
+    pre:global(.is-fresh) {
+      transition: none;
+      animation: none;
+    }
+  }
+
+  pre:focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: -2px;
+  }
+
+  pre:empty::before {
+    content: attr(data-empty);
+    color: var(--ide-faint);
+    font-family: var(--font-sans);
+  }
+
+  pre:global([aria-busy='true']):empty::before {
+    content: 'Running…';
+  }
+
+  pre:global([data-kind='error']),
+  pre :global([data-stream='stderr']) {
+    color: var(--ide-error);
+  }
+
+  /* Output with ANSI colour codes keeps the default colour where it sets none. */
+  pre :global([data-ansi]) {
+    color: var(--ide-fg);
+  }
+
+  pre :global(.ansi-bold) {
+    font-weight: 700;
+  }
+
+  pre :global(.ansi-dim) {
+    opacity: 0.7;
+  }
+
+  pre :global(.ansi-italic) {
+    font-style: italic;
+  }
+
+  pre :global(.ansi-underline) {
+    text-decoration: underline;
+  }
+
+  pre :global(:is(.ansi-fg-red, .ansi-fg-bright-red)) {
+    color: var(--ide-error);
+  }
+
+  pre :global(:is(.ansi-fg-yellow, .ansi-fg-bright-yellow)) {
+    color: var(--ide-syntax-keyword);
+  }
+
+  pre :global(:is(.ansi-fg-green, .ansi-fg-bright-green)) {
+    color: var(--ide-syntax-string);
+  }
+
+  pre :global(:is(.ansi-fg-blue, .ansi-fg-bright-blue)) {
+    color: var(--ide-syntax-type);
+  }
+
+  pre :global(:is(.ansi-fg-cyan, .ansi-fg-bright-cyan)) {
+    color: oklch(82% 0.1 210);
+  }
+
+  pre :global(:is(.ansi-fg-magenta, .ansi-fg-bright-magenta)) {
+    color: var(--ide-syntax-format);
+  }
+
+  pre :global(:is(.ansi-fg-black, .ansi-fg-bright-black)) {
+    color: var(--ide-faint);
+  }
+
+  pre :global(:is(.ansi-fg-white, .ansi-fg-bright-white)) {
+    color: var(--ide-fg);
+  }
+
+  pre :global(.ide-output__exit) {
+    color: var(--ide-muted);
+  }
+
   .ide {
     --ide-bg: oklch(21% 0.006 270);
     --ide-sunken: oklch(17.5% 0.006 270);
@@ -354,7 +632,7 @@ const {
     background: transparent !important;
   }
 
-  .ide-tool[aria-busy='true'] svg {
+  .ide-tool:global([aria-busy='true']) svg {
     animation: ide-tool-busy 0.9s ease-in-out infinite alternate;
   }
 
@@ -370,13 +648,13 @@ const {
     stroke: none;
   }
 
-  .ide-tool--vim[aria-pressed='true'] {
+  .ide-tool--vim:global([aria-pressed='true']) {
     color: var(--ide-fg-strong) !important;
     background: var(--ide-raised) !important;
     box-shadow: inset 0 0 0 1px var(--blue);
   }
 
-  .ide-tool--vim[aria-pressed='true'] svg {
+  .ide-tool--vim:global([aria-pressed='true']) svg {
     color: color-mix(in oklch, var(--blue) 45%, white);
   }
 
@@ -897,7 +1175,7 @@ const {
     background: var(--ide-bg);
   }
 
-  .ide-render__stage[data-state='drawing'] {
+  .ide-render__stage:global([data-state='drawing']) {
     background: #000;
   }
 
@@ -919,16 +1197,16 @@ const {
     margin: 0;
   }
 
-  .ide-render__message code {
+  .ide-render__message :global(code) {
     color: var(--ide-fg);
     font: 0.78rem var(--ide-mono);
   }
 
-  .ide-render__stage[data-state='drawing'] .ide-render__message {
+  .ide-render__stage:global([data-state='drawing']) .ide-render__message {
     display: none;
   }
 
-  .ide-render__stage[data-state='unsupported'] .ide-empty-title {
+  .ide-render__stage:global([data-state='unsupported']) .ide-empty-title {
     color: var(--yellow);
   }
 
@@ -953,7 +1231,7 @@ const {
     pointer-events: none;
   }
 
-  .ide-render__stage[data-state='drawing']:has(:global(canvas:focus))::after {
+  .ide-render__stage:global([data-state='drawing']):has(:global(canvas:focus))::after {
     box-shadow: inset 0 0 0 1px var(--blue);
   }
 
@@ -1133,9 +1411,8 @@ const {
     }
 
   }
-</style>
 
-<style is:global>
+  :global {
   /*
    * Dock, split and drag chrome. code-workspace-layout.ts and workspace-ui.ts
    * build these elements in script, so they carry no scoped-style attribute;
@@ -1355,4 +1632,5 @@ const {
       display: flex;
     }
   }
+}
 </style>
