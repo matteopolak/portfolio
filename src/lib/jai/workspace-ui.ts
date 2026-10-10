@@ -40,7 +40,8 @@ import {
   type SplitSide,
 } from '../workspace-layout-model.ts';
 import { Workspace, type WorkspaceDocument } from './workspace.ts';
-import { loadStarter } from './starter.ts';
+import { defaultStarter, loadStarter, type Starter } from './starter.ts';
+import { confirmDialog, pickFolder, readFolder } from '../workspace-actions.ts';
 import { initializeFileTree } from './file-tree.ts';
 import {
   LanguageClient,
@@ -297,7 +298,9 @@ const fileHash = (path: string) =>
 export async function createSession(
   panel: HTMLElement,
   revision: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  /** The workspace to start with (Import folder and Reset restart the session with one). */
+  initial?: Starter
 ) {
   const find = <T extends HTMLElement = HTMLElement>(name: string) =>
     panel.querySelector<T>(`[data-code-${name}]`)!;
@@ -312,7 +315,7 @@ export async function createSession(
   const blank = template.cloneNode(true) as HTMLElement;
   const layout = workspaceLayout(panel);
   // The compiler release's tour (or the built-in starter for older releases).
-  const starter = await loadStarter(revision, signal);
+  const starter = initial ?? (await loadStarter(revision, signal));
   if (signal.aborted) throw abortError();
   const workspace = new Workspace(starter.files);
   /*
@@ -2952,6 +2955,68 @@ export async function createSession(
         event.preventDefault();
         void formatSelected();
       }
+    },
+    { signal }
+  );
+  /*
+   * Import folder / Reset workspace: both start a new session (new workspace,
+   * tabs and language server) through the playground, which owns the session.
+   */
+  function restartWith(next: Starter, clearHistory: boolean) {
+    if (clearHistory) {
+      try {
+        localStorage.removeItem(
+          `jai-terminal-history:${panel.dataset.codeLanguage ?? 'jai'}`
+        );
+      } catch {
+        /* Blocked storage: nothing was saved. */
+      }
+      panel
+        .querySelector<HTMLButtonElement>('[data-code-reset-layout]')
+        ?.click();
+    }
+    layout?.setEditors(emptyGroup());
+    panel.dispatchEvent(
+      new CustomEvent('code-workspace-restart', { detail: { starter: next } })
+    );
+  }
+  const notify = (message: string) => {
+    chrome.setStatus(message);
+    showError(message);
+    setTimeout(() => {
+      if (!signal.aborted) chrome.setStatus('');
+    }, 8000);
+  };
+  panel.querySelector('[data-code-import]')?.addEventListener(
+    'click',
+    async () => {
+      const picked = await pickFolder();
+      if (!picked || signal.aborted) return;
+      const result = await readFolder(picked, 'main.jai');
+      if (signal.aborted) return;
+      if (!result.ok) return notify(result.message);
+      const count = Object.keys(result.files).length;
+      const replace = await confirmDialog(panel, {
+        title: 'Import folder?',
+        message: `This replaces all ${workspace.names.length} files in the workspace with the ${count} from the folder. ${result.summary}`,
+        confirmLabel: 'Replace workspace',
+      });
+      if (!replace || signal.aborted) return;
+      restartWith({ files: result.files, open: [result.entry] }, false);
+    },
+    { signal }
+  );
+  panel.querySelector('[data-code-reset]')?.addEventListener(
+    'click',
+    async () => {
+      const reset = await confirmDialog(panel, {
+        title: 'Reset workspace?',
+        message:
+          'This replaces every file with a hello-world main.jai and the default jaifmt.toml and jailint.toml, and closes all tabs. Your changes are lost.',
+        confirmLabel: 'Reset workspace',
+      });
+      if (!reset || signal.aborted) return;
+      restartWith(defaultStarter(), true);
     },
     { signal }
   );

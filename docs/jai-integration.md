@@ -173,3 +173,7 @@ execution uses the owned module worker and pinned Rust-generated WebAssembly. Pu
 GitHub Actions and Releases; deployment uses the existing Cloudflare Pages build.
 
 Note: `initializeJaiPlayground` waits for the `CodeWorkspace` island to mount (`whenWorkspaceMounted`) before creating the layout and session, and drives the status/Retry/Run state through `WorkspaceChrome` (`src/lib/workspace-chrome.ts`). `tests/jai/host.test.ts` injects a fake chrome. The `AbortSignal` teardown is unchanged.
+
+## Replacing the workspace
+
+`createSession` takes an optional `Starter` (files plus the tabs to open) in place of the compiler release's tour. Import folder and Reset workspace restart the session with one (see [code-workspace.md](./code-workspace.md#import-folder-and-reset-workspace)); a new session also means a new language server, so diagnostics reflect the new files.

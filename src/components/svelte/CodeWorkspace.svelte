@@ -162,6 +162,20 @@
           >
         </button>
       {/if}
+      {#if !files}
+        <button
+          type="button"
+          class="ide-icon ide-tool"
+          data-code-reset
+          aria-label="Reset to starter code"
+          title="Reset to starter code"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"
+            ><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"
+            ></path></svg
+          >
+        </button>
+      {/if}
       <button
         type="button"
         class="ide-icon ide-tool ide-tool--layout"
@@ -297,6 +311,32 @@
                   <svg viewBox="0 0 20 20" aria-hidden="true"
                     ><path
                       d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"
+                    ></path></svg
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="ide-icon ide-icon--small"
+                  data-code-import
+                  aria-label="Import folder"
+                  title="Import folder (replaces all files)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"
+                    ><path
+                      d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1M2 13h10M9 16l3-3-3-3"
+                    ></path></svg
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="ide-icon ide-icon--small"
+                  data-code-reset
+                  aria-label="Reset workspace"
+                  title="Reset workspace to the default"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"
+                    ><path
+                      d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"
                     ></path></svg
                   >
                 </button>
@@ -1843,5 +1883,63 @@
         display: flex;
       }
     }
+  }
+
+  /* The confirmation dialog (workspace-actions.ts) is created in the panel at runtime. */
+  :global(.ide-confirm) {
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1.25rem 1.4rem;
+    color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
+    background: oklch(25.5% 0.008 270);
+    border: 1px solid oklch(100% 0 0 / 0.16);
+    box-shadow: 0 1.5rem 4rem oklch(0% 0 0 / 0.5);
+    font-family: var(--font-sans);
+  }
+
+  :global(.ide-confirm)::backdrop {
+    background: oklch(0% 0 0 / 0.55);
+  }
+
+  :global(.ide-confirm h2) {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  :global(.ide-confirm p) {
+    margin: 0 0 1.1rem;
+    color: oklch(90% 0.016 91);
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  :global(.ide-confirm__actions) {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+
+  :global(.ide-confirm button) {
+    padding: 0.5rem 0.9rem;
+    font: 700 0.82rem var(--font-sans);
+    color: oklch(97.598% 0.02449 91.61);
+    background: oklch(31% 0.008 270);
+    border: 1px solid oklch(100% 0 0 / 0.2);
+    cursor: pointer;
+  }
+
+  :global(.ide-confirm button:hover) {
+    background: oklch(36% 0.01 270);
+  }
+
+  :global(.ide-confirm .ide-confirm__danger) {
+    color: var(--ink);
+    background: var(--red);
+    border-color: transparent;
+  }
+
+  :global(.ide-confirm button:focus-visible) {
+    outline: 2px solid var(--yellow);
+    outline-offset: 2px;
   }
 </style>

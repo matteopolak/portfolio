@@ -2,6 +2,7 @@ import {
   initializeWorkspaceLayout,
   showPane,
 } from './code-workspace-layout.ts';
+import type { Starter } from './jai/starter.ts';
 import {
   whenWorkspaceMounted,
   type WorkspaceChrome,
@@ -9,12 +10,13 @@ import {
 type SessionLoader = (
   panel: HTMLElement,
   revision: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  initial?: Starter
 ) => Promise<void>;
-const loadSession: SessionLoader = async (panel, revision, signal) => {
+const loadSession: SessionLoader = async (panel, revision, signal, initial) => {
   const { createSession } = await import('./jai/workspace-ui.ts');
   if (signal.aborted) throw new DOMException('Closed', 'AbortError');
-  await createSession(panel, revision, signal);
+  await createSession(panel, revision, signal, initial);
 };
 
 export function initializeJaiPlayground(
@@ -33,6 +35,8 @@ export function initializeJaiPlayground(
   let pending: Promise<void> | undefined;
   let ready = false;
   let generation = 0;
+  // Set by Import folder / Reset: the next session starts from it, not the tour.
+  let nextStarter: Starter | undefined;
   // The workspace is a Svelte island: its dock layout moves server-rendered
   // nodes, so nothing touches the DOM until the island has hydrated.
   function mount() {
@@ -73,7 +77,9 @@ export function initializeJaiPlayground(
           throw new DOMException('Closed', 'AbortError');
         chrome!.setStatus('Loading…');
         chrome!.setRetryVisible(false);
-        return createSession(panel, revision, sessionSignal);
+        const initial = nextStarter;
+        nextStarter = undefined;
+        return createSession(panel, revision, sessionSignal, initial);
       })
       .then(() => {
         if (current !== generation || sessionSignal.aborted)
@@ -101,6 +107,15 @@ export function initializeJaiPlayground(
       });
     return pending;
   }
+  panel.addEventListener(
+    'code-workspace-restart',
+    (event) => {
+      nextStarter = (event as CustomEvent<{ starter: Starter }>).detail.starter;
+      destroy();
+      void prepare().catch(() => {});
+    },
+    { signal }
+  );
   signal.addEventListener(
     'abort',
     () => {
