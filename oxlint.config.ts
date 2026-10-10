@@ -146,10 +146,11 @@ export default defineConfig({
       },
     },
     {
-      files: ['scripts/**/*.mjs', 'tests/**/*.mjs'],
+      files: ['scripts/**/*.mjs', 'tests/**/*.mjs', 'lighthouserc.cjs'],
       globals: {
         console: 'readonly',
         process: 'readonly',
+        module: 'writable',
         URL: 'readonly',
       },
     },
