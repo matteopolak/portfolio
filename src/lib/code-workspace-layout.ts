@@ -418,7 +418,6 @@ function initializeLayout(
   }
 
   function dockElement(dock: Dock) {
-    const state = layout.docks[dock];
     const open = dockPanels(layout, dock);
     const element = document.createElement('div');
     element.className = 'ide-dock';
