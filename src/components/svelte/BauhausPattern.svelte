@@ -377,7 +377,7 @@
           getComputedStyle(document.documentElement).getPropertyValue(
             '--bauhaus-cell'
           )
-        ) || 30;
+        ) || 52;
       const inset = unit;
       const moduleSize = 160;
       const visibleColumns = Math.max(4, Math.floor(fieldRect.width / cell));
@@ -695,7 +695,7 @@
   data-columns={columnCount}
   data-rows={rows}
   style={ambient
-    ? `width: calc(${viewBox.width / unit} * var(--bauhaus-cell, 30px))`
+    ? `width: calc(${viewBox.width / unit} * var(--bauhaus-cell, 52px))`
     : undefined}
   viewBox="{viewBox.x} {viewBox.y} {viewBox.width} {viewBox.height}"
   role="presentation"
