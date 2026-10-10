@@ -34,7 +34,10 @@ const types: Record<string, string> = {
 };
 
 async function resolveFile(pathname: string) {
-  const clean = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/u, '');
+  const clean = normalize(decodeURIComponent(pathname)).replace(
+    /^(\.\.[/\\])+/u,
+    ''
+  );
   for (const candidate of [clean, `${clean}.html`, join(clean, 'index.html')]) {
     const file = join(root, candidate);
     if (!file.startsWith(root)) continue;
@@ -60,11 +63,14 @@ createServer(async (request, response) => {
     'cross-origin-embedder-policy': 'require-corp',
     'cross-origin-resource-policy': 'same-origin',
   };
-  for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
+  for (const [name, value] of Object.entries(headers))
+    response.setHeader(name, value);
   response.statusCode = 200;
   const gzip =
     /\bgzip\b/u.test(String(request.headers['accept-encoding'])) &&
-    /^(text|application\/(json|xml|manifest)|image\/svg|font\/)/u.test(types[extname(file)] ?? '') &&
+    /^(text|application\/(json|xml|manifest)|image\/svg|font\/)/u.test(
+      types[extname(file)] ?? ''
+    ) &&
     extname(file) !== '.woff2';
   if (gzip) response.setHeader('content-encoding', 'gzip');
   response.setHeader('vary', 'accept-encoding');

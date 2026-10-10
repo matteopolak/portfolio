@@ -51,7 +51,9 @@ const { showHero = true } = Astro.props;
     position: absolute;
     top: 0;
     left: 50%;
-    width: max(100%, 75rem);
+    /* The pattern's own width is a whole number of fixed-size cells (set by
+       BauhausPattern); leftover space is split evenly on both sides. */
+    width: max-content;
     transform: translateX(-50%);
   }
 
