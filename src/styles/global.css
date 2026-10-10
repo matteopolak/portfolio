@@ -260,6 +260,18 @@ body .site-main .project-card:hover {
   text-align: right;
 }
 
+.resume-section {
+  --section-accent: var(--accent-1);
+}
+
+.resume-section:nth-of-type(3n + 2) {
+  --section-accent: var(--accent-2);
+}
+
+.resume-section:nth-of-type(3n + 3) {
+  --section-accent: var(--accent-3);
+}
+
 .section-title::before {
   position: absolute;
   top: 0.36rem;
@@ -268,19 +280,9 @@ body .site-main .project-card:hover {
   aspect-ratio: 1;
   border: 2px solid var(--paper);
   border-radius: 50%;
-  background: var(--accent-1);
-  box-shadow: 0 0 0 1px var(--accent-1);
+  background: var(--section-accent);
+  box-shadow: 0 0 0 1px var(--section-accent);
   content: '';
-}
-
-.resume-section:nth-of-type(3n + 2) .section-title::before {
-  background: var(--accent-2);
-  box-shadow: 0 0 0 1px var(--accent-2);
-}
-
-.resume-section:nth-of-type(3n + 3) .section-title::before {
-  background: var(--accent-3);
-  box-shadow: 0 0 0 1px var(--accent-3);
 }
 
 .resume-list {
@@ -340,35 +342,17 @@ body .site-main .project-card:hover {
   padding-left: 0.2rem;
 }
 
+/* Bullets match their section's timeline dot: same shape, same accent. */
 .resume-entry li::before,
 .achievement-list li::before {
   position: absolute;
-  top: 0;
-  right: calc(100% + 0.55rem);
-  content: '■';
-  color: var(--accent-1-text);
-  font-size: 0.58em;
-  line-height: 2.5;
-}
-
-.resume-list .resume-entry:nth-child(4n + 2) li::before {
-  content: '●';
-  color: var(--accent-2-text);
-}
-
-.resume-list .resume-entry:nth-child(4n + 3) li::before {
-  content: '◆';
-  color: var(--accent-3-text);
-}
-
-.resume-list .resume-entry:nth-child(4n + 4) li::before {
-  content: '▲';
-  color: var(--ink);
-}
-
-.achievement-list li::before {
-  content: '◆';
-  color: var(--accent-2-text);
+  top: 0.62em;
+  right: calc(100% + 0.6rem);
+  width: 0.42em;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--section-accent, var(--accent-1));
+  content: '';
 }
 
 .tag-line {
