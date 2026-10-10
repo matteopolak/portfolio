@@ -1,0 +1,124 @@
+---
+title: A Jai compiler and toolchain in ten days
+description: How I orchestrated agents to build a clean-room Jai compiler, language server, formatter, linter and browser playground, and what I had to decide along the way.
+date: 2026-10-10
+tags:
+  - rust
+  - jai
+  - vibecoding
+  - compilers
+published: false
+---
+
+Jai is Jonathan Blow's programming language. It's been in a closed beta for years, and people have built real projects with it, but there isn't much tooling around the compiler: no first-party language server, formatter or linter, and no way to try it without getting into the beta.
+
+So I wanted all of that. A compiler that runs real Jai projects, a language server that works in any editor, a formatter, a linter that does actual analysis, and a playground that runs the whole thing in your browser. I gave it ten days, Oct 1 to Oct 10. You can try the result in the [Jai playground](/playground/jai).
+
+<StatGrid src="vibecoding-jai/data/stats.json" title="Ten days in numbers" />
+
+This came right after [Lodestone](/blog/vibecoding-minecraft), so I went in with a better idea of how to run agents. This post is mostly about that: how the work was split, how I kept it honest, and what I actually spent my time on.
+
+## Set the bar before writing code
+
+The first thing in the repo, on day one, was a corpus: pinned commits of open-source Jai projects that have to compile and run in CI. Seven on Oct 1, 41 by Oct 6.
+
+This was the single most important decision. It's easy for an agent to write a compiler that passes tests the same agent wrote. It's a lot harder to fake compiling someone else's game engine. My instruction was that it had to compile all of the open-source libraries we found, and they had to still fully work in the browser. That gave every agent the same definition of "done", and it wasn't one they could write themselves.
+
+## Being willing to throw it away
+
+The first architecture was a VM-based compiler spread across a pile of crates. By Oct 3 it was about 330k lines of Rust and getting harder to change, not easier. So it got restarted with a new core, `jaic`, using one AST shared by the compiler and the language server. Hello world ran on it on Oct 4, and the same day two commits deleted the old architecture: 666k lines removed.
+
+<AreaChart
+  src="vibecoding-jai/data/lines-by-component.json"
+  title="Lines of Rust by component"
+  caption="Measured at the last commit of each day. The tall block on Oct 2 and 3 is the first architecture, deleted on Oct 4."
+  stacked
+  interactive
+/>
+
+My reaction at the time was basically "how do you go from 300k lines to 30k?" A week later the replacement was about 72k lines and compiled all 41 corpus projects.
+
+This is one of the real differences with agents. If a person had spent three days on those 330k lines, I'd never have been willing to throw them out. Here, three days of the wrong architecture was cheap, and the right call was to cut it early.
+
+## How the work was split
+
+The structure I settled on:
+
+- **The main session** (Opus) plans, reviews, verifies and merges. It doesn't do bulk implementation.
+- **Subagents** take bounded jobs: a conformance pass, stdlib coverage, a perf push, a CI fix, a bug hunt. 241 of them over the ten days.
+- **Each subagent gets its own git worktree** and its own cargo target directory. 191 of them ran that way. A shared target directory left stale binaries around, so that stopped early.
+- **Reading goes to Haiku.** Things like checking the community language server's issue tracker for bugs we also had, or reading a big chunk of the stdlib.
+
+I also chained models. One instruction I gave was just "have an agent read the stdlib (Haiku) and have it pass the spec to Sonnet so it can implement it." Cheap model reads, mid model writes, expensive model reviews.
+
+I got the model choice wrong at first. In the second week, subagents were running on Opus and racked up about 4 billion cached input tokens before I noticed. After that the rule was Sonnet for subagents, Haiku for anything read-only.
+
+<BarChart
+  src="vibecoding-jai/data/output-tokens.json"
+  title="Output tokens by model"
+  caption="Summed from session transcripts. Cache reads are far larger (about 7.6 billion) and mostly track how long sessions ran."
+/>
+
+<BarChart
+  src="vibecoding-jai/data/commits-per-day.json"
+  title="Commits per day"
+  caption="The peak on Oct 6 is the day jaifmt, jailint and the VS Code extension all shipped."
+  interactive
+/>
+
+## Memory, docs and checks
+
+With this many agents, nothing I said once would stick unless it was written down somewhere they'd read. There were three places for that.
+
+**Memory files.** By the end there were 15 rules, almost all learned the hard way:
+
+- One cargo target directory per agent.
+- Check agent branches before merging. One agent commit tracked the gitignored corpus checkout and wiped it.
+- On my 16 GB Mac, only one heavy job at a time. That came after a benchmark spiked memory to about 84 GB.
+- The stdlib must not resemble the reference.
+- Comparisons with the real compiler stay uncommitted.
+
+**Docs.** I have a global rule that every feature gets a docs page: what it is, how it works, how to change it. That went from 80 to 126 pages over the project. It's what let a fresh session pick up any part of the codebase without me explaining it again, which is most of what makes a long-running multi-agent project resumable.
+
+**Enforced checks.** `just check` runs the formatter, jailint at deny level and clippy, and there are pre-commit hooks and nine nightly fuzz targets. The project's own formatter and linter run on its own code, which found more bugs early than any test did.
+
+## Clean room
+
+Jai's compiler and standard library aren't open source, and I didn't want this to be a copy. So the rules were:
+
+- Contributors, human or not, can't read official Jai sources. That's in the public docs.
+- The real compiler is only used as a black box for comparisons, and only in a sandbox. I didn't want an agent casually running a binary it found in the repo.
+- When the stdlib came out a bit too close to the reference in places, I had anything that resembled it rewritten independently. That was about 20 commits over two days.
+
+## What I actually did
+
+Looking back at around 870 messages I sent in the main session, very few were "build X". They were mostly one of these:
+
+**Holding the standard.** The language server had to be a normal LSP server that works in VS Code or Neovim, not a custom protocol only the playground could use. Errors had to say what's wrong and ideally suggest a fix. The linter had to trace usage for real, not match by name.
+
+**Asking for performance with numbers.** Agents don't volunteer it. "The real compiler does around 250k lines per second, see if we can get close." "Can we get debug builds under 1s and optimized under 5?" "Track time, CPU and memory for the language server on a 100k-line file." On my machine, a local harness now has `jaic` at roughly 1.4 to 1.8 times faster than the real compiler on the projects we tried. That's a local, uncommitted comparison, so take it as a rough number.
+
+**Pushing on root causes.** "For crashes, can we fix the underlying issue instead of patching each one." On an arm64 struct-layout bug: "can we eliminate that class of bugs in some way?"
+
+**Saying no.** One playground, not several. Keep our TOML config instead of adopting another tool's format. Rename `jai-lsp` to `jailsp` and drop "Jai, in Rust" from the README, because who cares what it's written in?
+
+**Unblocking.** Breaking changes are fine if they make things cleaner or faster, nobody depends on this yet, so just cut a 0.5.0. And when there was missing test coverage before a release: "its fine to hold the release, im not in a rush."
+
+**Using it.** Two of the worst bugs had a green test suite. An agent skipped type-checking some `switch` cases to get something compiling, which silently broke hover inside them. A lint autofix turned `ms[i] - ms[j]` into `it - it`. I found the first by hovering over something and getting nothing, and the second by reading a diff. The same goes for the boring UX stuff, like Escape closing the whole modal or Tab not accepting completions. No agent was going to notice those.
+
+<LineChart
+  src="vibecoding-jai/data/wasm-size.json"
+  title="Playground bundle size"
+  caption="The zipped wasm bundle. The Oct 5 drop is moving the UI out of wasm and into the site; it grows again as the language server and WebGPU support land."
+/>
+
+## What I'd tell someone trying this
+
+- **Pick a bar the agents can't write themselves.** Real projects in CI beat any test suite.
+- **Main session reviews, subagents build, cheap models read.** And watch which model your subagents are actually on.
+- **Isolate agents.** Own worktree, own build directory, one heavy job at a time.
+- **Write every correction down** in memory or docs, or you'll be making it again tomorrow.
+- **Throw things away early.** It's cheap now in a way it never used to be.
+- **Use the thing yourself.** That's still where the worst bugs show up.
+
+There's plenty left: code signing, a real conformance pass rate, and a language spec that's only partway done. But after ten days it compiles real Jai in your browser, with tooling around it that I'd actually want to use.

@@ -1,0 +1,25 @@
+{
+  "unit": "M tokens",
+  "bars": [
+    {
+      "label": "Opus (main)",
+      "value": 4.32
+    },
+    {
+      "label": "Opus (subagents)",
+      "value": 0.38
+    },
+    {
+      "label": "Sonnet (subagents)",
+      "value": 0.16
+    },
+    {
+      "label": "Sonnet (main)",
+      "value": 0.03
+    },
+    {
+      "label": "Haiku (subagents)",
+      "value": 0.002
+    }
+  ]
+}

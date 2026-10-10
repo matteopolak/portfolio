@@ -2,7 +2,11 @@
 
 /** `May 2026`: the resume's month-and-year format. */
 export function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-CA', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 /** `2026-05` for `<time datetime>` and JSON. */

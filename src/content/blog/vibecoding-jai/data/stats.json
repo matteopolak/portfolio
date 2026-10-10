@@ -1,0 +1,29 @@
+{
+  "stats": [
+    {
+      "value": "10",
+      "label": "Days",
+      "note": "Oct 1 \u2013 Oct 10"
+    },
+    {
+      "value": "1,249",
+      "label": "Commits"
+    },
+    {
+      "value": "15",
+      "label": "Releases"
+    },
+    {
+      "value": "~120k",
+      "label": "Lines of Rust"
+    },
+    {
+      "value": "41",
+      "label": "Real projects in CI"
+    },
+    {
+      "value": "241",
+      "label": "Subagents"
+    }
+  ]
+}
