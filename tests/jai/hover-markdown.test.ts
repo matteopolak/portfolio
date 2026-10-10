@@ -1,21 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  markdownHover,
-  renderHoverMarkdown,
-} from '../../src/lib/hover-markdown.ts';
+import { renderHoverMarkdown } from '../../src/lib/hover-markdown.ts';
+import { documentation } from '../../src/lib/jai/lsp-features.ts';
 
 test('only MarkupContent of kind markdown is read as Markdown', () => {
-  assert.equal(
-    markdownHover({ kind: 'markdown', value: '`x`' } as never),
-    '`x`'
+  assert.deepEqual(documentation({ kind: 'markdown', value: '`x`' }), {
+    kind: 'markdown',
+    value: '`x`',
+  });
+  assert.deepEqual(documentation({ kind: 'plaintext', value: 'x' }), {
+    kind: 'plaintext',
+    value: 'x',
+  });
+  assert.deepEqual(documentation('x'), { kind: 'plaintext', value: 'x' });
+  assert.deepEqual(documentation(['a', { value: 'b' }] as never), {
+    kind: 'plaintext',
+    value: 'a\n\nb',
+  });
+  assert.equal(documentation({ kind: 'markdown', value: '  ' }), undefined);
+  assert.equal(documentation(undefined), undefined);
+});
+
+test('doc comment Markdown keeps its headings and bullet lists', () => {
+  const html = renderHoverMarkdown(
+    '# Scaling\n\nScales a [Point](file:///jai-script/main.jai#L4).\n\n- p: the point\n- `factor`: how much'
   );
-  assert.equal(
-    markdownHover({ kind: 'plaintext', value: 'x' } as never),
-    undefined
-  );
-  assert.equal(markdownHover('x'), undefined);
-  assert.equal(markdownHover(['x']), undefined);
+  assert.match(html, /<h1>Scaling<\/h1>/u);
+  assert.match(html, /<ul>\n<li>p: the point<\/li>/u);
+  assert.doesNotMatch(html, /jai-hover__format/u);
 });
 
 test('a break followed by an emphasized paragraph is a section divider', () => {
@@ -53,6 +65,7 @@ test('format-string rows are a plain list; the hovered one is bold', () => {
     /<li><strong><code>%<\/code><\/strong> → <code>count: s64<\/code><\/li>/u
   );
   assert.match(html, /<li><code>%<\/code> → missing argument 2<\/li>/u);
+  assert.match(html, /<ul class="jai-hover__format">/u);
 });
 
 test('raw HTML and links are shown as text', () => {

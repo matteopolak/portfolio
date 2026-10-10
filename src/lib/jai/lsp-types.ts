@@ -22,7 +22,11 @@ export interface LocationLink {
   targetSelectionRange?: Range;
 }
 
-export type MarkupText = string | { value?: unknown } | MarkupText[];
+/** MarkupContent (`kind` is `markdown` or `plaintext`), a MarkedString or a list of them. */
+export type MarkupText =
+  | string
+  | { kind?: unknown; value?: unknown }
+  | MarkupText[];
 
 export interface CompletionItem {
   label: string;
@@ -36,6 +40,8 @@ export interface CompletionItem {
   sortText?: string;
   /** Edits elsewhere made on accepting, such as an auto-import's `#import`. */
   additionalTextEdits?: TextEdit[];
+  /** Opaque to the client; sent back with `completionItem/resolve`. */
+  data?: unknown;
 }
 
 export interface CompletionList {
@@ -122,7 +128,10 @@ export interface InlayHint {
 export interface SignatureInformation {
   label: string;
   documentation?: MarkupText;
-  parameters?: { label: string | [number, number] }[];
+  parameters?: {
+    label: string | [number, number];
+    documentation?: MarkupText;
+  }[];
   activeParameter?: number;
 }
 
@@ -182,6 +191,7 @@ export interface ServerCapabilities {
   foldingRangeProvider?: unknown;
   documentLinkProvider?: unknown;
   inlayHintProvider?: unknown;
+  completionProvider?: { resolveProvider?: boolean };
   signatureHelpProvider?: {
     triggerCharacters?: string[];
     retriggerCharacters?: string[];

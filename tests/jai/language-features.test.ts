@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   documentUri,
+  linkTarget,
   pathFromUri,
   resourceFromUri,
 } from '../../src/lib/jai/language-client.ts';
@@ -14,6 +15,7 @@ import {
   inlayLabel,
   provides,
   signatureParts,
+  signatureView,
   supportsCommand,
   tokenClass,
   tokenLegend,
@@ -275,4 +277,69 @@ test('capabilities are present unless absent or false', () => {
     true
   );
   assert.equal(supportsCommand({}, 'jai.showExpansion'), false);
+});
+
+test('doc link targets carry a 1-based line fragment', () => {
+  assert.deepEqual(linkTarget('file:///stdlib/Basic/Print.jai#L1213'), {
+    uri: 'file:///stdlib/Basic/Print.jai',
+    range: {
+      start: { line: 1212, character: 0 },
+      end: { line: 1212, character: 0 },
+    },
+  });
+  assert.deepEqual(
+    linkTarget('file:///jai-script/main.jai#L4').uri,
+    documentUri('main.jai')
+  );
+  // `#import` links and other fragments are opened as they are.
+  assert.deepEqual(linkTarget('file:///stdlib/Basic/module.jai'), {
+    uri: 'file:///stdlib/Basic/module.jai',
+  });
+  assert.deepEqual(linkTarget('file:///a.jai#L0'), { uri: 'file:///a.jai#L0' });
+  assert.deepEqual(linkTarget('file:///a.jai#x'), { uri: 'file:///a.jai#x' });
+});
+
+test('signature help carries the procedure and active parameter docs', () => {
+  const view = signatureView({
+    activeSignature: 0,
+    activeParameter: 1,
+    signatures: [
+      {
+        label: 'hail :: (n: int, steps: int) -> int',
+        documentation: { kind: 'markdown', value: 'Runs **Collatz**.' },
+        parameters: [
+          { label: [9, 15] },
+          {
+            label: [17, 27],
+            documentation: { kind: 'markdown', value: 'how many' },
+          },
+        ],
+      },
+    ],
+  });
+  assert.ok(view);
+  assert.equal(view.count, 1);
+  assert.equal(view.parts.active, 'steps: int');
+  assert.deepEqual(view.parameter, { kind: 'markdown', value: 'how many' });
+  assert.deepEqual(view.documentation, {
+    kind: 'markdown',
+    value: 'Runs **Collatz**.',
+  });
+  // An undocumented parameter has no row; no signatures, no tooltip.
+  const first = signatureView({
+    activeParameter: 0,
+    signatures: [{ label: 'f :: (a: int)', parameters: [{ label: 'a: int' }] }],
+  });
+  assert.equal(first?.parameter, undefined);
+  assert.equal(first?.documentation, undefined);
+  assert.equal(signatureView({ signatures: [] }), undefined);
+});
+
+test('doc link labels naming a field get the property colour', () => {
+  const legend = tokenLegend({
+    tokenTypes: ['property', 'variable'],
+    tokenModifiers: ['readonly'],
+  });
+  assert.ok(legend);
+  assert.equal(tokenClass(legend, 0, 0), 'cm-sem-property');
 });

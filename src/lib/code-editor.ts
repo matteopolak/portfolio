@@ -57,9 +57,9 @@ import {
   type Action as LintAction,
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
-import { markdownHover } from './hover-markdown.ts';
 import { linkModifier } from './platform.ts';
 import {
+  documentationContent,
   formatLiteral,
   highlighted,
   highlightStyle,
@@ -69,7 +69,7 @@ import {
 } from './code-highlight.ts';
 import { completionOption } from './jai/completion-items.ts';
 import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
-import { markupText } from './jai/lsp-features.ts';
+import { documentation } from './jai/lsp-features.ts';
 import { formatStringAt } from './jai/format-string.ts';
 import {
   lintDocs,
@@ -217,6 +217,8 @@ const theme = EditorView.theme(
       color: 'var(--accent-3-light)',
     },
     '.cm-completionInfo': { padding: '8px 10px', maxWidth: '28rem' },
+    // Rendered documentation brings its own insets.
+    '.cm-completionInfo:has(> .jai-hover)': { padding: '0' },
     '.cm-tooltip-lint, .cm-diagnostic': { fontFamily: 'var(--ide-mono)' },
     '.cm-diagnostic-error': { borderLeftColor: 'var(--accent-1)' },
     '.cm-diagnostic-warning': { borderLeftColor: 'var(--accent-3)' },
@@ -364,17 +366,37 @@ const theme = EditorView.theme(
       borderTop: '1px solid var(--ide-rule)',
       margin: '6px 0',
     },
-    // A list is a format-string hover: rows like the client-side one.
-    '.jai-hover--markdown ul, .jai-hover--markdown ol': {
+    '.jai-hover--markdown :is(h1, h2, h3, h4, h5, h6)': {
+      padding: '6px 10px 0',
+      color: 'var(--ide-fg-strong)',
+      fontSize: '1em',
+      fontWeight: '650',
+    },
+    // Lists in documentation (parameters): ordinary bullets on the same inset.
+    '.jai-hover--markdown :is(ul, ol)': {
+      padding: '2px 10px 4px calc(10px + 1.25em)',
+    },
+    '.jai-hover--markdown li + li': { marginTop: '2px' },
+    // A format-string list: rows like the client-side format hover.
+    '.jai-hover--markdown .jai-hover__format': {
       listStyle: 'none',
       padding: '0',
     },
-    '.jai-hover--markdown li': {
+    '.jai-hover--markdown .jai-hover__format > li': {
+      margin: '0',
       borderTop: '1px solid var(--ide-rule)',
       fontFamily: 'var(--ide-mono)',
       fontSize: '12.5px',
     },
-    '.jai-hover--markdown li strong': { fontWeight: 'inherit' },
+    '.jai-hover--markdown .jai-hover__format strong': {
+      fontWeight: 'inherit',
+    },
+    // Plain-text documentation from older servers.
+    '.jai-hover--text': {
+      padding: '6px 10px',
+      fontFamily: 'var(--font-sans)',
+      lineHeight: '1.45',
+    },
     // Semantic tokens refine the tokenizer's colours; `span` covers either nesting.
     '.cm-sem-type, .cm-sem-type span': { color: 'var(--ide-syntax-type)' },
     '.cm-sem-namespace, .cm-sem-namespace span': {
@@ -384,6 +406,7 @@ const theme = EditorView.theme(
       color: 'var(--ide-syntax-type)',
       fontStyle: 'italic',
     },
+    '.cm-sem-property, .cm-sem-property span': { color: 'var(--ide-fg)' },
     '.cm-sem-function, .cm-sem-function span': {
       color: 'var(--ide-syntax-function)',
     },
@@ -465,8 +488,12 @@ const theme = EditorView.theme(
       strokeLinecap: 'round',
     },
     '.cm-lsp-signature': {
-      padding: '5px 10px',
       maxWidth: 'min(36rem, calc(100vw - 32px))',
+      maxHeight: '16rem',
+      overflowY: 'auto',
+    },
+    '.cm-lsp-signature__label': {
+      padding: '5px 10px',
       fontFamily: 'var(--ide-mono)',
       fontSize: '12.5px',
       color: 'var(--ide-muted)',
@@ -484,6 +511,29 @@ const theme = EditorView.theme(
       color: 'var(--ide-faint)',
       fontFamily: 'var(--font-sans)',
       fontSize: '11px',
+    },
+    // The active parameter's doc, then the procedure's, each under a rule.
+    '.cm-lsp-signature .jai-hover': {
+      maxWidth: 'none',
+      borderTop: '1px solid var(--ide-rule)',
+    },
+    '.cm-lsp-signature__parameter': {
+      display: 'flex',
+      alignItems: 'baseline',
+      gap: '1ch',
+      paddingLeft: '10px',
+      borderTop: '1px solid var(--ide-rule)',
+    },
+    '.cm-lsp-signature__parameter > code': {
+      flex: 'none',
+      color: 'var(--ide-fg-strong)',
+      fontFamily: 'var(--ide-mono)',
+      fontSize: '12.5px',
+    },
+    '.cm-lsp-signature__parameter > .jai-hover': {
+      flex: '1',
+      minWidth: '0',
+      borderTop: 'none',
     },
     '.jai-picker': {
       position: 'absolute',
@@ -687,6 +737,8 @@ export interface EditorOptions {
   extensions?: Extension;
   /** When true the server explains format strings; the client-side hover stays off. */
   serverFormatHover?: () => boolean;
+  /** When true the server fills in a completion's documentation on `completionItem/resolve`. */
+  resolvesCompletions?: () => boolean;
 }
 
 export type Editor = ReturnType<typeof createEditor>;
@@ -836,6 +888,7 @@ export function createEditor(
     keys = [],
     extensions = [],
     serverFormatHover = () => false,
+    resolvesCompletions = () => false,
   }: EditorOptions
 ) {
   const editable = new Compartment();
@@ -967,11 +1020,24 @@ export function createEditor(
       const items = Array.isArray(response)
         ? response
         : (response?.items ?? []);
+      // Documentation of long lists comes on selection; only while the
+      // document is the one the list was made for.
+      const resolve = resolvesCompletions()
+        ? (item: CompletionItem) =>
+            currentDocument()?.uri === current.uri
+              ? client
+                  .request<CompletionItem | null>(
+                    'completionItem/resolve',
+                    item
+                  )
+                  .catch(() => null)
+              : Promise.resolve(null)
+        : undefined;
       return {
         from: word?.from ?? context.pos,
         options: items
           .filter((item) => item.insertTextFormat !== 2)
-          .map((item) => completionOption(item, markupText)),
+          .map((item) => completionOption(item, documentationContent, resolve)),
       };
     } catch {
       return null;
@@ -1002,20 +1068,18 @@ export function createEditor(
       )
         return null;
       // Markdown from servers that support it; older bundles send plain text.
-      const markdown = result ? markdownHover(result.contents) : undefined;
-      const contents = result ? (markdown ?? markupText(result.contents)) : '';
-      if (!result || !contents.trim()) return local;
+      const doc = result ? documentation(result.contents) : undefined;
+      if (!result || !doc) return local;
+      const syntax = languageFor(language);
       return {
         pos: result.range ? offsetAt(text, result.range.start) : position,
         end: result.range ? offsetAt(text, result.range.end) : undefined,
-        create() {
-          return {
-            dom:
-              markdown === undefined
-                ? plainHoverContent(contents, languageFor(language))
-                : markdownContent(markdown, languageFor(language), language),
-          };
-        },
+        create: () => ({
+          dom:
+            doc.kind === 'markdown'
+              ? markdownContent(doc.value, syntax, language)
+              : plainHoverContent(doc.value, syntax),
+        }),
       };
     } catch {
       return local;

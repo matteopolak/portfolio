@@ -49,6 +49,7 @@ import {
   documentUri,
   pathFromUri,
   positionAt,
+  linkTarget,
   resourceFromUri,
 } from './language-client.ts';
 import {
@@ -802,12 +803,19 @@ export async function createSession(
       currentDocument: () => languageDocument(g),
       service: syncedClient,
       serverFormatHover: () => can('inlayHintProvider'),
+      resolvesCompletions: () =>
+        Boolean(
+          language && languageCapabilities?.completionProvider?.resolveProvider
+        ),
       extensions: [
         languageFeatures({
           document: () => languageDocument(g),
           client: syncedClient,
           capabilities: () => (language ? languageCapabilities : undefined),
-          openLink: (target) => void openUri(target),
+          openLink: (target) => {
+            const { uri, range } = linkTarget(target);
+            void openUri(uri, range);
+          },
           runLens: (view, lens, pos) =>
             void runCommand(view, lens.command, pos),
           codeActions: (view) => void codeActions(view),

@@ -9,6 +9,7 @@ import type {
   MarkupText,
   SemanticTokensLegend,
   ServerCapabilities,
+  SignatureHelp,
   SignatureInformation,
 } from './lsp-types.ts';
 
@@ -40,6 +41,9 @@ const typeClasses: Record<string, string> = {
   type: 'cm-sem-type',
   macro: 'cm-sem-macro',
   namespace: 'cm-sem-namespace',
+  // Fields: the tokenizer's colour in code, but a doc-comment link to a
+  // field (`[Point.x]`) must stand out from the comment.
+  property: 'cm-sem-property',
   typeParameter: 'cm-sem-type-parameter',
   enumMember: 'cm-sem-enum-member',
   decorator: 'cm-sem-decorator',
@@ -144,6 +148,29 @@ export const markupText = (value: MarkupText | undefined): string => {
   return typeof value?.value === 'string' ? value.value : '';
 };
 
+/** Documentation from the server: Markdown, or plain text from older servers. */
+export interface Documentation {
+  kind: 'markdown' | 'plaintext';
+  value: string;
+}
+
+/**
+ * Reads a `documentation` or `contents` field: MarkupContent of kind
+ * `markdown` is Markdown; strings, plain text and MarkedString lists are
+ * plain text. Undefined when there is nothing to show.
+ */
+export function documentation(
+  value: MarkupText | undefined
+): Documentation | undefined {
+  const markdown =
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    value.kind === 'markdown';
+  const text = markupText(value);
+  if (!text.trim()) return undefined;
+  return { kind: markdown ? 'markdown' : 'plaintext', value: text };
+}
+
 export interface InlayLabel {
   text: string;
   kind: 'type' | 'parameter' | 'other';
@@ -205,6 +232,40 @@ export function signatureParts(
     before: label.slice(0, range[0]),
     active: label.slice(range[0], range[1]),
     after: label.slice(range[1]),
+  };
+}
+
+/** What the signature-help tooltip shows. */
+export interface SignatureView {
+  /** 0-based index and count, for the `1/2` counter. */
+  index: number;
+  count: number;
+  parts: { before: string; active: string; after: string };
+  /** The active parameter's own documentation. */
+  parameter?: Documentation;
+  /** The procedure's documentation. */
+  documentation?: Documentation;
+}
+
+/** The active signature of a reply, or undefined when it has none. */
+export function signatureView(help: SignatureHelp): SignatureView | undefined {
+  const signatures = help.signatures ?? [];
+  if (!signatures.length) return undefined;
+  const index = Math.min(
+    Math.max(help.activeSignature ?? 0, 0),
+    signatures.length - 1
+  );
+  const signature = signatures[index];
+  const active = signature.activeParameter ?? help.activeParameter;
+  return {
+    index,
+    count: signatures.length,
+    parts: signatureParts(signature, active),
+    parameter:
+      active === undefined
+        ? undefined
+        : documentation(signature.parameters?.[active]?.documentation),
+    documentation: documentation(signature.documentation),
   };
 }
 

@@ -9,10 +9,16 @@ import { tags, highlightTree } from '@lezer/highlight';
 import DOMPurify from 'dompurify';
 import { renderHoverMarkdown } from './hover-markdown.ts';
 import {
+  docCommentTags,
   formatPercentTag,
   formatSpecifierTag,
   jaiLanguage,
 } from './jai/language.ts';
+import type { Documentation } from './jai/lsp-features.ts';
+
+/** Comment text brightened toward the foreground, for Markdown emphasis in comments. */
+const commentToward = (share: number, color = 'var(--ide-fg-strong)') =>
+  `color-mix(in oklch, var(--ide-syntax-comment) ${100 - share}%, ${color})`;
 
 // Colors resolve from the `--ide-*` tokens declared by CodeWorkspace.svelte.
 export const highlightStyle = HighlightStyle.define([
@@ -34,6 +40,32 @@ export const highlightStyle = HighlightStyle.define([
     tag: tags.comment,
     color: 'var(--ide-syntax-comment)',
     fontStyle: 'italic',
+  },
+  // Markdown in comments, after `comment` so these win where they overlap.
+  // Markers stay visible: only weight, slant and colour change, never width.
+  {
+    tag: docCommentTags.heading,
+    color: commentToward(55),
+    fontWeight: '700',
+  },
+  { tag: docCommentTags.strong, color: commentToward(40), fontWeight: '700' },
+  { tag: docCommentTags.emphasis, color: commentToward(30) },
+  {
+    tag: docCommentTags.code,
+    color: commentToward(45, 'var(--ide-fg)'),
+    fontStyle: 'normal',
+    backgroundColor: 'oklch(100% 0 0 / 0.05)',
+    borderRadius: 'var(--radius-xs)',
+  },
+  {
+    tag: docCommentTags.list,
+    color: 'color-mix(in oklch, var(--ide-syntax-comment) 55%, var(--ide-bg))',
+    fontStyle: 'normal',
+  },
+  // A resolved link's semantic token (`.cm-sem-*`) colours it by kind instead.
+  {
+    tag: docCommentTags.link,
+    color: commentToward(60, 'var(--accent-2-light)'),
   },
   { tag: tags.number, color: 'var(--ide-syntax-number)' },
   {
@@ -136,9 +168,9 @@ export function plainHoverContent(
  * Markdown from the language server (see `hover-markdown.ts`), sanitized,
  * with its code in the editor's colours. Fenced blocks tagged `fence` (or
  * untagged) and inline code are highlighted with `syntax`; other fences
- * (`text`: what `#run` printed) stay plain. A list is a format-string hover:
- * one row per `%`, the leading code of each row is the specifier, and a bold
- * one is the hovered row.
+ * (`text`: what `#run` printed) stay plain. A format-string list
+ * (`.jai-hover__format`) has one row per `%`: the leading code of each row is
+ * the specifier, and a bold one is the hovered row.
  */
 export function markdownContent(
   markdown: string,
@@ -161,7 +193,7 @@ export function markdownContent(
     );
   }
   for (const code of dom.querySelectorAll<HTMLElement>(':not(pre) > code')) {
-    const row = code.closest('li');
+    const row = code.closest('.jai-hover__format > li');
     const leading =
       row &&
       (row.firstElementChild === code ||
@@ -170,11 +202,25 @@ export function markdownContent(
     if (leading) code.classList.add('jai-hover__format-spec');
     else code.replaceChildren(highlighted(code.textContent ?? '', syntax));
   }
-  for (const row of dom.querySelectorAll<HTMLElement>('li')) {
+  for (const row of dom.querySelectorAll<HTMLElement>(
+    '.jai-hover__format > li'
+  )) {
     row.classList.add('jai-hover__format-row');
     if (row.firstElementChild?.tagName === 'STRONG')
       row.dataset.current = 'true';
   }
+  return dom;
+}
+
+/**
+ * Documentation in a panel: Markdown as in a hover; plain text (older
+ * servers) as written, in the UI face.
+ */
+export function documentationContent(doc: Documentation): HTMLElement {
+  if (doc.kind === 'markdown') return markdownContent(doc.value);
+  const dom = document.createElement('div');
+  dom.className = 'jai-hover jai-hover--text';
+  dom.textContent = doc.value;
   return dom;
 }
 

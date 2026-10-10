@@ -8,11 +8,36 @@ import { Tag, tags } from '@lezer/highlight';
 import { formatCallees } from './format-string.ts';
 import { embeddedLanguageFor } from './embedded-languages.ts';
 import { wgslTokenizer, type WgslState } from './wgsl.ts';
+import {
+  docCommentSegments,
+  type CommentExtent,
+  type DocStyle,
+} from './doc-comments.ts';
 
 /** `%`, `%N` and `%00` in a print-family format string. */
 export const formatSpecifierTag = Tag.define(tags.string);
 /** `\%`, the escaped (literal) percent sign in a format string. */
 export const formatPercentTag = Tag.define(tags.string);
+/**
+ * Markdown in comments (see doc-comments.ts). A styled piece carries the
+ * comment tag too, so it keeps the comment colour unless a style overrides it.
+ */
+export const docCommentTags: Record<DocStyle, Tag> = {
+  heading: Tag.define(),
+  list: Tag.define(),
+  strong: Tag.define(),
+  emphasis: Tag.define(),
+  code: Tag.define(),
+  link: Tag.define(),
+};
+const docTokenNames: Record<DocStyle, string> = {
+  heading: 'docHeading',
+  list: 'docList',
+  strong: 'docStrong',
+  emphasis: 'docEmphasis',
+  code: 'docCode',
+  link: 'docLink',
+};
 const keywords = new Set(
   'if else ifx for while break continue return defer using struct union enum operator cast remove inline no_inline interface push_context pop_context null true false new delete case switch then it_index it'.split(
     ' '
@@ -34,6 +59,8 @@ interface FormatCall {
 }
 export interface JaiState {
   commentDepth: number;
+  /** The rest of this line's comment: where each Markdown piece ends and its style. */
+  pieces: { to: number; style: string }[];
   string: boolean;
   /** The open string is a format string, so `%` sequences are tokens. */
   format: boolean;
@@ -46,14 +73,50 @@ export interface JaiState {
   calls: FormatCall[];
 }
 const identifier = /^[_\p{L}][_\p{L}\p{N}]*/u;
-function comment(stream: StringStream, state: JaiState) {
-  while (!stream.eol()) {
-    if (stream.match('/*')) state.commentDepth++;
-    else if (stream.match('*/')) {
-      if (--state.commentDepth === 0) break;
-    } else stream.next();
-  }
-  return 'comment';
+/**
+ * A comment's text on this line. `stream.start` is where it starts (its `//`
+ * or `/*`, or the start of a line inside a block comment). The text is split
+ * into Markdown pieces, returned one token at a time (`pieces`).
+ */
+function comment(
+  stream: StringStream,
+  state: JaiState,
+  kind: CommentExtent['kind']
+): string {
+  const from = stream.start;
+  const contentFrom = stream.pos;
+  let contentTo = stream.string.length;
+  if (kind === 'line') stream.skipToEnd();
+  else
+    while (!stream.eol()) {
+      if (stream.match('/*')) state.commentDepth++;
+      else if (stream.match('*/')) {
+        if (--state.commentDepth === 0) {
+          contentTo = stream.pos - 2;
+          break;
+        }
+      } else stream.next();
+    }
+  const to = stream.pos;
+  state.pieces = docCommentSegments(stream.string, {
+    from,
+    to,
+    contentFrom,
+    contentTo,
+    kind,
+  }).map(({ to, styles }) => ({
+    to,
+    style: ['comment', ...styles.map((style) => docTokenNames[style])].join(
+      ' '
+    ),
+  }));
+  stream.pos = from;
+  return nextPiece(stream, state);
+}
+function nextPiece(stream: StringStream, state: JaiState): string {
+  const piece = state.pieces.shift()!;
+  stream.pos = piece.to;
+  return piece.style;
 }
 function string(stream: StringStream, state: JaiState) {
   // Format-string text is its own token so the hover can find the literal.
@@ -86,6 +149,7 @@ function string(stream: StringStream, state: JaiState) {
 export const jaiTokenizer: StreamParser<JaiState> = {
   startState: () => ({
     commentDepth: 0,
+    pieces: [],
     string: false,
     format: false,
     hereTag: null,
@@ -96,6 +160,7 @@ export const jaiTokenizer: StreamParser<JaiState> = {
   }),
   copyState: (state) => ({
     ...state,
+    pieces: [...state.pieces],
     embedded: state.embedded && copyEmbedded(state.embedded),
     calls: state.calls.map((call) => ({ ...call })),
   }),
@@ -103,7 +168,11 @@ export const jaiTokenizer: StreamParser<JaiState> = {
     // Comments and whitespace may sit between a print-family name and its `(`.
     const callee = state.callee;
     const style = token(stream, state);
-    if (style !== null && style !== 'comment' && state.callee === callee)
+    if (
+      style !== null &&
+      !style.startsWith('comment') &&
+      state.callee === callee
+    )
       state.callee = null;
     return style;
   },
@@ -126,6 +195,12 @@ export const jaiTokenizer: StreamParser<JaiState> = {
     formatString: tags.string,
     formatSpecifier: formatSpecifierTag,
     formatPercent: formatPercentTag,
+    ...Object.fromEntries(
+      Object.entries(docTokenNames).map(([style, name]) => [
+        name,
+        docCommentTags[style as DocStyle],
+      ])
+    ),
   },
 };
 function token(stream: StringStream, state: JaiState): string | null {
@@ -147,16 +222,14 @@ function token(stream: StringStream, state: JaiState): string | null {
     stream.skipToEnd();
     return 'string';
   }
-  if (state.commentDepth) return comment(stream, state);
+  if (state.pieces.length) return nextPiece(stream, state);
+  if (state.commentDepth) return comment(stream, state, 'block');
   if (state.string) return string(stream, state);
   if (stream.eatSpace()) return null;
-  if (stream.match('//')) {
-    stream.skipToEnd();
-    return 'comment';
-  }
+  if (stream.match('//')) return comment(stream, state, 'line');
   if (stream.match('/*')) {
     state.commentDepth = 1;
-    return comment(stream, state);
+    return comment(stream, state, 'block-start');
   }
   if (stream.match('"')) {
     state.string = true;

@@ -35,11 +35,12 @@ import {
   type LanguageClient,
 } from './language-client.ts';
 import { isApple, linkModifier } from '../platform.ts';
+import { documentationContent } from '../code-highlight.ts';
 import {
   decodeSemanticTokens,
   inlayLabel,
   provides,
-  signatureParts,
+  signatureView,
   tokenLegend,
   type TokenLegend,
 } from './lsp-features.ts';
@@ -280,18 +281,14 @@ class BulbWidget extends WidgetType {
   }
 }
 
+/**
+ * Signature help: the signature with its active parameter marked, that
+ * parameter's documentation, then the procedure's (Markdown when the server
+ * sends it, rendered like a hover).
+ */
 function signatureTooltip(help: SignatureHelp, pos: number): Tooltip | null {
-  const signatures = help.signatures ?? [];
-  if (!signatures.length) return null;
-  const index = Math.min(
-    Math.max(help.activeSignature ?? 0, 0),
-    signatures.length - 1
-  );
-  const signature = signatures[index];
-  const parts = signatureParts(
-    signature,
-    signature.activeParameter ?? help.activeParameter
-  );
+  const view = signatureView(help);
+  if (!view) return null;
   return {
     pos,
     above: true,
@@ -300,16 +297,32 @@ function signatureTooltip(help: SignatureHelp, pos: number): Tooltip | null {
     create() {
       const dom = document.createElement('div');
       dom.className = 'cm-lsp-signature';
-      if (signatures.length > 1) {
+      const label = document.createElement('div');
+      label.className = 'cm-lsp-signature__label';
+      if (view.count > 1) {
         const count = document.createElement('span');
         count.className = 'cm-lsp-signature__count';
-        count.textContent = `${index + 1}/${signatures.length}`;
-        dom.append(count);
+        count.textContent = `${view.index + 1}/${view.count}`;
+        label.append(count);
       }
       const active = document.createElement('span');
       active.className = 'cm-lsp-signature__active';
-      active.textContent = parts.active;
-      dom.append(parts.before, active, parts.after);
+      active.textContent = view.parts.active;
+      label.append(view.parts.before, active, view.parts.after);
+      dom.append(label);
+      if (view.parameter) {
+        const row = document.createElement('div');
+        row.className = 'cm-lsp-signature__parameter';
+        if (view.parts.active) {
+          const name = document.createElement('code');
+          name.textContent = view.parts.active;
+          row.append(name);
+        }
+        row.append(documentationContent(view.parameter));
+        dom.append(row);
+      }
+      if (view.documentation)
+        dom.append(documentationContent(view.documentation));
       return { dom };
     },
   };
