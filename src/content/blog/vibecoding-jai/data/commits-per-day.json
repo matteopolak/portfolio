@@ -1,0 +1,45 @@
+{
+  "unit": "commits",
+  "bars": [
+    {
+      "label": "Oct 1",
+      "value": 18
+    },
+    {
+      "label": "Oct 2",
+      "value": 17
+    },
+    {
+      "label": "Oct 3",
+      "value": 36
+    },
+    {
+      "label": "Oct 4",
+      "value": 154
+    },
+    {
+      "label": "Oct 5",
+      "value": 228
+    },
+    {
+      "label": "Oct 6",
+      "value": 352
+    },
+    {
+      "label": "Oct 7",
+      "value": 223
+    },
+    {
+      "label": "Oct 8",
+      "value": 79
+    },
+    {
+      "label": "Oct 9",
+      "value": 121
+    },
+    {
+      "label": "Oct 10",
+      "value": 21
+    }
+  ]
+}
