@@ -33,10 +33,11 @@ const documentTitle = isHome ? `${config.name} — Software Engineer` : `${title
     />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
     <div class="site-shell">
       <BauhausField showHero={!isHome} />
       <Nav />
-      <main class="site-main">
+      <main id="main" class="site-main" tabindex="-1">
         <slot />
       </main>
     </div>

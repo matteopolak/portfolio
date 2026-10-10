@@ -893,3 +893,23 @@ body .site-main .project-card:hover {
     animation-iteration-count: 1 !important;
   }
 }
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  color: var(--paper);
+  font-weight: 700;
+  background: var(--ink);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+.site-main:focus {
+  outline: none;
+}
