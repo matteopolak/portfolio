@@ -28,16 +28,13 @@ const title = page.title.replace(/ playground$/, '');
   data-playground-embed-props={JSON.stringify(workspace)}
 >
   <section class="playground-embed__card" data-playground-embed-card aria-labelledby={`pe-${name}`}>
-    <p class="playground-embed__kind">Interactive playground</p>
-    <h3 class="playground-embed__title" id={`pe-${name}`}>{title}</h3>
-    <p class="playground-embed__summary">{page.summary}</p>
-    <div class="playground-embed__actions">
-      <button type="button" class="playground-embed__start" data-playground-embed-start>
-        Start {title}
-      </button>
-      <a href={page.path} data-astro-reload>Open full page</a>
-    </div>
-    <noscript><p class="playground-embed__summary">Running it needs JavaScript. <a href={page.path}>Open the full page</a>.</p></noscript>
+    <button type="button" class="playground-embed__start" data-playground-embed-start>
+      Start
+    </button>
+    <p class="playground-embed__label" id={`pe-${name}`}>
+      {title} <span>· runs in your browser</span>
+    </p>
+    <noscript><p class="playground-embed__label">Running it needs JavaScript. <a href={page.path}>Open the full page</a>.</p></noscript>
   </section>
   <div class="playground-embed__stage" data-playground-embed-stage hidden></div>
   <button type="button" class="playground-embed__fullscreen" data-playground-embed-fullscreen hidden>
@@ -55,7 +52,9 @@ const title = page.title.replace(/ playground$/, '');
   .playground-embed {
     position: relative;
     margin: 2rem 0;
-    height: clamp(26rem, 70dvh, 40rem);
+    aspect-ratio: 16 / 9;
+    min-height: 16rem;
+    max-height: 80dvh;
     border: 1px solid var(--soft-rule);
     color: var(--ink);
     background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
@@ -65,48 +64,46 @@ const title = page.title.replace(/ playground$/, '');
     display: flex;
     height: 100%;
     flex-direction: column;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 1.5rem;
-    border-left: 0.65rem solid var(--accent-2);
-  }
-
-  .playground-embed__kind {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.8125rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .playground-embed__title {
-    margin: 0;
-    font-size: 1.5rem;
-    line-height: 1.2;
-  }
-
-  .playground-embed__summary {
-    max-width: 34rem;
-    margin: 0;
-    color: var(--muted);
-  }
-
-  .playground-embed__actions {
-    display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    margin-top: 0.75rem;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .playground-embed__label {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .playground-embed__label span {
+    color: var(--muted);
+    font-weight: 500;
   }
 
   .playground-embed__start {
-    padding: 0.6rem 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem 0.6rem 1rem;
     border: 0;
     color: var(--accent-2-on);
     background: var(--accent-2);
     font: 700 0.95rem var(--font-sans);
     cursor: pointer;
+  }
+
+  .playground-embed__start::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-block: 0.4em solid transparent;
+    border-left: 0.65em solid currentColor;
+  }
+
+  .playground-embed__start:disabled::before {
+    display: none;
   }
 
   .playground-embed__start:disabled {
