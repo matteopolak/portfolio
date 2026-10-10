@@ -35,7 +35,6 @@ import {
   foldGutter,
   foldKeymap,
   syntaxHighlighting,
-  HighlightStyle,
   getIndentUnit,
   indentUnit,
   StreamLanguage,
@@ -58,16 +57,19 @@ import {
   type Action as LintAction,
   type Diagnostic as EditorDiagnostic,
 } from '@codemirror/lint';
-import { tags, highlightTree } from '@lezer/highlight';
-import DOMPurify from 'dompurify';
-import { markdownHover, renderHoverMarkdown } from './hover-markdown.ts';
-import { completionOption } from './jai/completion-items.ts';
+import { markdownHover } from './hover-markdown.ts';
+import { linkModifier } from './platform.ts';
 import {
-  jaiTokenizer,
-  jaiLanguage,
-  formatSpecifierTag,
-  formatPercentTag,
-} from './jai/language.ts';
+  formatLiteral,
+  highlighted,
+  highlightStyle,
+  markdownContent,
+  plainHoverContent,
+  withCode,
+} from './code-highlight.ts';
+import { completionOption } from './jai/completion-items.ts';
+import { jaiTokenizer, jaiLanguage } from './jai/language.ts';
+import { markupText } from './jai/lsp-features.ts';
 import { formatStringAt } from './jai/format-string.ts';
 import {
   lintDocs,
@@ -92,7 +94,6 @@ import type {
   CompletionList,
   Diagnostic,
   Hover,
-  MarkupText,
 } from './jai/lsp-types.ts';
 
 export type EditorLanguage = 'jai' | 'quasi' | 'baerscript';
@@ -123,35 +124,6 @@ const quasiLanguage = StreamLanguage.define({
     return jaiTokenizer.token(stream, state);
   },
 });
-
-// Colors resolve from the `--ide-*` tokens declared by CodeWorkspace.astro.
-const colors = HighlightStyle.define([
-  { tag: tags.keyword, color: 'var(--ide-syntax-keyword)', fontWeight: '600' },
-  { tag: [tags.typeName, tags.className], color: 'var(--ide-syntax-type)' },
-  {
-    tag: tags.function(tags.variableName),
-    color: 'var(--ide-syntax-function)',
-  },
-  { tag: tags.variableName, color: 'var(--ide-fg)' },
-  { tag: [tags.string, tags.character], color: 'var(--ide-syntax-string)' },
-  {
-    tag: formatSpecifierTag,
-    color: 'var(--ide-syntax-format)',
-    fontWeight: '650',
-  },
-  { tag: formatPercentTag, color: 'var(--ide-syntax-format-percent)' },
-  {
-    tag: tags.comment,
-    color: 'var(--ide-syntax-comment)',
-    fontStyle: 'italic',
-  },
-  { tag: tags.number, color: 'var(--ide-syntax-number)' },
-  {
-    tag: [tags.processingInstruction, tags.annotation],
-    color: 'var(--ide-syntax-directive)',
-  },
-  { tag: [tags.operator, tags.punctuation], color: 'var(--ide-syntax-punct)' },
-]);
 
 const theme = EditorView.theme(
   {
@@ -640,51 +612,6 @@ const theme = EditorView.theme(
   { dark: true }
 );
 
-function textContent(value: MarkupText | undefined): string {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.map(textContent).join('\n\n');
-  return typeof value?.value === 'string' ? value.value : '';
-}
-
-/**
- * Hover text is plain, but it is code: type signatures and declarations. Color
- * it with the editor's own grammar. Markdown fences, when present, mark the
- * code regions and everything outside them stays plain.
- */
-function highlightedHover(
-  text: string,
-  { parser }: StreamLanguage<unknown>
-): (Node | string)[] {
-  const nodes: (Node | string)[] = [];
-  const code = (source: string) => {
-    const fragment = document.createDocumentFragment();
-    let at = 0;
-    const plain = (to: number) => {
-      if (to > at) fragment.append(source.slice(at, to));
-      at = to;
-    };
-    highlightTree(parser.parse(source), colors, (from, to, cls) => {
-      plain(from);
-      const span = document.createElement('span');
-      span.className = cls;
-      span.textContent = source.slice(from, to);
-      fragment.append(span);
-      at = to;
-    });
-    plain(source.length);
-    return fragment;
-  };
-  if (!/```/u.test(text)) return [code(text)];
-  let last = 0;
-  for (const match of text.matchAll(/```[^\n]*\n([\s\S]*?)```/gu)) {
-    if (match.index > last) nodes.push(text.slice(last, match.index));
-    nodes.push(code(match[1].replace(/\n$/u, '')));
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
-
 const languageFor = (language: EditorLanguage) =>
   language === 'baerscript'
     ? baerscriptLanguage
@@ -793,126 +720,6 @@ function setVimEnabled(enabled: boolean) {
 const vimExtension = (enabled: boolean) =>
   enabled ? vim({ status: true }) : [];
 
-/*
- * Overload sets come back as one `name :: header` line per procedure. Long
- * headers wrap, so each gets its own row, a rule between rows and a count.
- */
-function hoverContent(
-  text: string,
-  language: StreamLanguage<unknown>
-): HTMLElement {
-  const dom = document.createElement('div');
-  dom.className = 'jai-hover';
-  const lines = text.split('\n');
-  const overloads =
-    lines.length > 1 && lines.every((line) => /^[^\s:]+ :: \(/u.test(line));
-  if (!overloads) {
-    dom.append(...highlightedHover(text, language));
-    return dom;
-  }
-  dom.classList.add('jai-hover--overloads');
-  const count = document.createElement('div');
-  count.className = 'jai-hover__count';
-  count.textContent = `${lines.length} overloads`;
-  dom.append(count);
-  for (const line of lines) {
-    const row = document.createElement('div');
-    row.className = 'jai-hover__overload';
-    row.append(...highlightedHover(line, language));
-    dom.append(row);
-  }
-  return dom;
-}
-
-/**
- * A Markdown hover (see `hover-markdown.ts`), sanitized, with its code in the
- * editor's colours. Fenced blocks in the editor's language (or untagged) and
- * inline code are highlighted; other fences (`text`: what `#run` printed)
- * stay plain. A list is a format-string hover: one row per `%`, the leading
- * code of each row is the specifier, and a bold one is the hovered row.
- */
-function markdownHoverContent(
-  markdown: string,
-  language: EditorLanguage
-): HTMLElement {
-  const syntax = languageFor(language);
-  const dom = document.createElement('div');
-  dom.className = 'jai-hover jai-hover--markdown';
-  dom.innerHTML = DOMPurify.sanitize(renderHoverMarkdown(markdown));
-  for (const code of dom.querySelectorAll<HTMLElement>('pre > code')) {
-    const fence = code.parentElement?.dataset.lang ?? '';
-    if (fence !== '' && fence !== language) continue;
-    const source = code.textContent ?? '';
-    // A string literal on its own is a format string: colour it as the
-    // argument of a `print` call so its `%` specifiers stand out.
-    code.replaceChildren(
-      language === 'jai' && /^"(?:[^"\\\n]|\\.)*"$/u.test(source)
-        ? highlighted(`print(${source})`, jaiLanguage, 6, source.length)
-        : highlighted(source, syntax)
-    );
-  }
-  for (const code of dom.querySelectorAll<HTMLElement>(':not(pre) > code')) {
-    const row = code.closest('li');
-    const leading =
-      row &&
-      (row.firstElementChild === code ||
-        (row.firstElementChild?.tagName === 'STRONG' &&
-          code.parentElement === row.firstElementChild));
-    if (leading) code.classList.add('jai-hover__format-spec');
-    else code.replaceChildren(highlighted(code.textContent ?? '', syntax));
-  }
-  for (const row of dom.querySelectorAll<HTMLElement>('li')) {
-    row.classList.add('jai-hover__format-row');
-    if (row.firstElementChild?.tagName === 'STRONG')
-      row.dataset.current = 'true';
-  }
-  return dom;
-}
-
-/** Syntax highlighting for `source` as a fragment, using the editor's colours. */
-function highlighted(
-  source: string,
-  { parser }: StreamLanguage<unknown>,
-  skip = 0,
-  length = source.length - skip
-): DocumentFragment {
-  const fragment = document.createDocumentFragment();
-  const end = skip + length;
-  let at = skip;
-  const plain = (to: number) => {
-    if (to > at) fragment.append(source.slice(at, to));
-    at = Math.max(at, to);
-  };
-  highlightTree(parser.parse(source), colors, (from, to, cls) => {
-    from = Math.max(from, skip);
-    to = Math.min(to, end);
-    if (to <= from) return;
-    plain(from);
-    const span = document.createElement('span');
-    span.className = cls;
-    span.textContent = source.slice(from, to);
-    fragment.append(span);
-    at = to;
-  });
-  plain(end);
-  return fragment;
-}
-
-/** Text with `code` spans highlighted as Jai, as jailint writes names and snippets. */
-function withCode(text: string): DocumentFragment {
-  const fragment = document.createDocumentFragment();
-  text.split(/(`[^`\n]+`)/u).forEach((part, index) => {
-    if (index % 2 === 0) {
-      if (part) fragment.append(part);
-      return;
-    }
-    const code = document.createElement('code');
-    code.append(highlighted(part.slice(1, -1), jaiLanguage));
-    fragment.append(code);
-  });
-  return fragment;
-}
-
 /** A jailint finding in the diagnostic tooltip: the finding, its help line and the rule's docs. */
 function lintContent(message: string, rule: string, docs: string): HTMLElement {
   const { text, help } = lintMessage(message);
@@ -974,14 +781,7 @@ function formatStringHover(
       // Highlight the literal as the first argument of a `print` call.
       const head = document.createElement('div');
       head.className = 'jai-hover__format-head';
-      head.append(
-        highlighted(
-          `print(${info.literal})`,
-          jaiLanguage,
-          6,
-          info.literal.length
-        )
-      );
+      head.append(formatLiteral(info.literal));
       dom.append(head);
       for (const entry of info.entries) {
         const { spec } = entry;
@@ -1008,7 +808,7 @@ function formatStringHover(
           } else {
             const code = document.createElement('code');
             code.className = 'jai-hover__format-argument';
-            code.append(highlighted(entry.argumentText, jaiLanguage));
+            code.append(highlighted(entry.argumentText));
             row.append(' ', code);
           }
         }
@@ -1042,11 +842,8 @@ export function createEditor(
   const vimMode = new Compartment();
   // Cmd-click (macOS) or Ctrl-click on a name goes to its definition, like F12. The
   // pointer turns into a hand while the modifier is held over a name.
-  const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
-  const modifier = (event: MouseEvent | KeyboardEvent) =>
-    mac ? event.metaKey : event.ctrlKey;
-  const linkAt = (view: EditorView, event: MouseEvent) => {
-    if (!modifier(event) || !onDefinition || !canDefine()) return undefined;
+  const definitionPosAt = (view: EditorView, event: MouseEvent) => {
+    if (!linkModifier(event) || !onDefinition || !canDefine()) return undefined;
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
     return view.state.wordAt(pos) || documentLinkAt(view.state, pos)
       ? pos
@@ -1057,7 +854,7 @@ export function createEditor(
   const definitionClick = EditorView.domEventHandlers({
     mousedown(event, view) {
       if (event.button !== 0) return false;
-      const pos = linkAt(view, event);
+      const pos = definitionPosAt(view, event);
       if (pos === undefined) return false;
       event.preventDefault();
       view.dispatch({ selection: { anchor: pos } });
@@ -1065,7 +862,7 @@ export function createEditor(
       return true;
     },
     mousemove(event, view) {
-      showLink(view, linkAt(view, event) !== undefined);
+      showLink(view, definitionPosAt(view, event) !== undefined);
       return false;
     },
     mouseleave(_event, view) {
@@ -1073,7 +870,7 @@ export function createEditor(
       return false;
     },
     keyup(event, view) {
-      if (!modifier(event)) showLink(view, false);
+      if (!linkModifier(event)) showLink(view, false);
       return false;
     },
   });
@@ -1174,7 +971,7 @@ export function createEditor(
         from: word?.from ?? context.pos,
         options: items
           .filter((item) => item.insertTextFormat !== 2)
-          .map((item) => completionOption(item, textContent)),
+          .map((item) => completionOption(item, markupText)),
       };
     } catch {
       return null;
@@ -1206,7 +1003,7 @@ export function createEditor(
         return null;
       // Markdown from servers that support it; older bundles send plain text.
       const markdown = result ? markdownHover(result.contents) : undefined;
-      const contents = result ? (markdown ?? textContent(result.contents)) : '';
+      const contents = result ? (markdown ?? markupText(result.contents)) : '';
       if (!result || !contents.trim()) return local;
       return {
         pos: result.range ? offsetAt(text, result.range.start) : position,
@@ -1215,8 +1012,8 @@ export function createEditor(
           return {
             dom:
               markdown === undefined
-                ? hoverContent(contents, languageFor(language))
-                : markdownHoverContent(markdown, language),
+                ? plainHoverContent(contents, languageFor(language))
+                : markdownContent(markdown, languageFor(language), language),
           };
         },
       };
@@ -1233,7 +1030,7 @@ export function createEditor(
         vimMode.of(vimExtension(vimEnabled)),
         EditorState.lineSeparator.of('\n'),
         syntaxFor(language, path),
-        syntaxHighlighting(colors),
+        syntaxHighlighting(highlightStyle),
         theme,
         lintGutter(),
         lineNumbers(),

@@ -24,6 +24,7 @@ import {
   setSearchQuery,
 } from '@codemirror/search';
 import { EditorSelection, type Extension } from '@codemirror/state';
+import { isApple } from './platform.ts';
 import {
   EditorView,
   keymap,
@@ -114,8 +115,6 @@ function icon(name: keyof typeof icons) {
   return svg;
 }
 
-const mac = () => /Mac|iPhone|iPad/u.test(navigator.platform);
-
 function button(
   className: string,
   label: string,
@@ -198,7 +197,7 @@ class FindPanel implements Panel {
     this.searchInput.setAttribute('main-field', 'true');
     this.replaceInput = this.input('Replace', 'replace');
 
-    const shortcut = (key: string) => (mac() ? `⌥${key}` : `Alt+${key}`);
+    const shortcut = (key: string) => (isApple() ? `⌥${key}` : `Alt+${key}`);
     this.options = {
       caseSensitive: this.option(
         'caseSensitive',

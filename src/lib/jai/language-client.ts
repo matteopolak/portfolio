@@ -3,6 +3,7 @@ import type {
   JsonRpcMessage,
   Position,
   PublishDiagnosticsParams,
+  Range,
   InitializeResult,
   WorkerResponse,
 } from './lsp-types.ts';
@@ -116,6 +117,20 @@ export function offsetAt(text: string, position: Position | undefined): number {
   )
     throw new RangeError('Position splits a surrogate pair.');
   return offset;
+}
+/** `range` as offsets in `text`, or undefined when it does not fit (stale or reversed). */
+export function rangeOffsets(
+  text: string,
+  range: Range | undefined
+): { from: number; to: number } | undefined {
+  if (!range) return undefined;
+  try {
+    const from = offsetAt(text, range.start);
+    const to = offsetAt(text, range.end);
+    return from <= to ? { from, to } : undefined;
+  } catch {
+    return undefined;
+  }
 }
 interface PendingRequest {
   resolve(value: unknown): void;

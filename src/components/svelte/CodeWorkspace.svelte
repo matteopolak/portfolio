@@ -8,6 +8,7 @@
     type WorkspacePane,
   } from '../../lib/workspace-chrome';
   import ProjectDemoLoading from './ProjectDemoLoading.svelte';
+  import { isApple } from '../../lib/platform.ts';
 
   interface Props {
     language: 'jai' | 'quasi' | 'baerscript';
@@ -88,7 +89,7 @@
   };
 
   onMount(() => {
-    const mac = /Mac|iPhone|iPad/u.test(navigator.platform);
+    const mac = isApple();
     shortcut = mac ? '⌘↵' : 'Ctrl↵';
     formatShortcut = mac ? '⇧⌥F' : 'Shift+Alt+F';
     return registerWorkspaceChrome(panel!, chrome);

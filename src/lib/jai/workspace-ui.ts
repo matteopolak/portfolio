@@ -8,6 +8,7 @@ import {
 } from '@codemirror/state';
 import { createAutoRunner, type AutoRunner } from '../code-auto-run.ts';
 import { createEditor, type Editor } from '../code-editor.ts';
+import { isApple } from '../platform.ts';
 import { createRunSummary } from './run-summary.ts';
 import { Shell } from './terminal-shell.ts';
 import { createTerminal, type JaiTerminal } from './terminal.ts';
@@ -166,8 +167,6 @@ const errorMessage = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
 
 const extension = (path: string) => path.slice(path.lastIndexOf('.') + 1);
-
-const mac = () => /Mac|iPhone|iPad/u.test(navigator.platform);
 
 /** A cursor move by pointer or search this many lines away is a navigation. */
 const JUMP_LINES = 10;
@@ -808,7 +807,6 @@ export async function createSession(
           document: () => languageDocument(g),
           client: syncedClient,
           capabilities: () => (language ? languageCapabilities : undefined),
-          modifier: (event) => (mac() ? event.metaKey : event.ctrlKey),
           openLink: (target) => void openUri(target),
           runLens: (view, lens, pos) =>
             void runCommand(view, lens.command, pos),
@@ -1199,7 +1197,7 @@ export async function createSession(
       },
       { signal }
     );
-  watchNavigationInput(panel, travel, mac(), signal);
+  watchNavigationInput(panel, travel, isApple(), signal);
 
   /** Shows a navigation target: a workspace file's tab or the read-only preview tab. */
   function reveal(target: NavigationTarget, title?: string) {
