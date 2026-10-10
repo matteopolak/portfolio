@@ -15,6 +15,7 @@
     "sync:web-assets": "node scripts/sync-lodestone-web.ts && node scripts/sync-quasi-web.ts && node scripts/sync-baerscript-web.ts && node scripts/sync-jai-web.ts",
     "resume": "typst compile --root . resume/resume.typ --font-path resume/fonts public/resume.pdf",
     "preview": "astro preview",
+    "lighthouse": "node scripts/lighthouse.ts",
     "test:lodestone": "node --test tests/lodestone/*.test.ts",
     "check": "astro check && svelte-check --tsconfig ./tsconfig.json",
     "check:seo": "node scripts/check-seo.ts",
@@ -55,6 +56,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@eslint/js": "^10.0.1",
+    "@lhci/cli": "0.15.1",
     "@types/node": "24.19.0",
     "eslint-plugin-astro": "^3.2.1",
     "oxfmt": "^0.70.0",
