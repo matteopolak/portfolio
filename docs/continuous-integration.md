@@ -32,4 +32,4 @@ The workflow also runs `pnpm check:seo` after the build (see [seo.md](./seo.md))
 
 ## Lighthouse job
 
-The `lighthouse` job in `ci.yml` builds the site, runs `pnpm lighthouse` (mobile and desktop presets, see [performance.md](./performance.md)) and uploads `.lighthouseci` as the `lighthouse-reports` artifact. Accessibility, SEO and best-practices scores are enforced; performance only warns.
+The `lighthouse` job in `ci.yml` builds the site, runs `pnpm lighthouse` (mobile and desktop presets, see [performance.md](./performance.md)) and uploads `.lighthouseci` as the `lighthouse-reports` artifact. Accessibility (1.0), SEO (0.95) and best-practices (0.9) scores are enforced; performance only warns.
