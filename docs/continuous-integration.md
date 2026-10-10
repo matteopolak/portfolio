@@ -6,7 +6,7 @@
 
 ## How it works
 
-The workflow runs one read-only Ubuntu job with Node.js 24, pnpm 10.32.1, Python 3, and Typst. It installs the exact dependency versions from `pnpm-lock.yaml`, then checks formatting, lint rules, types (`pnpm check`, which runs `astro check` over every TypeScript and Astro file), the Lodestone and Jai test suites, and the complete static Astro production build. `actions/setup-node` keys its pnpm-store cache from `pnpm-lock.yaml`, and a newer run on the same ref cancels an obsolete in-progress run.
+The workflow runs one read-only Ubuntu job with Node.js 24.21.0 (from `.node-version`), pnpm 12.7.0 (from `packageManager` in `package.json`), Python 3, and Typst 0.15.1. It installs the exact dependency versions from `pnpm-lock.yaml`, then checks formatting, lint rules, types (`pnpm check`, which runs `astro check` over every TypeScript and Astro file), the Lodestone and Jai test suites, and the complete static Astro production build. `actions/setup-node` keys its pnpm-store cache from `pnpm-lock.yaml`, and a newer run on the same ref cancels an obsolete in-progress run.
 
 The production build also exercises the prerendered pages, sitemap and robots endpoints, and the release-backed Lodestone, Quasi, BaerScript and Jai asset synchronization used by `prebuild`.
 
@@ -14,7 +14,9 @@ The production build also exercises the prerendered pages, sitemap and robots en
 
 Add repository-wide checks as named steps in `.github/workflows/ci.yml`. Prefer invoking package scripts instead of duplicating commands in YAML so local and CI validation remain identical. If a new test family is added, expose it as a package script and call it before the production build.
 
-Keep the Node version compatible with the `engines` range in `package.json`, and keep the pnpm version aligned with the other publishing workflows. The workflow uses the latest stable major versions available when it was added: `actions/checkout@v7`, `pnpm/action-setup@v6`, `actions/setup-node@v7`, and `typst-community/setup-typst@v5`. Update action major versions deliberately and rerun the workflow after changing them.
+Node comes from `.node-version` (via `node-version-file`) and pnpm from the `packageManager` field, so `pnpm/action-setup` takes no `version:`. Keep the Node version within the `engines` range. Bump pnpm by editing `packageManager` (`pnpm@X.Y.Z+sha512.<hex>`, the hex is `npm view pnpm@X.Y.Z dist.integrity` converted from base64) and re-running `pnpm install`.
+
+Every action in `.github/workflows/*.yml` is pinned to a full commit SHA with a trailing `# vX.Y.Z` comment, and tools are pinned to exact versions (Typst, wasm-pack, just, trunk, wasm-bindgen-cli, Rust, Python, Java). Choose releases at least 14 days old, matching `minimumReleaseAge`. To resolve a tag: `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` and, if the object type is `tag`, dereference it with `git/tags/<sha>`. `dtolnay/rust-toolchain` has no release tags, so it is pinned to a `master` commit and the toolchain is always set through `toolchain:`.
 
 The résumé and browser-asset publishing workflows use the same current action majors. Release bundles are retained with `actions/upload-artifact@v6`, whose Node.js 24 runtime avoids the deprecation warning emitted by earlier artifact action majors.
 

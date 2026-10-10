@@ -29,22 +29,22 @@ jobs:
       - name: Require an exact compiler revision
         run: |
           [[ "$JAI_REF" =~ ^[a-f0-9]{40}$ ]]
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
       - name: Check out the compiler
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: matteopolak/jai
           ref: ${{ inputs.jai_ref }}
           path: .build/jai
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14'
-      - uses: actions/setup-node@v7
+          python-version: '3.14.7'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .node-version
       - name: Install the compiler's pinned toolchain
         working-directory: .build/jai
         run: |
@@ -60,7 +60,7 @@ jobs:
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: .build/jai -> target
       - name: Check source policy and fetch locked dependencies
@@ -93,7 +93,7 @@ jobs:
                          bundleAsset='jai-playground.zip', sha256=digest('jai-playground.zip'))
           Path('.build/jai-web-release.json').write_text(json.dumps(pointer, indent=2) + '\n')
           PY
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jai-web-${{ inputs.jai_ref }}
           path: |
@@ -116,10 +116,8 @@ jobs:
               --target "$GITHUB_SHA" --prerelease --latest=false --title "Jai browser compiler $JAI_REF" \
               --notes 'Experimental Rust-built compiler and independently authored browser workspace. Exact revision and file digests are recorded in the manifest.'
           fi
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         if: ${{ inputs.update_pointer }}
-        with:
-          version: 10.32.1
       - name: Validate the consumer build
         if: ${{ inputs.update_pointer }}
         run: |
