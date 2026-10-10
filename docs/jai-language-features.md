@@ -11,7 +11,7 @@ protocol side is documented in the compiler repository
 (`docs/compiler/language-server.md`).
 
 Every feature is **feature-detected** from the `initialize` result. The pinned
-release in `jai-web-release.json` predates most of them (it has hover,
+release in `releases/jai-web-release.json` predates most of them (it has hover,
 completion, definition, document symbols and semantic tokens), and the editor
 simply shows less with it. Never assume a provider exists.
 

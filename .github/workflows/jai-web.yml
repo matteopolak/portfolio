@@ -123,7 +123,7 @@ jobs:
       - name: Validate the consumer build
         if: ${{ inputs.update_pointer }}
         run: |
-          cp .build/jai-web-release.json jai-web-release.json
+          cp .build/jai-web-release.json releases/jai-web-release.json
           pnpm install --frozen-lockfile
           pnpm test:jai
           pnpm format:check
@@ -132,7 +132,7 @@ jobs:
       - name: Update the deployment pointer
         if: ${{ inputs.update_pointer }}
         run: |
-          git add jai-web-release.json
+          git add releases/jai-web-release.json
           if ! git diff --cached --quiet; then
             git config user.name github-actions[bot]
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com

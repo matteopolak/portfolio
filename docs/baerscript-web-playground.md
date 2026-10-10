@@ -10,7 +10,7 @@ The BaerScript project card opens a lazy, in-browser interpreter with the same s
 
 `src/lib/baerscript-worker.ts` fetches `/baerscript/baerscript_wasm.js` and `/baerscript/baerscript_wasm_bg.wasm`, initializes the wasm-bindgen module inside the worker, and calls `execute(source, input, ascii, maxSteps)`. `baerscript-playground.ts` imports that entrypoint with Vite's `?worker` loader so production emits executable JavaScript instead of an unprocessed TypeScript data URL. The portfolio currently supplies empty input, numeric mode, and a 250,000-step instruction budget. The shared controller also terminates the worker after one second, on modal close, or during Astro navigation.
 
-`.github/workflows/baerscript-web.yml` checks out a selected `matteopolak/baerscript` revision, runs the upstream `wasm-pack` release recipe with size-oriented Cargo settings, smoke-tests the structured execution result, and publishes a versioned tarball to the `baerscript-web-latest` prerelease. It normally commits only `baerscript-web-release.json` back to the portfolio.
+`.github/workflows/baerscript-web.yml` checks out a selected `matteopolak/baerscript` revision, runs the upstream `wasm-pack` release recipe with size-oriented Cargo settings, smoke-tests the structured execution result, and publishes a versioned tarball to the `baerscript-web-latest` prerelease. It normally commits only `releases/baerscript-web-release.json` back to the portfolio.
 
 Before development and production builds, `scripts/sync-baerscript-web.ts` downloads that release asset, verifies its SHA-256 digest and archive paths, and stages the ignored files under `public/baerscript/`. The static site therefore serves the module itself without depending on GitHub at runtime.
 
@@ -26,7 +26,7 @@ Run the `Publish BaerScript web build` action when the upstream Wasm API changes
 
 - `baerscript_ref` selects the branch, tag, or commit built by the workflow.
 - `update_repository` selects `pointer`, `assets`, or `none` publication mode.
-- `baerscript-web-release.json` records the release asset name, digest, and upstream revision.
+- `releases/baerscript-web-release.json` records the release asset name, digest, and upstream revision.
 - `EXECUTION_TIMEOUT_MS` in `src/lib/code-playground.ts` controls the wall-clock limit shared by code playgrounds.
 - `pnpm sync:web-assets` hydrates every release-backed browser demo and runs automatically before `pnpm dev` and `pnpm build`.
 

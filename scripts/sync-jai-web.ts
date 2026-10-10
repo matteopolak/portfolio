@@ -25,7 +25,7 @@ interface ReleasePointer {
 }
 
 const pointer: ReleasePointer = JSON.parse(
-  await readFile(join(root, 'jai-web-release.json'), 'utf8')
+  await readFile(join(root, 'releases', 'jai-web-release.json'), 'utf8')
 );
 if (!pointer.enabled) {
   console.log('Jai playground is awaiting its first verified release.');

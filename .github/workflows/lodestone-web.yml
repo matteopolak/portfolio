@@ -164,7 +164,7 @@ jobs:
         env:
           UPDATE_MODE: ${{ inputs.update_repository }}
         run: |
-          cp .build/lodestone-web-release.json lodestone-web-release.json
+          cp .build/lodestone-web-release.json releases/lodestone-web-release.json
           if [ "$UPDATE_MODE" = assets ]; then
             node scripts/sync-lodestone-web.ts
             git add -f public/lodestone
@@ -173,7 +173,7 @@ jobs:
           pnpm lint
           pnpm test:lodestone
           pnpm build
-          git add lodestone-web-release.json
+          git add releases/lodestone-web-release.json
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           if git diff --cached --quiet; then

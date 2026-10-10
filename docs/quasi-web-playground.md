@@ -25,7 +25,7 @@ and navigation terminate it. Reopening creates a fresh editor and runtime.
 `matteopolak/quasi`, compiles the `wasm` library for `wasm32-unknown-unknown`
 and runs its locked `wasm-bindgen` CLI,
 smoke-tests `execute`, and publishes a versioned tarball on the
-`quasi-web-latest` prerelease. It commits only `quasi-web-release.json` by
+`quasi-web-latest` prerelease. It commits only `releases/quasi-web-release.json` by
 default. The portfolio's `predev` and `prebuild` hooks run
 `scripts/sync-quasi-web.ts`. Once the release pointer is enabled, it verifies
 the release checksum and archive paths, then stages the bundle under
@@ -69,7 +69,7 @@ commits generated files and should be used sparingly.
   per-program limit.
 - `quasi_ref` selects the Quasi branch, tag, or commit built by the workflow.
 - `update_repository` selects `pointer`, `assets`, or `none` publication mode.
-- `quasi-web-release.json` is generated deployment state. It remains disabled
+- `releases/quasi-web-release.json` is generated deployment state. It remains disabled
   until the first workflow publication; disabled mode uses the checked-in
   `public/quasi/` files.
 - `pnpm sync:web-assets` hydrates all release-backed browser demos manually;
