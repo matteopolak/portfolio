@@ -13,10 +13,16 @@
  * - A list whose every item starts with a code span (bold for the hovered
  *   one) and an arrow, `` - `%` → `count: s64` ``, is a format-string hover:
  *   it gets `.jai-hover__format`. Any other list (parameter docs) stays a list.
+ *
+ * Links are text, except a doc link the server resolved
+ * (`file:///<path>#L<line>`, the same target `documentLink` uses): it
+ * becomes a `.jai-hover__link` carrying the target in `data-doc-link`, with
+ * no `href`, so the sanitizer keeps it and the editor follows it on click.
  */
 import { Marked, Renderer, type Token, type Tokens } from 'marked';
 import { escapeHtml } from './markdown-render.ts';
 
+const docLink = /^file:\/\/\/[^\s"'<>]+$/u;
 const overloadLine = /^[^\s:]+ :: \(/u;
 const formatItem = /^(\*\*)?`[^`\n]+`\1 → /u;
 
@@ -28,9 +34,11 @@ const marked = new Marked({
   renderer: {
     // Raw HTML is shown as written, never interpreted.
     html: (token: Tokens.HTML | Tokens.Tag) => escapeHtml(token.text),
-    // Hovers are not navigable: a link shows its text.
-    link(this: Renderer, { tokens }: Tokens.Link) {
-      return this.parser.parseInline(tokens);
+    link(this: Renderer, { href, tokens }: Tokens.Link) {
+      const text = this.parser.parseInline(tokens);
+      return docLink.test(href)
+        ? `<a class="jai-hover__link" data-doc-link="${escapeHtml(href)}" role="link" tabindex="0">${text}</a>`
+        : text;
     },
     image: ({ text }: Tokens.Image) => escapeHtml(text),
     list(this: Renderer, token: Tokens.List) {

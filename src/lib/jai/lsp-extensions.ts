@@ -770,6 +770,37 @@ export function languageFeatures(host: LanguageHost): Extension {
     },
   });
 
+  // Doc links in hover, completion and signature popups (see
+  // `hover-markdown.ts`). The popups live inside `view.dom`, outside the
+  // content, so this listens there rather than through `domEventHandlers`.
+  const popupLinks = ViewPlugin.define((view) => {
+    const follow = (event: Event) => {
+      const link = (event.target as Element | null)?.closest<HTMLElement>(
+        '[data-doc-link]'
+      );
+      if (!link?.dataset.docLink) return;
+      if (event instanceof KeyboardEvent && event.key !== 'Enter') return;
+      event.preventDefault();
+      host.openLink(link.dataset.docLink);
+      view.focus();
+    };
+    // Keep editor focus on press, so the popup doesn't close before the click.
+    const press = (event: MouseEvent) => {
+      if ((event.target as Element | null)?.closest('[data-doc-link]'))
+        event.preventDefault();
+    };
+    view.dom.addEventListener('mousedown', press);
+    view.dom.addEventListener('click', follow);
+    view.dom.addEventListener('keydown', follow);
+    return {
+      destroy() {
+        view.dom.removeEventListener('mousedown', press);
+        view.dom.removeEventListener('click', follow);
+        view.dom.removeEventListener('keydown', follow);
+      },
+    };
+  });
+
   const signatureKeys = keymap.of([
     {
       key: 'Escape',
@@ -798,6 +829,7 @@ export function languageFeatures(host: LanguageHost): Extension {
     serverFolds,
     plugin,
     links,
+    popupLinks,
     signatureKeys,
     closeSignatureOnBlur,
   ];
