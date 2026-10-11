@@ -69,8 +69,8 @@ Servers that support it answer `{ kind: 'markdown' }`; `documentation` in
 `lsp-features.ts` sorts a reply into Markdown or plain text, and plain text
 (older bundles, plain strings) takes `plainHoverContent` in `code-highlight.ts`,
 which still splits `name :: (` overload lines into rows. The Markdown is
-rendered by `renderHoverMarkdown` (`marked`; raw HTML is escaped, links and
-images show their text), sanitized with DOMPurify, then coloured in
+rendered by `renderHoverMarkdown` (`marked`; raw HTML is escaped, images and
+most links show their text), sanitized with DOMPurify, then coloured in
 `markdownContent` (`code-highlight.ts`):
 
 - Fenced blocks tagged `jai` (or untagged) and inline code use the editor's
@@ -112,16 +112,25 @@ Comments directly above a declaration are its documentation (Markdown, with
   picks the active signature and parameter; `signatureTooltip`
   (`lsp-extensions.ts`) shows the label with the active parameter marked, a row
   with that parameter's doc, then the procedure's doc, scrolling past 16rem.
-  The server only attaches docs when the call parses (`f(a, b)` with its
-  closing paren), so an unfinished call shows the label alone.
+  Since jai-web `728d0d5f` the server attaches docs to unclosed calls too
+  (`hail("x", `).
 - **Links in the source.** The server reports each resolved `[name]` in a doc
   comment as a `documentLink` targeting `file:///<path>#L<line>` (1-based).
   `linkTarget` (`language-client.ts`) splits off the fragment so Cmd/Ctrl-click
   opens the file at that line; hover and go to definition on a label are
   answered by the server like any name, and the label's semantic token
   (`function`, `type`, `property`, `enumMember`, `namespace`, `readonly`
-  variable) colours it on top of the comment colour. Links inside rendered
-  Markdown (hover, completion, signature help) show only their text.
+  variable) colours it on top of the comment colour.
+- **Links in popups.** Hover, completion docs (eager and `completionItem/resolve`)
+  and signature help send resolved doc links as Markdown links to the same
+  `file:///<path>#L<line>` target. `renderHoverMarkdown` turns only `file:///`
+  links into `<a class="jai-hover__link" data-doc-link="…">` with no `href`
+  (DOMPurify would drop the `file:` scheme; `data-*` survives). Any other link
+  is its text, and unresolved `[name]` stays as written. The `popupLinks`
+  plugin (`lsp-extensions.ts`) listens on `view.dom`, where CodeMirror mounts
+  the tooltips, and sends a click or Enter to `host.openLink`, the same path
+  as Cmd/Ctrl-click in the source. `mousedown` is prevented so the editor
+  keeps focus while the popup is clicked.
 
 **Comment Markdown highlighting.** Inside `//` and `/* */` comments the
 tokenizer (`comment` in `language.ts`) asks `docCommentSegments`

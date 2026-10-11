@@ -20,6 +20,7 @@ docs/*
 scripts/*
 !scripts/generate-favicons.ts
 !scripts/check-seo.ts
+!scripts/check-drafts.ts
 !scripts/serve-dist.ts
 !scripts/quasi-browser-worker.patch
 !scripts/lighthouse.ts
