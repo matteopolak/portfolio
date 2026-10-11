@@ -169,7 +169,6 @@ class LodestoneGameElement extends HTMLElement {
           aspect-ratio: 16 / 9;
           min-height: 18rem;
           border: 1px solid #151515;
-          border-left: 0.7rem solid #1758c7;
           background:
             linear-gradient(135deg, transparent 65%, rgb(242 189 36 / 0.55) 65%),
             #fffdf7;
@@ -180,7 +179,6 @@ class LodestoneGameElement extends HTMLElement {
           min-height: 0;
           aspect-ratio: auto;
           border: 0;
-          border-left: 0;
         }
         .shell:fullscreen {
           width: 100vw;
