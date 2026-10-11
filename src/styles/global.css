@@ -605,6 +605,20 @@ body .site-main .project-card:hover {
   padding-left: 1.4rem;
 }
 
+/* Tailwind's preflight strips list markers; restore them on Markdown lists
+   (classless), not on component lists like chart legends. */
+.prose ul:not([class]) {
+  list-style-type: disc;
+}
+
+.prose ul:not([class]) ul:not([class]) {
+  list-style-type: circle;
+}
+
+.prose ol:not([class]) {
+  list-style-type: decimal;
+}
+
 .prose li {
   margin-bottom: 0.35rem;
 }
