@@ -1098,9 +1098,20 @@
   }
 
   .ide-tree :global(.tree-item[aria-current]) {
+    position: relative;
     color: var(--ide-fg-strong) !important;
     background: var(--ide-raised) !important;
-    box-shadow: inset 2px 0 var(--accent-2);
+  }
+
+  /* A straight bar clear of the rounded corners (see the file tabs). */
+  .ide-tree :global(.tree-item[aria-current])::before {
+    position: absolute;
+    top: var(--radius-xs);
+    bottom: var(--radius-xs);
+    left: 0;
+    width: 2px;
+    content: '';
+    background: var(--accent-2);
   }
 
   .ide-tree :global(.tree-icon) {
@@ -1318,15 +1329,26 @@
   .ide-filetabs :global(.ide-filetab[data-active]) {
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
-    box-shadow: inset 0 2px var(--accent-2);
+  }
+
+  /* The active tab's rule is a straight bar between the rounded corners; an
+     inset shadow would follow the radius and taper at the ends. */
+  .ide-filetabs :global(.ide-filetab[data-active])::after {
+    position: absolute;
+    top: 0;
+    left: var(--radius-sm);
+    right: var(--radius-sm);
+    height: 2px;
+    content: '';
+    background: var(--accent-2);
   }
 
   /* With several groups, only the focused group's tab keeps the blue rule. */
   :global(.ide-split)
     .ide-group:not([data-active])
     .ide-filetabs
-    :global(.ide-filetab[data-active]) {
-    box-shadow: inset 0 2px var(--ide-faint);
+    :global(.ide-filetab[data-active])::after {
+    background: var(--ide-faint);
   }
 
   .ide-filetabs :global(.ide-filetab[data-dragging]) {

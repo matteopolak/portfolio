@@ -17,27 +17,28 @@ const label = { note: 'Note', tip: 'Tip', warning: 'Warning' }[type];
   .callout {
     margin: 1.75rem 0;
     padding: 1rem 1.25rem;
-    border-left: 0.65rem solid var(--callout);
-    border-radius: var(--radius-sm);
-    background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
+    border: 1px solid color-mix(in oklch, var(--callout) 60%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in oklch, var(--callout) 8%, transparent);
   }
 
   .callout--note {
     --callout: var(--accent-2);
+    --callout-text: var(--accent-2-text);
   }
   .callout--tip {
     --callout: var(--accent-3);
+    --callout-text: var(--accent-3-text);
   }
   .callout--warning {
     --callout: var(--accent-1);
+    --callout-text: var(--accent-1-text);
   }
 
   .callout__label {
-    margin: 0 0 0.35rem;
-    font-size: 0.8125rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    margin: 0 0 0.25rem;
+    color: var(--callout-text);
+    font-weight: 600;
   }
 
   .callout__body > :first-child {

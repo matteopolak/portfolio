@@ -617,10 +617,9 @@ body .site-main .project-card:hover {
 .prose blockquote {
   margin-left: 0;
   padding: 1rem 1.25rem;
-  border-left: 0.65rem solid var(--accent-2);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklch, var(--paper-bright) 75%, transparent);
-  font-size: 1.05rem;
+  border: 1px solid color-mix(in oklch, var(--accent-2) 60%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--accent-2) 8%, transparent);
 }
 
 .prose blockquote > :last-child {
