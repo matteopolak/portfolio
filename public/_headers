@@ -2,7 +2,20 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
 
-# Markdown variants of the pages (docs/markdown-variants.md).
+# Markdown variants of the pages (docs/markdown-variants.md). A zone URL
+# rewrite rule serves them for `Accept: text/markdown`, so the HTML URLs vary.
+/
+  Vary: Accept
+
+/blog
+  Vary: Accept
+
+/blog/*
+  Vary: Accept
+
+/projects
+  Vary: Accept
+
 /*.md
   Content-Type: text/markdown; charset=utf-8
 
