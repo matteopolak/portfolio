@@ -388,17 +388,20 @@ const theme = EditorView.theme(
       borderTop: '1px solid var(--ide-rule)',
       margin: '6px 0',
     },
-    '.jai-hover--markdown :is(h1, h2, h3, h4, h5, h6)': {
-      padding: '6px 10px 0',
-      color: 'var(--ide-fg-strong)',
-      fontSize: '1em',
-      fontWeight: '650',
-    },
+    '.jai-hover--markdown h1, .jai-hover--markdown h2, .jai-hover--markdown h3, .jai-hover--markdown h4, .jai-hover--markdown h5, .jai-hover--markdown h6':
+      {
+        padding: '6px 10px 0',
+        color: 'var(--ide-fg-strong)',
+        fontSize: '1em',
+        fontWeight: '650',
+      },
     // Lists in documentation (parameters): ordinary bullets on the same inset
     // (Tailwind's preflight removes them).
     '.jai-hover--markdown ul': { listStyle: 'disc' },
     '.jai-hover--markdown ol': { listStyle: 'decimal' },
-    '.jai-hover--markdown :is(ul, ol)': {
+    // Two selectors, not `:is(ul, ol)`: the theme splits selectors on commas,
+    // which would mangle `:is()` and outrank the format list's padding below.
+    '.jai-hover--markdown ul, .jai-hover--markdown ol': {
       padding: '2px 10px 4px calc(10px + 1.25em)',
     },
     '.jai-hover--markdown li + li': { marginTop: '2px' },
