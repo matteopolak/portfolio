@@ -76,7 +76,19 @@ At some point I noticed that some of the subagents were running on Opus instead 
 
 ## Nobody asked for fast
 
-Agents don't think about performance unless you ask, and for a while I didn't ask. Parts of the language server got slower much faster than files got bigger, which you'll never see on a 50-line test file, and will see almost immediately on a real one. Most of that got fixed in a perf push on Oct 9.
+Agents don't think about performance unless you ask, and for a while I didn't ask. Parts of the language server got slower much faster than files got bigger, which you'll never see on a 50-line test file, and will see almost immediately on a real one.
+
+What actually fixed it was giving the agent something to measure. One script drives the language server the way an editor would (startup, diagnostics, hover, completion while typing) and records CPU and memory. Another asks for hover and go-to-definition on every identifier in a project, which on [Focus](https://github.com/focus-editor/focus), a text editor written in Jai, is 380k requests. Then the agent runs in a loop: measure, find the cause, fix it, measure again.
+
+The first thing it found was that the server spent more time finding its cached compile than answering anything. Every request re-read folders, hashed every open document and reparsed the whole file. Caching that per document took Focus's 380k requests from over 10 minutes to 9 seconds.
+
+Memory took more digging. Fully checking Focus means actually running its build metaprogram, and memory went up once it did. So the agent wrote a probe that dropped each part of a finished compile, one at a time, and checked how much memory came back. Every built program was holding on to the metaprogram's whole build state, 344 MB of it. The same benchmark showed the Linux and Windows builds evicting each other from the cache, so Focus's build script was getting compiled 8 times. Fixing both took the peak from 2.7 GB to 1.3 GB.
+
+Some of it was in the compiler itself. A plain `x := 1` declaration took 640 bytes, because rare cases were stored inline in every node. Boxing them got it down to 176, and there's a test now that fails if the sizes grow back.
+
+Even the measurement needed checking. macOS keeps counting pages the allocator has freed until the OS takes them back, so the benchmark was reporting something different from what Activity Monitor shows. Once the server handed freed pages back after each compile, idle memory went from 305–370 MB to about 230 MB.
+
+At one point I asked for under 100 MB, and then had to tell it not to make bad design decisions just to hit a number. So it sits at about 230 MB for a 132k-line project, and first diagnostics take 1.5 seconds instead of 0.45. The 0.45 version was giving up after 64 bogus errors, though.
 
 And one bug wasn't even ours. LLVM 22's loop unroller [miscompiles certain subtraction loops](https://github.com/llvm/llvm-project/issues/201065), so we turned that part of it off until we moved to LLVM 23, where it's fixed.
 
