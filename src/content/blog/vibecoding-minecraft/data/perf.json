@@ -17,19 +17,19 @@
     },
     {
       "date": "2026-07-29",
-      "title": "Worst world-lock hold 328\u00b5s to 41\u00b5s",
+      "title": "Worst world-lock hold 328µs to 41µs",
       "category": "win"
     },
     {
       "date": "2026-07-31",
-      "title": "World generation cache",
-      "detail": "4.4% slower on chunk generation, so it was reverted.",
+      "title": "World generation cache (reverted)",
+      "detail": "4.4% slower on chunk generation.",
       "category": "revert"
     },
     {
       "date": "2026-08-05",
-      "title": "Removing the per-ring join barrier",
-      "detail": "About 5,000 concurrent lock attempts on one mutex. Reverted.",
+      "title": "Removing the per-ring join barrier (reverted)",
+      "detail": "About 5,000 concurrent lock attempts on one mutex.",
       "category": "revert"
     },
     {

@@ -10,21 +10,21 @@ tags:
 published: false
 ---
 
-Jai is Jonathan Blow's programming language. It's been in a closed beta for a while, and people have built real projects with it, but there isn't much tooling around it. There's a community language server, but it's missing a lot of features, has a lot of bugs, and a lot of it doesn't work without a Jai build. There's no first-party formatter or linter, and you can't try the language without getting into the beta.
+If you haven't heard of it, Jai is Jonathan Blow's programming language. It's been in a closed beta for years now, and people have shipped real things with it, but the tooling around it is pretty thin. There's a community language server that handles some of the basics, there's no formatter or linter, and if you aren't in the beta, you can't even try the language.
 
-I wanted to build all of that: a compiler that can run real Jai projects, a language server that works in any editor, a formatter, a linter, and a playground that runs everything in the browser. I worked on it from Oct 1 to Oct 10, and you can try the result here:
+That seemed like a fun thing to fix, so from Oct 1 to Oct 10 I had agents build all of it: a compiler that can run real Jai projects, a language server, a formatter, a linter, and a playground that runs the whole thing in your browser. In fact, here it is:
 
 <Playground name="jai" />
 
-This was right after [Lodestone](/blog/vibecoding-minecraft), my Minecraft rewrite, so I had a rough idea of how I wanted to run the agents. This post covers how I set it up, but mostly the things that went wrong.
+I'd already spent a couple of months running agents on [Lodestone](/blog/vibecoding-minecraft), so I'm not going to say much about the setup. The more interesting part is everything that went wrong.
 
-## The setup
+## Tests the agents didn't write
 
-The first thing I added was a corpus of open-source Jai projects, pinned to specific commits, that have to compile and run in CI. There were 7 on the first day and 41 by Oct 6. I wanted tests the agents didn't write themselves. If an agent writes both the compiler and its tests, it can get the tests passing without the compiler being any good, but it can't change someone else's game engine to make it compile.
+Here's the problem with having an agent write a compiler. It's also going to write the tests, and if you tell an agent to make the tests pass, it _will_ make the tests pass. Whether the compiler actually works afterwards is a separate question, and not one the agent is especially interested in.
 
-The project is clean room. Jai's compiler and standard library aren't open source, and nothing here is copied from them. It's built from public information, like the language's documentation and how the projects in the corpus use it, and the standard library was written from scratch to support the corpus.
+So the very first thing I added, before there was a compiler at all, was a corpus of open-source Jai projects, pinned to specific commits, that all have to compile and run in CI. An agent can bend its own tests to fit whatever it wrote, but there's not much it can do about someone else's game engine. Either it compiles or it doesn't. The corpus started with 7 projects and had 41 by Oct 6.
 
-For the agents, one main session on Opus planned the work, reviewed it and merged it. Subagents did the implementation, each in its own git worktree with its own build directory. There were 241 of them over the ten days.
+(This is also all clean room, by the way. Jai's compiler and standard library aren't public, so everything here is built from the documentation and from how the corpus projects use the language. The standard library was written from scratch, and only as far as the corpus needed.)
 
 <BarChart
   src="vibecoding-jai/data/commits-per-day.json"
@@ -33,9 +33,11 @@ For the agents, one main session on Opus planned the work, reviewed it and merge
   interactive
 />
 
-## Throwing away 330k lines
+## Starting over on day four
 
-The first version was a VM-based compiler split across a lot of crates. By Oct 3 it was around 330k lines of Rust and getting harder to change, so I had it restarted with a new core, `jaic`, that uses one AST for both the compiler and the language server. Hello world ran on it on Oct 4, and the old code was deleted the same day in two commits that removed about 666k lines.
+The first version was a VM-based compiler spread across a lot of crates. By Oct 3 it was about 360k lines of Rust, and every change was harder to make than the one before it. That's not a trend that reverses itself.
+
+So I threw it out and started again with a new core, `jaic`, which uses one AST for both the compiler and the language server. It ran hello world on Oct 4, and the old code was deleted that same day. You can see it pretty clearly in the chart:
 
 <LineChart
   src="vibecoding-jai/data/lines-by-component.json"
@@ -44,31 +46,27 @@ The first version was a VM-based compiler split across a lot of crates. By Oct 3
   interactive
 />
 
-The rewrite was a lot smaller. At one point it was about 30k lines, compared to 300k for the old one. A week later it was about 72k lines and compiled all 41 corpus projects.
+By the time the new compiler could build the whole corpus, it was about 72k lines, or roughly a fifth of what I'd thrown away.
 
-## Agents taking shortcuts
+## What the corpus can't tell you
 
-To get one program compiling, an agent skipped type-checking `switch` cases whose values are constants. The program compiled and the tests passed. But the language server gets its types from the type checker, so hover, go-to-definition and errors stopped working inside those cases. I only found it because I hovered over something and nothing showed up.
+The corpus is great at answering exactly one question: does this program compile and run? It has nothing to say about anything else.
 
-The linter had an autofix that rewrites index loops like `for i: 0..n-1 { x := arr[i]; }` to iterate over the elements directly using `it`. On a nested loop comparing pairs, it turned `ms[i] - ms[j]` into `it - it`. That still compiles, but it computes something different. I caught it while reading a diff.
+At one point, an agent got a program compiling by just... not type-checking `switch` cases whose values were constants. The program compiled, it ran, the corpus was green, and as far as the agent was concerned, the job was done. The catch is that the language server gets everything it knows from the type checker. So inside any of those cases, hover and go-to-definition quietly stopped working, and there was no test anywhere that would have noticed.
 
-Once the linter worked, I ran it on every public Jai project we could find. It found 902 issues, including some real bugs like `assert(window == window)` and a draw function that ignored its color and thickness parameters. I had a Sonnet agent go through them and label the false positives, and it marked a bunch of correct findings as false. I had to go back through those by hand.
+The linter managed something even better. It has an autofix that turns an index loop like `for i: 0..n-1 { x := arr[i]; }` into a loop over the elements themselves, using `it`. That's a nice fix, right up until you run it on a nested loop that compares pairs of elements, where it turned `ms[i] - ms[j]` into `it - it`. Which is a perfectly valid program! It's just not the same program.
 
-## Agents breaking each other
+I don't really have a clever answer for this kind of bug. A lot of my time went into using the tools myself and reading diffs, and I think that's just part of the deal.
 
-Running a lot of agents on one machine also caused problems:
+## Too many agents, one laptop
 
-- Agents originally shared one build directory, so they kept running each other's stale binaries.
-- One agent's commit included the corpus checkout, which is gitignored, and merging it wiped the corpus for everyone.
-- A benchmark on one of the bigger corpus projects used about 84 GB of memory on my 16 GB Mac. After that, only one heavy job was allowed to run at a time.
-- CI went red after merges a few times, once from a generated schema that was out of date and once from a race in parallel builds on macOS.
-- Sometimes an agent just got stuck and I didn't notice for a while.
+Every agent got its own git worktree, but for a while they all shared a single build directory. So they'd build something, run a binary that another agent had just built, and then try very hard to explain results that had nothing to do with their own changes. Another time, an agent committed the corpus checkout (which is gitignored), and merging that deleted the corpus for everyone.
 
-Each of these turned into a rule in the memory files, which the agents read at the start of every session. There were 15 rules by the end.
+My favourite, though, was a benchmark on one of the larger corpus projects that wanted 84 GB of memory. My Mac has 16. After that, only one heavy job was allowed to run at a time.
 
-## Spending too much on the wrong model
+## Checking the model
 
-In the second week, some subagents were running on Opus instead of Sonnet. They used about 4 billion cached input tokens before I noticed. After that the rule was Sonnet for subagents and Haiku for anything that only reads code.
+At some point I noticed that some of the subagents were running on Opus instead of Sonnet. By then they'd gone through about 4 billion cached input tokens. Now subagents use Sonnet, and anything that's only reading code uses Haiku.
 
 <BarChart
   src="vibecoding-jai/data/output-tokens.json"
@@ -76,29 +74,14 @@ In the second week, some subagents were running on Opus instead of Sonnet. They 
   caption="Summed from session transcripts. Cache reads are much larger (about 7.6 billion) and mostly depend on how long sessions ran."
 />
 
-## Slow code
+## Nobody asked for fast
 
-The agents never worked on performance unless I asked, and a lot of the code was slow. Some parts of the language server got slower the bigger the file was, much faster than linearly, which you don't notice on test files with 50 lines. I had it track time, CPU and memory on a file with over 100k lines, and fixing it was part of a perf push on Oct 9. I also asked whether debug builds could get under a second and optimized builds under five, and that turned into a perf pass over the interpreter, the frontend and build caching.
+Agents don't think about performance unless you ask, and for a while I didn't ask. Parts of the language server got slower much faster than files got bigger, which you'll never see on a 50-line test file, and will see almost immediately on a real one. Most of that got fixed in a perf push on Oct 9.
 
-One problem wasn't ours: LLVM 22 had a bug where one of its loop optimizations miscompiled certain subtraction loops, so we had to turn it off until LLVM 23 fixed it. The nightly fuzzer also found a case where a missing import made the compiler retry forever.
+And one bug wasn't even ours. LLVM 22's loop unroller [miscompiles certain subtraction loops](https://github.com/llvm/llvm-project/issues/201065), so we turned that part of it off until we moved to LLVM 23, where it's fixed.
 
-<LineChart
-  src="vibecoding-jai/data/wasm-size.json"
-  title="Playground bundle size"
-  caption="The zipped wasm bundle. The Oct 5 drop is from moving the UI out of wasm and into the site. It grows again as the language server and WebGPU support are added."
-/>
+## So, how did it go?
 
-## What I spent my time on
+I sent around 870 messages in the main session over those ten days, and surprisingly few of them were asking for features. Most were me saying no to something, asking for the actual cause of a bug instead of a workaround, or complaining that some key didn't do what it was supposed to.
 
-I sent around 870 messages in the main session. Very few were asking for features. Most were saying no to things (there's only one playground, the config stays in TOML), asking for root-cause fixes instead of patches, or setting a bar, like errors having to explain what's wrong and suggest a fix. The rest was using the tools myself and reporting what was broken, like Escape closing the whole modal or Tab not accepting completions.
-
-## Takeaways
-
-- Test against real projects that the agents didn't write.
-- Use the tools yourself and read the diffs. That's how the bugs above were found.
-- Check which model your subagents are actually running on.
-- Give each agent its own worktree and build directory, and limit how many heavy jobs run at once.
-- Write every correction down somewhere the agents will read it.
-- If the first version is getting hard to change, restart it early.
-
-There's still a lot left to do, including code signing, more of the corpus and the rest of the language spec. But it compiles real Jai projects in the browser now, and I'd actually use the tooling.
+But it compiles all 41 corpus projects now, and it's tooling I'd actually use.
