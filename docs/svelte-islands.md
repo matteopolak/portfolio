@@ -41,3 +41,9 @@ Islands remount on `ClientRouter` navigations, so converted code does not use `a
 ## Dev server: pre-bundled dependencies
 
 `astro.config.ts` lists every browser-side npm dependency in `vite.optimizeDeps.include`, including ones only reached through dynamic imports (the playground embed, Markdown preview, Vim mode, xterm, the chart `d3-*` modules). If Vite discovers one mid-session it re-optimizes and answers modules already loaded with `504 Outdated Optimize Dep`: islands stop hydrating (charts lose hover) and embeds fail to start until a hard reload. When you add a client-side dependency, add it to that list. Dev only; production builds are unaffected.
+
+## Client CSS is injected in production builds
+
+`svelte.config.js` compiles client-side Svelte components with `css: 'injected'` for `astro build` (dev keeps external CSS for HMR). Pages still link each island's CSS from Astro's server build, so the first paint is styled; the client copy is injected on hydration and is identical.
+
+Why: Astro deletes client-build CSS files that its server build already covers, but a lazily imported island (the blog Playground embed, `lib/playground-embed.ts`) still preloaded those client CSS names. They 404'd, Vite's preload rejected, and the embed showed "Couldn't start". With injected CSS the client build emits no CSS files, so nothing can go missing. If you revert this, check that no `dist/_astro/*.js` references a `.css` file that isn't in `dist/_astro`.
