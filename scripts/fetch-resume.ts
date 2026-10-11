@@ -33,6 +33,6 @@ try {
   console.log(`resume: ${pdf.length} bytes -> public/resume.pdf`);
 } catch (error) {
   const message = `resume: could not download ${url}: ${(error as Error).message}`;
-  if (required) throw new Error(message);
+  if (required) throw new Error(message, { cause: error });
   console.warn(`${message} (skipped; run \`pnpm resume\` to build it locally)`);
 }
