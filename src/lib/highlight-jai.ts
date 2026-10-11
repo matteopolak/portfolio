@@ -23,45 +23,36 @@ export interface JaiTokenStyle {
 }
 
 /*
- * The dark values are the editor's `--ide-syntax-*` tokens (CodeWorkspace.svelte).
- * The light values are the same hues darkened for the paper background, built
- * from the theme's own `-text` accents so they follow the site theme.
+ * The dark values are the editor's `--ide-syntax-*` tokens (CodeWorkspace.svelte);
+ * the light values are the same hues darkened for the paper background. Both
+ * are fixed rather than theme accents, so tokens stay distinct in every theme.
  */
 export const jaiTokenStyles = {
   keyword: {
-    light: 'var(--accent-3-text)',
-    dark: 'color-mix(in oklch, var(--accent-3-light) 88%, white)',
+    light: 'oklch(45% 0.15 255)',
+    dark: 'oklch(76% 0.12 255)',
     bold: true,
   },
-  type: {
-    light: 'var(--accent-2-text)',
-    dark: 'color-mix(in oklch, var(--accent-2-light) 52%, white)',
-  },
-  function: { light: 'var(--ink)', dark: 'oklch(94% 0.035 91)' },
+  type: { light: 'oklch(46% 0.09 185)', dark: 'oklch(80% 0.1 185)' },
+  function: { light: 'oklch(47% 0.11 75)', dark: 'oklch(87% 0.12 95)' },
   variable: { light: 'var(--ink)', dark: 'oklch(90% 0.016 91)' },
-  string: { light: 'oklch(42% 0.11 150)', dark: 'oklch(81% 0.11 150)' },
+  string: { light: 'oklch(43% 0.12 145)', dark: 'oklch(79% 0.14 145)' },
   format: {
     light: 'oklch(44% 0.17 310)',
-    dark: 'oklch(78% 0.15 310)',
+    dark: 'oklch(76% 0.16 310)',
     bold: true,
   },
-  formatPercent: { light: 'oklch(48% 0.09 310)', dark: 'oklch(76% 0.07 310)' },
+  formatPercent: { light: 'oklch(48% 0.09 310)', dark: 'oklch(72% 0.09 310)' },
   comment: {
     light: 'var(--muted)',
-    dark: 'oklch(76% 0.014 270)',
+    dark: 'oklch(70% 0.02 270)',
     italic: true,
   },
-  number: {
-    light: 'var(--accent-1-text)',
-    dark: 'color-mix(in oklch, var(--accent-1-light) 55%, white)',
-  },
-  directive: {
-    light: 'color-mix(in oklch, var(--accent-1-text) 70%, var(--ink))',
-    dark: 'color-mix(in oklch, var(--accent-1-light) 72%, white)',
-  },
+  number: { light: 'oklch(49% 0.13 45)', dark: 'oklch(79% 0.12 45)' },
+  directive: { light: 'oklch(47% 0.16 10)', dark: 'oklch(75% 0.14 10)' },
   punctuation: {
     light: 'color-mix(in oklch, var(--ink) 72%, var(--paper-bright))',
-    dark: 'oklch(80% 0.01 270)',
+    dark: 'oklch(78% 0.01 270)',
   },
 } satisfies Record<string, JaiTokenStyle>;
 

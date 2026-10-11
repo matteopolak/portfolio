@@ -5,7 +5,11 @@ import {
   type CommentExtent,
   type DocStyle,
 } from '../../src/lib/jai/doc-comments.ts';
-import { highlightJai, jaiSpanStyle } from '../../src/lib/highlight-jai.ts';
+import {
+  highlightJai,
+  jaiSpanStyle,
+  jaiTokenStyles,
+} from '../../src/lib/highlight-jai.ts';
 
 /** A `//` comment from its marker to the end of the line. */
 const lineComment = (line: string): CommentExtent => {
@@ -136,6 +140,8 @@ test('blog spans style comment Markdown like the editor', () => {
   assert.match(style(['strong']), /font-weight:600/u);
   assert.match(style(['heading']), /font-weight:600/u);
   assert.doesNotMatch(style(['code']), /font-style:italic/u);
-  assert.match(style(['link']), /--shiki-light:var\(--accent-2-text\)/u);
+  assert.ok(
+    style(['link']).includes(`--shiki-light:${jaiTokenStyles.type.light}`)
+  );
   assert.equal(style([]), jaiSpanStyle('comment'));
 });

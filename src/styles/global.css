@@ -950,7 +950,6 @@ body .site-main .project-card:hover {
   color: var(--ink);
   background: var(--paper-bright);
   border: 1px solid var(--rule);
-  border-top: 3px solid var(--accent-2);
   border-radius: var(--radius-lg);
   box-shadow: 0 1.5rem 4rem oklch(0% 0 0 / 0.25);
   transform: translate(-50%, -50%);

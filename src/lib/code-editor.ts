@@ -156,7 +156,15 @@ const theme = EditorView.theme(
       paddingLeft: '6px',
     },
     '.cm-lineNumbers .cm-gutterElement': { minWidth: '2.5ch' },
-    '.cm-gutter-lint': { width: '14px' },
+    // CodeMirror pads lint cells by 0.2em; with a 14px marker in a 14px column
+    // that clipped the icon's right edge, so centre it with no padding.
+    '.cm-gutter-lint': { width: '16px' },
+    '.cm-gutter-lint .cm-gutterElement': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0',
+    },
     '.cm-activeLine': { backgroundColor: 'var(--ide-active-line)' },
     '.cm-activeLineGutter': {
       backgroundColor: 'var(--ide-active-line)',

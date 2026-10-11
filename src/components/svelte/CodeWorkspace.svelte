@@ -737,21 +737,20 @@
     --ide-selection-match: oklch(100% 0 0 / 0.07);
     --ide-search: color-mix(in oklch, var(--accent-3) 22%, transparent);
     --ide-search-outline: color-mix(in oklch, var(--accent-3) 55%, transparent);
-    --ide-syntax-keyword: color-mix(in oklch, var(--accent-3-light) 88%, white);
-    --ide-syntax-type: color-mix(in oklch, var(--accent-2-light) 52%, white);
-    --ide-syntax-function: oklch(94% 0.035 91);
-    --ide-syntax-string: oklch(81% 0.11 150);
+    /* Syntax colours are fixed (not the site accents, which are pastel and
+       change per theme) so tokens stay distinct; every one clears 4.5:1 on
+       --ide-bg. */
+    --ide-syntax-keyword: oklch(76% 0.12 255);
+    --ide-syntax-type: oklch(80% 0.1 185);
+    --ide-syntax-function: oklch(87% 0.12 95);
+    --ide-syntax-string: oklch(79% 0.14 145);
     /* Format specifiers (`%`, `%1`) in print-family strings: violet, away from the green strings. */
-    --ide-syntax-format: oklch(78% 0.15 310);
-    --ide-syntax-format-percent: oklch(76% 0.07 310);
-    --ide-syntax-number: color-mix(in oklch, var(--accent-1-light) 55%, white);
-    --ide-syntax-directive: color-mix(
-      in oklch,
-      var(--accent-1-light) 72%,
-      white
-    );
-    --ide-syntax-comment: oklch(76% 0.014 270);
-    --ide-syntax-punct: oklch(80% 0.01 270);
+    --ide-syntax-format: oklch(76% 0.16 310);
+    --ide-syntax-format-percent: oklch(72% 0.09 310);
+    --ide-syntax-number: oklch(79% 0.12 45);
+    --ide-syntax-directive: oklch(75% 0.14 10);
+    --ide-syntax-comment: oklch(70% 0.02 270);
+    --ide-syntax-punct: oklch(78% 0.01 270);
     --ide-error: color-mix(in oklch, var(--accent-1-light) 58%, white);
     --ide-mono:
       ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas,
