@@ -73,6 +73,14 @@ for (const file of files) {
   const fail = (message: string) => errors.push(`${path}: ${message}`);
   const html = await readFile(file, 'utf8');
 
+  // The 404 page is served for unknown paths: noindex, no canonical checks,
+  // no sitemap entry, no markdown variant.
+  if (path === '/404') {
+    if (!meta(html, 'name', 'robots')?.includes('noindex'))
+      fail('404 page must be noindex');
+    continue;
+  }
+
   const title = /<title>([^<]*)<\/title>/u.exec(html)?.[1];
   if (!title?.trim()) fail('missing <title>');
   else {

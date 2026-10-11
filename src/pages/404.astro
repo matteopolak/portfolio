@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<!-- Cloudflare Pages serves dist/404.html with a 404 status for unknown paths. -->
+<Layout
+  title="Page not found"
+  description="This page doesn't exist. It may have moved, or the link may be wrong."
+  noindex
+>
+  <header class="page-intro">
+    <span class="page-intro__index" aria-hidden="true"></span>
+    <h1>Page not found</h1>
+  </header>
+  <p class="not-found__text">
+    This page doesn't exist. It may have moved, or the link may be wrong.
+  </p>
+  <ul class="not-found__links">
+    <li><a href="/">Home</a></li>
+    <li><a href="/projects">Projects</a></li>
+    <li><a href="/blog">Blog</a></li>
+  </ul>
+</Layout>
+
+<style>
+  .not-found__text {
+    max-width: 40rem;
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+  }
+
+  .not-found__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0 0 6rem;
+    padding: 0;
+    list-style: none;
+    font-weight: 600;
+  }
+
+  .not-found__links a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+</style>

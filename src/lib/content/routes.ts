@@ -58,6 +58,7 @@ export function allowedRoute(
 /** Pages with a markdown variant: everything but the playgrounds. */
 export function markdownPathFor(path: string): string | undefined {
   if (path === '/' || path === '/index') return '/index.md';
+  if (path === '/404') return undefined;
   if (path === '/playground' || path.startsWith('/playground/'))
     return undefined;
   const clean = path.replace(/\/+$/, '');

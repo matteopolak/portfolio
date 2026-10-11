@@ -25,7 +25,7 @@ const personId = new URL('/#person', Astro.site).href;
 const websiteId = new URL('/#website', Astro.site).href;
 const pageId = `${canonicalUrl.href}#webpage`;
 const canonicalPath = canonicalPathname(Astro.url.pathname);
-// Every page but the playgrounds has a markdown variant (docs/markdown-variants.md).
+// Every page but the playgrounds and the 404 page has a markdown variant (docs/markdown-variants.md).
 const markdownPath = markdownPathFor(canonicalPath);
 const sectionNames: Record<string, string> = {
   blog: 'Blog',
