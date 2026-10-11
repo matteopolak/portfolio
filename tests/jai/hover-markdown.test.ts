@@ -68,6 +68,16 @@ test('format-string rows are a plain list; the hovered one is bold', () => {
   assert.match(html, /<ul class="jai-hover__format">/u);
 });
 
+test('resolved doc links keep their target; others stay text', () => {
+  assert.equal(
+    renderHoverMarkdown(
+      'See [`Mode.IDLE`](file:///jai-script/memory/memory.jai#L3) and [x](javascript:alert(1)).'
+    ),
+    '<p>See <a class="jai-hover__link" data-doc-link="file:///jai-script/memory/memory.jai#L3" role="link" tabindex="0"><code>Mode.IDLE</code></a> and x.</p>\n'
+  );
+  assert.equal(renderHoverMarkdown('[name]'), '<p>[name]</p>\n');
+});
+
 test('raw HTML and links are shown as text', () => {
   const html = renderHoverMarkdown('<b>x</b> [y](https://example.com)');
   assert.equal(html, '<p>&lt;b&gt;x&lt;/b&gt; y</p>\n');

@@ -364,6 +364,16 @@ const theme = EditorView.theme(
       padding: '5px 10px 5px calc(10px + 2ch)',
     },
     '.jai-hover--markdown p': { padding: '4px 10px' },
+    '.jai-hover__link': {
+      color: 'var(--accent-2-light)',
+      cursor: 'pointer',
+      textDecoration: 'underline',
+      textDecorationColor: 'color-mix(in oklab, currentColor 40%, transparent)',
+      textUnderlineOffset: '2px',
+    },
+    '.jai-hover__link:hover, .jai-hover__link:focus-visible': {
+      textDecorationColor: 'currentColor',
+    },
     '.jai-hover--markdown .jai-hover__divider': { margin: '6px 0 2px' },
     '.jai-hover--markdown hr': {
       border: 'none',
