@@ -1068,7 +1068,12 @@ export function createEditor(
       return null;
     }
   };
+  // A code lens row (lsp-extensions.ts) is a block widget, so posAtCoords maps
+  // the pointer over it to the start of the next line: no hover there.
+  const overLens = (view: EditorView) =>
+    view.dom.querySelector('.cm-lsp-lens:hover') !== null;
   const hover = hoverTooltip(async (view, position, side) => {
+    if (overLens(view)) return null;
     // The client-side format-string hover is the fallback: a hover from the
     // language server for the same position replaces it, so only one shows.
     // Newer servers explain format strings themselves (with argument types).
@@ -1089,7 +1094,8 @@ export function createEditor(
       if (
         currentDocument()?.uri !== current.uri ||
         currentDocument()?.version !== version ||
-        view.state.doc.toString() !== text
+        view.state.doc.toString() !== text ||
+        overLens(view)
       )
         return null;
       // Markdown from servers that support it; older bundles send plain text.

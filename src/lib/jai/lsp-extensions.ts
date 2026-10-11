@@ -22,6 +22,7 @@ import {
   ViewPlugin,
   WidgetType,
   keymap,
+  closeHoverTooltips,
   showTooltip,
   type DecorationSet,
   type Tooltip,
@@ -239,16 +240,23 @@ class LensWidget extends WidgetType {
       other.lens.range.start.line === this.lens.range.start.line
     );
   }
-  toDOM() {
+  toDOM(view: EditorView) {
     const row = document.createElement('div');
     row.className = 'cm-lsp-lens';
+    // The hover source ignores the lens row; close a hover left open from the
+    // line above so it doesn't sit next to the lens or its picker.
+    const closeHover = () => view.dispatch({ effects: closeHoverTooltips });
+    row.addEventListener('mouseenter', closeHover);
     row.style.paddingLeft = `${this.indent}ch`;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'cm-lsp-lens__button';
     button.textContent = this.lens.command?.title ?? '';
     button.addEventListener('mousedown', (event) => event.preventDefault());
-    button.addEventListener('click', () => this.run(this.lens));
+    button.addEventListener('click', () => {
+      closeHover();
+      this.run(this.lens);
+    });
     row.append(button);
     return row;
   }
