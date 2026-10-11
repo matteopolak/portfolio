@@ -398,6 +398,61 @@
       };
     };
 
+    interface Box {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+    }
+
+    /** Client rects of the page's text and media, which shapes must not cover. */
+    const contentBounds = () => {
+      const bounds: DOMRect[] = [];
+      const main = document.querySelector('.site-main');
+      if (!main) return bounds;
+      const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        range.selectNodeContents(node);
+        bounds.push(...Array.from(range.getClientRects()));
+      }
+      main
+        .querySelectorAll<HTMLElement>(
+          '.page-intro__index, img, svg, figure, pre, table, iframe, canvas, [data-playground-embed]'
+        )
+        .forEach((element) => bounds.push(element.getBoundingClientRect()));
+      return bounds;
+    };
+
+    const overlaps = (bounds: Box, content: readonly DOMRect[]) => {
+      const safetyMargin = 6;
+      const right = bounds.left + bounds.width;
+      const bottom = bounds.top + bounds.height;
+      return content.some(
+        (rect) =>
+          right > rect.left - safetyMargin &&
+          bounds.left < rect.right + safetyMargin &&
+          bottom > rect.top - safetyMargin &&
+          bounds.top < rect.bottom + safetyMargin
+      );
+    };
+
+    /** A 2x2 region's box in client coordinates. */
+    const regionClientBounds = (column: number, row: number): Box => {
+      const pattern = root.getBoundingClientRect();
+      return {
+        left:
+          pattern.left +
+          ((column * unit - viewBox.x) / viewBox.width) * pattern.width,
+        top:
+          pattern.top +
+          ((row * unit - viewBox.y) / viewBox.height) * pattern.height,
+        width: (160 / viewBox.width) * pattern.width,
+        height: (160 / viewBox.height) * pattern.height,
+      };
+    };
+
     const markSpecialRegions = () => {
       if (!ambient) return;
       const previous = new Set(regions.filter((region) => region.special));
@@ -406,43 +461,8 @@
       const placeholders = Array.from(
         document.querySelectorAll<HTMLElement>('[data-bauhaus-region]')
       ).map((placeholder) => placeholder.getBoundingClientRect());
-      const textBounds: DOMRect[] = [];
-      const main = document.querySelector('.site-main');
-      if (main) {
-        const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
-        let textNode = walker.nextNode();
-        while (textNode) {
-          if (textNode.textContent?.trim()) {
-            const range = document.createRange();
-            range.selectNodeContents(textNode);
-            textBounds.push(...Array.from(range.getClientRects()));
-          }
-          textNode = walker.nextNode();
-        }
-        main
-          .querySelectorAll<HTMLElement>('.page-intro__index, img, svg')
-          .forEach((element) =>
-            textBounds.push(element.getBoundingClientRect())
-          );
-      }
-
-      const overlapsContent = (bounds: {
-        left: number;
-        top: number;
-        width: number;
-        height: number;
-      }) => {
-        const safetyMargin = 6;
-        const right = bounds.left + bounds.width;
-        const bottom = bounds.top + bounds.height;
-        return textBounds.some(
-          (content) =>
-            right > content.left - safetyMargin &&
-            bounds.left < content.right + safetyMargin &&
-            bottom > content.top - safetyMargin &&
-            bounds.top < content.bottom + safetyMargin
-        );
-      };
+      const textBounds = contentBounds();
+      const overlapsContent = (bounds: Box) => overlaps(bounds, textBounds);
 
       for (const placeholder of placeholders) {
         const svgLeft =
@@ -471,18 +491,7 @@
 
         for (let row = firstRow; row <= lastRow; row += 2) {
           for (let column = firstColumn; column <= lastColumn; column += 2) {
-            const bounds = {
-              left:
-                patternBounds.left +
-                ((column * unit - viewBox.x) / viewBox.width) *
-                  patternBounds.width,
-              top:
-                patternBounds.top +
-                ((row * unit - viewBox.y) / viewBox.height) *
-                  patternBounds.height,
-              width: (160 / viewBox.width) * patternBounds.width,
-              height: (160 / viewBox.height) * patternBounds.height,
-            };
+            const bounds = regionClientBounds(column, row);
             const right = bounds.left + bounds.width;
             const bottom = bounds.top + bounds.height;
             const overlapWidth = Math.max(
@@ -634,10 +643,11 @@
         const svgY =
           viewBox.y +
           ((event.clientY - bounds.top) / bounds.height) * viewBox.height;
-        return ensureRegion(
-          Math.floor(svgX / 160) * 2,
-          Math.floor(svgY / 160) * 2
-        );
+        const column = Math.floor(svgX / 160) * 2;
+        const row = Math.floor(svgY / 160) * 2;
+        // The trail stays in the margins: never reveal a cell over content.
+        if (overlaps(regionClientBounds(column, row), contentBounds())) return;
+        return ensureRegion(column, row);
       };
 
       const revealRegion = (region: Region, shiftX = '0px', shiftY = '0px') => {

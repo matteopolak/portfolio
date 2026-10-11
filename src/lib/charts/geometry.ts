@@ -256,6 +256,26 @@ export function barsLayout(data: BarsData, variant: Variant): BarsLayout {
   };
 }
 
+/**
+ * A bar's outline: rounded at the value end, square and open at the zero end,
+ * so the stroke stops at the axis and the bar sits on it. Filling closes the
+ * path; the stroke leaves the zero edge undrawn.
+ */
+export function barPath(bar: BarShape, radius = 3): string {
+  const h = Math.max(bar.height, 1);
+  const r = Math.min(radius, bar.width / 2, h);
+  const { x, width: w } = bar;
+  const right = x + w;
+  if (bar.value < 0) {
+    const top = bar.y;
+    const bottom = top + h;
+    return `M${x} ${top}V${bottom - r}Q${x} ${bottom} ${x + r} ${bottom}H${right - r}Q${right} ${bottom} ${right} ${bottom - r}V${top}`;
+  }
+  const bottom = bar.y + bar.height;
+  const top = bottom - h;
+  return `M${x} ${bottom}V${top + r}Q${x} ${top} ${x + r} ${top}H${right - r}Q${right} ${top} ${right} ${top + r}V${bottom}`;
+}
+
 /** Index of the point whose x is closest to `px` (tooltips). */
 export function nearestIndex(xs: number[], px: number): number {
   let best = 0;

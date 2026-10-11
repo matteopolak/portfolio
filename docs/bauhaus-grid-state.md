@@ -40,3 +40,7 @@ The ambient page grid no longer scales with the viewport. One grid cell (the 80-
 - The `<svg>` gets an inline `width: calc(<cells> * var(--bauhaus-cell))`; `.latent-grid` is `width: max-content` and centred, so leftover space is split evenly on both sides and clipped by `.bauhaus-field`.
 - The ambient pattern renders no shapes on the server (regions are created on pointer movement), so there is nothing to shift between SSR and hydration. The SSR `columns={50}` only seeds a 48-cell wide empty svg that is replaced on mount.
 - To change the cell size, edit `--bauhaus-cell` (a media query is fine, the JS reads the computed value on each resize). `ProjectDemoLoading` uses a fixed `5.4rem` static pattern and is unaffected.
+
+## The pointer trail avoids content
+
+Ambient regions revealed by pointer movement (`regionAtPointer` in `BauhausPattern.svelte`) are skipped when the 2x2 cell would overlap page content: text line boxes in `.site-main` plus figures, images, SVGs, code blocks, tables and playground embeds (`contentBounds()`, 6px margin). The hero placeholder regions use the same check. Content is measured at reveal time, so cells never land on text that moved after load (charts hydrating, embeds starting). To let shapes cover a new kind of element, or to keep them off one, edit the selector list in `contentBounds()`.

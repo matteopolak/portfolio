@@ -578,8 +578,8 @@
   .ide-terminal {
     flex: 1;
     min-height: 0;
-    padding: 0.25rem 0 0.25rem 1rem;
     overflow: hidden;
+    overscroll-behavior: contain;
     background: var(--ide-sunken);
   }
 
@@ -587,9 +587,16 @@
     display: none;
   }
 
-  /* xterm paints its own background and scrolls its own viewport. */
+  /*
+   * xterm paints its own background and scrolls its own viewport. The inset
+   * is padding on `.xterm`, not the host: the fit addon subtracts the
+   * terminal element's padding but measures the host's full box, so padding
+   * there made it fit one row too many and cut off the last line.
+   */
   .ide-terminal :global(.xterm) {
+    box-sizing: border-box;
     height: 100%;
+    padding: 0.25rem 0 0.25rem 1rem;
   }
 
   .ide-terminal :global(.xterm-viewport) {

@@ -19,6 +19,7 @@
     table,
     layouts,
     filled,
+    unit,
     interactive = false,
   }: {
     id: string;
@@ -28,6 +29,7 @@
     table: ChartTable;
     layouts: Record<Variant, TimeSeriesLayout>;
     filled: boolean;
+    unit?: string;
     interactive?: boolean;
   } = $props();
 
@@ -90,7 +92,7 @@
   };
 </script>
 
-<ChartShell {id} {title} {caption} {table}>
+<ChartShell {id} {title} {caption} {table} {unit}>
   {#each variants as variant}
     {@const layout = layouts[variant]}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

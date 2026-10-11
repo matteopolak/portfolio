@@ -7,6 +7,7 @@
     title,
     caption,
     table,
+    unit,
     children,
     legend,
   }: {
@@ -14,6 +15,8 @@
     title?: string;
     caption?: string;
     table: ChartTable;
+    /** The y axis unit, shown above the plot so tick labels read as e.g. "4 million tokens". */
+    unit?: string;
     children: Snippet;
     legend?: Snippet;
   } = $props();
@@ -49,6 +52,7 @@
       Data
     </button>
   </div>
+  {#if unit}<p class="chart__unit" aria-hidden="true">{unit}</p>{/if}
   {@render children()}
   {@render legend?.()}
   {#if caption}<figcaption class="chart__caption">{caption}</figcaption>{/if}
@@ -95,6 +99,13 @@
     color: var(--muted);
     font-size: 0.875rem;
     line-height: 1.5;
+  }
+
+  .chart__unit {
+    margin: 0 0 0.25rem;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.2;
   }
 
   .chart__head {

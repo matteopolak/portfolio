@@ -49,6 +49,7 @@ export function timeSeriesModel(
       narrow: timeSeriesLayout(data, 'narrow', options),
     },
     filled,
+    unit: data.unit,
   };
 }
 

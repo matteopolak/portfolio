@@ -113,6 +113,14 @@ export async function createTerminal(
     return true;
   });
 
+  // xterm scrolls its buffer itself and lets the wheel through at either end,
+  // which scrolled the page behind an embedded workspace. Bubbling to the host
+  // means xterm has already handled it, so just stop the page from scrolling.
+  host.addEventListener('wheel', (event) => event.preventDefault(), {
+    passive: false,
+    signal,
+  });
+
   let column = 0;
   const refit = () => {
     if (!host.clientWidth || !host.clientHeight) return;

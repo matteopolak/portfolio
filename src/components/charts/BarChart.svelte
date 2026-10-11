@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import ChartShell from './ChartShell.svelte';
   import {
+    barPath,
     formatValue,
     type BarsLayout,
     type Variant,
@@ -36,7 +37,7 @@
   const variants: Variant[] = ['wide', 'narrow'];
 </script>
 
-<ChartShell {id} {title} {caption} {table}>
+<ChartShell {id} {title} {caption} {table} {unit}>
   {#each variants as variant}
     {@const layout = layouts[variant]}
     <svg
@@ -73,13 +74,7 @@
           onpointerenter={() => enhanced && (hover = { variant, index })}
           onpointerleave={() => (hover = undefined)}
         >
-          <rect
-            x={bar.x}
-            y={bar.y}
-            width={bar.width}
-            height={Math.max(bar.height, 1)}
-            rx="3"
-          />
+          <path d={barPath(bar)} />
           {#if enhanced && hover?.variant === variant && hover.index === index}
             <text
               class="value"
@@ -145,13 +140,13 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .bar rect {
+  .bar path {
     fill: color-mix(in oklch, var(--accent-1) 55%, transparent);
     stroke: var(--accent-1-text);
     stroke-width: 2;
   }
 
-  .bar.active rect {
+  .bar.active path {
     fill: var(--accent-1-text);
   }
 
@@ -162,7 +157,7 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .bar rect {
+    .bar path {
       transition: fill 160ms ease;
     }
   }

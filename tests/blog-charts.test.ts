@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseChartData, componentKinds } from '../src/lib/charts/schema.ts';
+import { slugger } from '../src/lib/heading-anchor-plugin.ts';
 import {
+  barPath,
   barsLayout,
   nearestIndex,
   timeSeriesLayout,
@@ -341,4 +343,31 @@ test('drafts are visible only in dev, decided by one predicate', async () => {
       ['p', false],
     ]
   );
+});
+
+test('bars are open at the zero end so they sit on the axis', () => {
+  const up = {
+    label: 'a',
+    value: 5,
+    x: 10,
+    y: 20,
+    width: 30,
+    height: 80,
+    showLabel: true,
+  };
+  const path = barPath(up);
+  assert.ok(path.startsWith('M10 100'), path);
+  assert.ok(path.endsWith('V100'), path);
+  assert.ok(!path.includes('Z'));
+  const down = { ...up, value: -5, y: 100 };
+  assert.ok(barPath(down).startsWith('M10 100'));
+  assert.ok(barPath(down).endsWith('V100'));
+});
+
+test('heading slugs match github-slugger and dedupe', () => {
+  const slug = slugger();
+  assert.equal(slug('Throwing away 330k lines'), 'throwing-away-330k-lines');
+  assert.equal(slug("What's next?"), 'whats-next');
+  assert.equal(slug('Setup'), 'setup');
+  assert.equal(slug('Setup'), 'setup-1');
 });

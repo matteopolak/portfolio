@@ -71,7 +71,7 @@ Gotchas:
 - Tables can't round with `border-collapse: collapse`. `.prose table` and the Markdown preview's `.md-table` use separate borders: the frame draws the outer border and radius, cells draw only right/bottom rules.
 - No thick one-sided accent borders (a 3px top rule on a dialog, a fat left bar on a callout). Callouts and blockquotes use a 1px border in their accent at 60% with an 8% tint of it behind, and a plain semibold label. Active markers on rounded elements (the open file tab, the current tree row, pressed group buttons) are straight `::before`/`::after` bars inset by the element's radius: an inset `box-shadow` follows the corner and tapers at the ends.
 - Things that fill the viewport drop the radius: `:fullscreen`, the full-page playground (`.ide--page`) and the phone sheet (`max-width: 42rem`).
-- Deliberately square: the Bauhaus art (`BauhausPattern`, `BauhausField`, `bauhaus.ts`), the nav M mark and other logos, `GeometricMark`, page-intro/article/TOC/eyebrow colour bars, `.prose h2` shape markers, and the Lodestone game's own UI.
+- Deliberately square: the Bauhaus art (`BauhausPattern`, `BauhausField`, `bauhaus.ts`), the nav M mark and other logos, `GeometricMark`, page-intro/article/TOC/eyebrow colour bars, and the Lodestone game's own UI.
 
 ## Configuration
 
@@ -103,3 +103,7 @@ Changing the seed produces another deterministic composition. Changing `density`
 - `@fontsource-variable/open-sans` supplies the self-hosted website WOFF2; the Open Sans files under `resume/fonts/` are used only by the PDF résumé.
 - Shiki uses its `github-light` theme for blog code blocks.
 - Employer, social, and country marks are local SVG assets under `public/logos/`.
+
+## Blog headings
+
+Markdown `h2`–`h4` have no decorative shape. Each gets a GitHub-style `#` section link appended by `src/lib/heading-anchor-plugin.ts` (a Sätteri hast plugin registered in `astro.config.ts`). It runs before Astro's own heading-id plugin, so it assigns the id itself (github-slugger rules) and Astro keeps it for the TOC. The link has no text; the `#` is CSS `content` on `.heading-anchor` in `global.css`, so TOC labels stay clean. It shows on heading hover or focus (always faintly on touch screens).

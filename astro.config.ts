@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { transformerMetaHighlight } from '@shikijs/transformers';
 import { satteri } from '@astrojs/markdown-satteri';
 import { jaiHastPlugin } from './src/lib/jai-hast-plugin.ts';
+import { headingAnchorPlugin } from './src/lib/heading-anchor-plugin.ts';
 
 export default defineConfig({
   site: 'https://matteopolak.com',
@@ -61,7 +62,9 @@ export default defineConfig({
   markdown: {
     // `jai` fences are highlighted by our own Lezer parser (lib/jai-hast-plugin.ts), not Shiki.
     syntaxHighlight: { type: 'shiki', excludeLangs: ['jai'] },
-    processor: satteri({ hastPlugins: [jaiHastPlugin as never] }),
+    processor: satteri({
+      hastPlugins: [jaiHastPlugin as never, headingAnchorPlugin as never],
+    }),
     shikiConfig: {
       // Both palettes are emitted as CSS variables; global.css and themeCss() pick one per site theme.
       themes: { light: 'github-light', dark: 'github-dark' },
