@@ -23,6 +23,14 @@ export const projectMilestones: ProjectMilestone[] = [
     sourceUrl: 'https://openai.com/index/introducing-gpt-6-1-sol/',
   },
   {
+    id: 'claude-sonnet-5-5',
+    date: '2026-09-28',
+    title: 'Claude Sonnet 5.5 released',
+    detail: 'The second Claude 5.5 model, six days after Opus 5.5.',
+    category: 'ai',
+    sourceUrl: 'https://www.anthropic.com/claude/sonnet',
+  },
+  {
     id: 'claude-opus-5-5',
     date: '2026-09-22',
     title: 'Claude Opus 5.5 released',
