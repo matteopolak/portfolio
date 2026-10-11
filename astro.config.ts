@@ -13,6 +13,11 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
+      // Every browser-side dependency, including the ones only reached through
+      // dynamic imports (playground embeds, Markdown preview, Vim mode). Vite
+      // would otherwise find them mid-session, re-optimize, and fail modules
+      // already loaded with "504 Outdated Optimize Dep" (charts stop hydrating,
+      // embeds fail to start) until a hard reload.
       include: [
         '@codemirror/state',
         '@codemirror/view',
@@ -22,6 +27,16 @@ export default defineConfig({
         '@codemirror/lint',
         '@codemirror/search',
         '@lezer/highlight',
+        '@codemirror/lang-markdown',
+        '@replit/codemirror-vim',
+        '@xterm/xterm',
+        '@xterm/addon-fit',
+        'd3-array',
+        'd3-scale',
+        'd3-shape',
+        'd3-time-format',
+        'dompurify',
+        'marked',
       ],
     },
     server: {

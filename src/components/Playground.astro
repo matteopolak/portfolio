@@ -28,13 +28,20 @@ const title = page.title.replace(/ playground$/, '');
   data-playground-embed-props={JSON.stringify(workspace)}
 >
   <section class="playground-embed__card" data-playground-embed-card aria-labelledby={`pe-${name}`}>
-    <button type="button" class="playground-embed__start" data-playground-embed-start>
-      Start
+    <button
+      type="button"
+      class="playground-embed__start"
+      data-playground-embed-start
+      aria-label={`Start the ${title} playground`}
+      aria-describedby={`pe-${name}-status`}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"></path></svg>
     </button>
+    <p class="playground-embed__status" id={`pe-${name}-status`} data-playground-embed-status aria-live="polite"></p>
     <p class="playground-embed__label" id={`pe-${name}`}>
       {title} <span>· runs in your browser</span>
     </p>
-    <noscript><p class="playground-embed__label">Running it needs JavaScript. <a href={page.path}>Open the full page</a>.</p></noscript>
+    <noscript><p class="playground-embed__status">Running it needs JavaScript. <a href={page.path}>Open the full page</a>.</p></noscript>
   </section>
   <div class="playground-embed__stage" data-playground-embed-stage hidden></div>
   <button type="button" class="playground-embed__fullscreen" data-playground-embed-fullscreen hidden>
@@ -62,17 +69,19 @@ const title = page.title.replace(/ playground$/, '');
   }
 
   .playground-embed__card {
-    display: flex;
+    position: relative;
+    display: grid;
     height: 100%;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
+    place-items: center;
     padding: 1rem;
     text-align: center;
   }
 
   .playground-embed__label {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
     margin: 0;
     font-size: 0.875rem;
     font-weight: 700;
@@ -83,34 +92,75 @@ const title = page.title.replace(/ playground$/, '');
     font-weight: 500;
   }
 
+  /* Just below the centred button, so the button itself stays centred. */
+  .playground-embed__status {
+    position: absolute;
+    top: calc(50% + 2.75rem);
+    right: 1rem;
+    left: 1rem;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
   .playground-embed__start {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.2rem 0.6rem 1rem;
+    display: grid;
+    width: 4rem;
+    height: 4rem;
+    padding: 0;
+    place-items: center;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: 50%;
     color: var(--accent-2-on);
     background: var(--accent-2);
-    font: 700 0.95rem var(--font-sans);
     cursor: pointer;
+    transition: transform 120ms ease;
   }
 
-  .playground-embed__start::before {
-    content: '';
-    width: 0;
-    height: 0;
-    border-block: 0.4em solid transparent;
-    border-left: 0.65em solid currentColor;
+  .playground-embed__start:hover {
+    transform: scale(1.06);
   }
 
-  .playground-embed__start:disabled::before {
+  .playground-embed__start svg {
+    width: 1.75rem;
+    height: 1.75rem;
+    fill: currentColor;
+  }
+
+  /* Loading: the triangle gives way to a spinner ring. */
+  .playground-embed__start:disabled {
+    cursor: progress;
+    transform: none;
+  }
+
+  .playground-embed__start:disabled svg {
     display: none;
   }
 
-  .playground-embed__start:disabled {
-    cursor: progress;
-    opacity: 0.7;
+  .playground-embed__start:disabled::after {
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 3px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: '';
+    animation: playground-embed-spin 0.8s linear infinite;
+  }
+
+  @keyframes playground-embed-spin {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .playground-embed__start {
+      transition: none;
+    }
+
+    .playground-embed__start:disabled::after {
+      animation-duration: 2.4s;
+    }
   }
 
   .playground-embed__start:focus-visible,

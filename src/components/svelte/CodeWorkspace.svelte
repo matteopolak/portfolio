@@ -17,8 +17,11 @@
     files?: boolean;
     enabled?: boolean;
     revision?: string;
-    /** `modal` (inside a demo dialog) or `page` (a /playground route). */
-    mode?: 'modal' | 'page';
+    /**
+     * `modal` (inside a demo dialog), `page` (a /playground route) or `embed`
+     * (a blog post's `<Playground>`, which links out to the full page).
+     */
+    mode?: 'modal' | 'page' | 'embed';
   }
 
   const {
@@ -100,7 +103,7 @@
   bind:this={panel}
   class="ide ide--{language}"
   class:ide--single={!files}
-  class:ide--page={mode === 'page'}
+  class:ide--page={mode !== 'modal'}
   data-code-workspace
   data-code-language={language}
   data-code-starter={starter}
@@ -242,7 +245,7 @@
         ><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg
       >
     </button>
-    {#if mode === 'modal'}
+    {#if mode !== 'page'}
       <a
         class="ide-icon ide-icon--page"
         href="/playground/{language}"
@@ -255,6 +258,8 @@
           ><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v6H4V6h6"></path></svg
         >
       </a>
+    {/if}
+    {#if mode === 'modal'}
       <button
         type="button"
         class="ide-icon ide-icon--close"
@@ -266,7 +271,7 @@
           ><path d="m6 6 12 12M18 6 6 18"></path></svg
         >
       </button>
-    {:else}
+    {:else if mode === 'page'}
       <a
         class="ide-icon ide-icon--back"
         href="/projects#{language}"

@@ -57,7 +57,7 @@ async function startCode(
   if (signal.aborted || !demo) return { destroy() {} };
   const component = mount(CodeWorkspace, {
     target: stage,
-    props: { ...props, language: demo.id, mode: 'page' } as never,
+    props: { ...props, language: demo.id, mode: 'embed' } as never,
   });
   const panel = stage.querySelector<HTMLElement>('[data-code-workspace]');
   demos.watchDemoLoading(stage, signal);
@@ -90,6 +90,9 @@ function wire(embed: HTMLElement) {
   const stage = embed.querySelector<HTMLElement>(
     '[data-playground-embed-stage]'
   );
+  const status = embed.querySelector<HTMLElement>(
+    '[data-playground-embed-status]'
+  );
   if (!button || !stage || embed.dataset.playgroundEmbedState) return;
   embed.dataset.playgroundEmbedState = 'idle';
   const controller = new AbortController();
@@ -106,7 +109,7 @@ function wire(embed: HTMLElement) {
     () => {
       embed.dataset.playgroundEmbedState = 'running';
       button.disabled = true;
-      button.textContent = 'Loading…';
+      if (status) status.textContent = 'Loading…';
       const name = embed.dataset.playgroundEmbed ?? '';
       const props = JSON.parse(embed.dataset.playgroundEmbedProps ?? '{}');
       const start =
@@ -125,7 +128,8 @@ function wire(embed: HTMLElement) {
         () => {
           embed.dataset.playgroundEmbedState = 'idle';
           button.disabled = false;
-          button.textContent = 'Retry';
+          if (status)
+            status.textContent = 'Couldn’t start. Press play to retry.';
         }
       );
     },

@@ -37,3 +37,7 @@ Islands remount on `ClientRouter` navigations, so converted code does not use `a
 ## Dependencies
 
 `svelte`, `@astrojs/svelte`, `svelte-check` (dev).
+
+## Dev server: pre-bundled dependencies
+
+`astro.config.ts` lists every browser-side npm dependency in `vite.optimizeDeps.include`, including ones only reached through dynamic imports (the playground embed, Markdown preview, Vim mode, xterm, the chart `d3-*` modules). If Vite discovers one mid-session it re-optimizes and answers modules already loaded with `504 Outdated Optimize Dep`: islands stop hydrating (charts lose hover) and embeds fail to start until a hard reload. When you add a client-side dependency, add it to that list. Dev only; production builds are unaffected.
