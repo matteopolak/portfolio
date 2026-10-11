@@ -1932,7 +1932,6 @@
     color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
     background: var(--ide-raised, oklch(25.5% 0.008 270));
     border: 1px solid oklch(100% 0 0 / 0.12);
-    border-top: 3px solid var(--accent-1);
     border-radius: var(--radius-lg);
     box-shadow:
       0 0.5rem 1.25rem oklch(0% 0 0 / 0.3),
