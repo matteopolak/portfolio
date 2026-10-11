@@ -197,10 +197,14 @@ const theme = EditorView.theme(
       boxShadow: '0 10px 30px oklch(0% 0 0 / 0.45)',
       overflow: 'hidden',
     },
+    // The info panel is a child of the list's tooltip, beside it: clipping
+    // the tooltip would hide it, so the list clips itself instead.
+    '.cm-tooltip.cm-tooltip-autocomplete': { overflow: 'visible' },
     '.cm-tooltip-autocomplete > ul': {
       fontFamily: 'var(--ide-mono)',
       fontSize: '13px',
       maxHeight: '16rem',
+      borderRadius: 'inherit',
     },
     '.cm-tooltip-autocomplete > ul > li': { padding: '3px 10px 3px 6px' },
     '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
@@ -372,7 +376,10 @@ const theme = EditorView.theme(
       fontSize: '1em',
       fontWeight: '650',
     },
-    // Lists in documentation (parameters): ordinary bullets on the same inset.
+    // Lists in documentation (parameters): ordinary bullets on the same inset
+    // (Tailwind's preflight removes them).
+    '.jai-hover--markdown ul': { listStyle: 'disc' },
+    '.jai-hover--markdown ol': { listStyle: 'decimal' },
     '.jai-hover--markdown :is(ul, ol)': {
       padding: '2px 10px 4px calc(10px + 1.25em)',
     },
