@@ -87,15 +87,22 @@ const date = project.data.date.toLocaleDateString('en-US', {
   .project-card {
     position: relative;
     padding: clamp(1.25rem, 2.4vw, 1.75rem);
+    /* Same card treatment as the chart tooltips and blog list entries. */
+    border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
-    background: color-mix(in oklch, var(--paper-bright) 90%, transparent);
+    background: var(--paper-bright);
+    box-shadow: var(--card-shadow);
     transition:
       background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
       transform 160ms ease;
   }
 
   .project-card:hover {
-    background-color: color-mix(in oklch, var(--ink) 8%, var(--paper-bright));
+    border-color: var(--card-hover-border);
+    background-color: var(--card-hover-bg);
+    box-shadow: var(--card-hover-shadow);
     transform: translateY(-0.16rem);
   }
 

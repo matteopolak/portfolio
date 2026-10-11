@@ -32,6 +32,15 @@
   --bauhaus-cell: 52px;
   --rule: var(--ink);
   --soft-rule: color-mix(in oklch, var(--ink) 22%, transparent);
+  /* Shared card look: blog entries, project cards, chart tooltips. */
+  --card-border: color-mix(in oklch, var(--ink) 9%, transparent);
+  --card-shadow:
+    0 1px 2px oklch(0% 0 0 / 0.03), 0 6px 18px oklch(0% 0 0 / 0.05);
+  /* Hover: a faint tint and a slightly deeper shadow, not a grey fill. */
+  --card-hover-bg: color-mix(in oklch, var(--ink) 2.5%, var(--paper-bright));
+  --card-hover-border: color-mix(in oklch, var(--ink) 13%, transparent);
+  --card-hover-shadow:
+    0 1px 2px oklch(0% 0 0 / 0.04), 0 10px 24px oklch(0% 0 0 / 0.07);
   --page-title-gap: 1rem;
   /* Corner radii for every boxed UI element (cards, dialogs, buttons, code).
      Decorative geometry (Bauhaus art, page-intro bars, heading marks) stays sharp. */
@@ -284,16 +293,15 @@ body .site-main .project-card:hover {
   --section-accent: var(--accent-3);
 }
 
+/* A solid bar across the section rule (which is centred at 12.25rem). */
 .section-title::before {
   position: absolute;
-  top: 0.36rem;
-  left: 11.85rem;
-  width: 0.8rem;
-  aspect-ratio: 1;
-  border: 2px solid var(--paper);
-  border-radius: 50%;
+  top: 0.55em;
+  left: 12.25rem;
+  width: 1rem;
+  height: 0.25rem;
+  translate: -50% -50%;
   background: var(--section-accent);
-  box-shadow: 0 0 0 1px var(--section-accent);
   content: '';
 }
 
@@ -354,7 +362,7 @@ body .site-main .project-card:hover {
   padding-left: 0.2rem;
 }
 
-/* Bullets match their section's timeline dot: same shape, same accent. */
+/* Bullets take their section's accent. */
 .resume-entry li::before,
 .achievement-list li::before {
   position: absolute;
@@ -404,6 +412,7 @@ body .site-main .project-card:hover {
 
 .editorial-list {
   display: grid;
+  gap: 0.75rem;
   margin: 0 0 5rem;
   padding: 0;
   list-style: none;
@@ -416,23 +425,23 @@ body .site-main .project-card:hover {
   gap: 1.5rem;
   margin: 0;
   padding: 1.8rem 1.25rem;
+  /* Every entry is its own card (same treatment as the chart tooltips and
+     project cards); the list's gap separates them. */
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  background-color: color-mix(in oklch, var(--paper) 78%, transparent);
+  background-color: var(--paper-bright);
+  box-shadow: var(--card-shadow);
   transition:
     background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
     transform 160ms ease;
 }
 
-.editorial-item:nth-child(odd) {
-  background-color: color-mix(in oklch, var(--paper-bright) 88%, transparent);
-}
-
 .editorial-item:hover {
-  background-color: color-mix(in oklch, var(--paper) 92%, transparent);
-  background-image: linear-gradient(
-    color-mix(in oklch, var(--ink) 5.5%, transparent),
-    color-mix(in oklch, var(--ink) 5.5%, transparent)
-  );
+  border-color: var(--card-hover-border);
+  background-color: var(--card-hover-bg);
+  box-shadow: var(--card-hover-shadow);
   transform: translateX(0.22rem);
 }
 
@@ -869,9 +878,9 @@ body .site-main .project-card:hover {
 
   .section-title::before {
     top: 50%;
-    right: -0.9rem;
+    right: -1rem;
     left: auto;
-    transform: translateY(-50%);
+    translate: 0 -50%;
   }
 
   .section-title {

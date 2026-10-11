@@ -34,17 +34,21 @@ const label = (date: string) => longDate(parseDate(date), date.length > 7);
   }
   <ol>
     {
-      sorted.map((event) => (
-        <li class={`event event--${indexOf(event.category) + 1}`}>
-          <span class={`marker marker--${indexOf(event.category) + 1}`} aria-hidden="true" />
-          <time datetime={event.date}>{label(event.date)}</time>
-          <strong>{event.title}</strong>
-          {categories.length > 1 && (
-            <span class="event__category">{categories[indexOf(event.category)].label}</span>
-          )}
-          {event.detail && <span class="event__detail">{event.detail}</span>}
-        </li>
-      ))
+      sorted.map((event) => {
+        const index = indexOf(event.category);
+        const category = categories[index];
+        return (
+          <li class={`event event--${index + 1}`}>
+            <time datetime={event.date}>{label(event.date)}</time>
+            <div class="event__body">
+              <span class={`marker marker--${index + 1}`} aria-hidden="true" />
+              <strong>{event.title}</strong>
+              {categories.length > 1 && <span class="sr-only">{category.label}</span>}
+              {event.detail && <span class="event__detail">{event.detail}</span>}
+            </div>
+          </li>
+        );
+      })
     }
   </ol>
   {caption && <figcaption class="timeline__caption">{caption}</figcaption>}
@@ -54,12 +58,10 @@ const label = (date: string) => longDate(parseDate(date), date.length > 7);
   .timeline {
     container-type: inline-size;
     margin: 2rem 0;
-    padding: 1rem 0;
-    border-block: 1px solid var(--soft-rule);
   }
 
   .timeline__title {
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.5rem;
     font-weight: 750;
   }
 
@@ -67,123 +69,128 @@ const label = (date: string) => longDate(parseDate(date), date.length > 7);
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 1.25rem;
-    margin: 0 0 1rem;
+    margin: 0 0 1.25rem;
     padding: 0;
-    font-size: 0.875rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
     list-style: none;
   }
 
   .timeline__legend li {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
   }
 
   ol {
-    position: relative;
     margin: 0;
-    padding: 0 0 0 1.5rem;
+    padding: 0;
     list-style: none;
   }
 
-  /* Vertical by default (narrow containers). */
-  ol::before {
-    position: absolute;
-    top: 0.4rem;
-    bottom: 0.4rem;
-    left: 0.4rem;
-    width: 2px;
-    background: var(--muted);
-    content: '';
-  }
-
+  /*
+   * Date column, then the rule with the event hanging off it. The rule is each
+   * body's left border, so it runs unbroken from the first event to the last.
+   */
   .event {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    column-gap: 1.25rem;
+    /* .prose li adds a bottom margin, which would break the rule between events. */
+    margin: 0;
     font-size: 0.9375rem;
     line-height: 1.4;
   }
 
-  .event:last-child {
-    padding-bottom: 0;
-  }
-
-  .event .marker {
-    position: absolute;
-    top: 0.2rem;
-    left: -1.5rem;
-  }
-
   time {
+    padding-top: 0.1rem;
     color: var(--muted);
     font-size: 0.8125rem;
     font-variant-numeric: tabular-nums;
-    font-weight: 700;
+    font-weight: 650;
+    text-align: right;
   }
 
-  .event__category,
+  .event__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0 0 1.4rem 1.25rem;
+    border-left: 2px solid var(--soft-rule);
+  }
+
+  .event:last-child .event__body {
+    padding-bottom: 0;
+  }
+
+  .event__body .marker {
+    position: absolute;
+    top: 0.68rem;
+    left: -1px;
+    translate: -50% -50%;
+  }
+
   .event__detail {
     color: var(--muted);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
   }
 
+  .timeline__caption {
+    margin-top: 1rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  /* Solid shapes, one per category: a bar across the rule, a square, a diamond. */
   .marker {
     display: inline-block;
-    width: 0.8rem;
-    height: 0.8rem;
     flex: none;
-    border: 2px solid var(--paper);
     background: var(--marker);
-    box-shadow: 0 0 0 1px var(--marker);
   }
 
-  /* Shape is the second channel: circle, square, diamond. */
   .marker--1 {
     --marker: var(--accent-1-text);
-    border-radius: 50%;
+    width: 0.9rem;
+    height: 0.25rem;
   }
+
   .marker--2 {
     --marker: var(--accent-2-text);
-    /* Still reads as a square next to the circle, just not sharp. */
-    border-radius: var(--radius-xs);
+    width: 0.55rem;
+    height: 0.55rem;
   }
+
   .marker--3 {
     --marker: var(--accent-3-text);
-    border-radius: var(--radius-xs);
-    transform: rotate(45deg) scale(0.9);
+    width: 0.5rem;
+    height: 0.5rem;
+    rotate: 45deg;
   }
 
-  .event .marker--3 {
-    transform: rotate(45deg) scale(0.9);
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
-  @container (min-width: 40rem) {
-    ol {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-      gap: 1.5rem 1.25rem;
-      padding: 1.6rem 0 0;
-    }
-
-    ol::before {
-      top: 0.4rem;
-      right: 0;
-      bottom: auto;
-      left: 0;
-      width: auto;
-      height: 2px;
-    }
-
+  /* Narrow: the date moves above the title, on the same rule. */
+  @container (max-width: 28rem) {
     .event {
-      padding-bottom: 0;
+      grid-template-columns: minmax(0, 1fr);
     }
 
-    .event .marker {
-      top: -1.6rem;
-      left: 0;
+    time {
+      padding: 0 0 0.1rem 1.25rem;
+      border-left: 2px solid var(--soft-rule);
+      text-align: left;
+    }
+
+    .event__body .marker {
+      top: 0.68rem;
     }
   }
 </style>

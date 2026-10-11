@@ -31,6 +31,17 @@
 
   let enhanced = $state(false);
   let hover = $state<{ variant: Variant; index: number } | undefined>();
+  // Sized to its longest row once it renders, like the time-series tooltip.
+  let tip = $state<SVGGElement | undefined>();
+  let tipWidth = $state(120);
+  $effect(() => {
+    void hover;
+    if (!tip) return;
+    const widths = [...tip.querySelectorAll('text')].map((t) =>
+      t.getComputedTextLength()
+    );
+    tipWidth = Math.ceil(Math.max(0, ...widths)) + 16;
+  });
   onMount(() => {
     enhanced = interactive;
   });
@@ -75,15 +86,6 @@
           onpointerleave={() => (hover = undefined)}
         >
           <path d={barPath(bar)} />
-          {#if enhanced && hover?.variant === variant && hover.index === index}
-            <text
-              class="value"
-              x={bar.x + bar.width / 2}
-              y={bar.y - 6}
-              text-anchor="middle"
-              >{formatValue(bar.value)}{unit ? ` ${unit}` : ''}</text
-            >
-          {/if}
         </g>
         {#if bar.showLabel}
           <text
@@ -101,6 +103,33 @@
         y1={layout.plot.y0}
         y2={layout.plot.y0}
       />
+      {#if enhanced && hover?.variant === variant}
+        {@const bar = layout.bars[hover.index]}
+        {@const tipHeight = 46}
+        {@const tipX = Math.max(
+          0,
+          Math.min(
+            bar.x + bar.width / 2 - tipWidth / 2,
+            layout.frame.width - tipWidth
+          )
+        )}
+        {@const tipY = Math.max(
+          0,
+          Math.min(bar.y, bar.y + bar.height) - tipHeight - 8
+        )}
+        <g
+          class="tip"
+          bind:this={tip}
+          transform="translate({tipX} {tipY})"
+          pointer-events="none"
+        >
+          <rect x="0" y="0" width={tipWidth} height={tipHeight} rx="6" />
+          <text class="tip__label" x="8" y="18">{bar.label}</text>
+          <text x="8" y="36"
+            >{formatValue(bar.value)}{unit ? ` ${unit}` : ''}</text
+          >
+        </g>
+      {/if}
     </svg>
   {/each}
 </ChartShell>
@@ -150,10 +179,20 @@
     fill: var(--accent-1-text);
   }
 
-  .value {
+  .tip rect {
+    fill: var(--paper-bright);
+    stroke: var(--card-border);
+    filter: drop-shadow(0 4px 10px oklch(0% 0 0 / 0.06));
+  }
+
+  .tip text {
     fill: var(--ink);
     font-size: 12px;
-    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tip .tip__label {
+    fill: var(--muted);
   }
 
   @media (prefers-reduced-motion: no-preference) {

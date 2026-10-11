@@ -351,7 +351,8 @@
 
   .tip rect {
     fill: var(--paper-bright);
-    stroke: var(--ink);
+    stroke: var(--card-border);
+    filter: drop-shadow(0 4px 10px oklch(0% 0 0 / 0.06));
   }
 
   .tip text {
