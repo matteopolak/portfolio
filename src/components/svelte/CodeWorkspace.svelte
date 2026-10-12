@@ -120,6 +120,17 @@
   aria-label="{label} code editor"
 >
   <header class="ide-bar">
+    <!-- Sits in the gap above the file tree when it is docked left. -->
+    {#if language === 'jai' && revision}
+      <a
+        class="ide-build"
+        href="https://github.com/matteopolak/jai/commit/{revision}"
+        target="_blank"
+        rel="noopener"
+        title="Compiler build {revision}"
+        >jai {version ? `${version} · ` : ''}{revision.slice(0, 7)}</a
+      >
+    {/if}
     <!-- Editor tools start at the editor column's left edge, not above the file tree. -->
     <div class="ide-tools" role="group" aria-label="Editor tools">
       {#if language === 'jai' && files}
@@ -200,16 +211,6 @@
     <span class="ide-status" data-code-status role="status" aria-live="polite"
       >{status}</span
     >
-    {#if language === 'jai' && revision}
-      <a
-        class="ide-build"
-        href="https://github.com/matteopolak/jai/commit/{revision}"
-        target="_blank"
-        rel="noopener"
-        title="Compiler build {revision}"
-        >jai {version ? `${version} · ` : ''}{revision.slice(0, 7)}</a
-      >
-    {/if}
     <button
       type="button"
       class="ide-text-button"
@@ -950,6 +951,17 @@
     font-size: 0.72rem;
     white-space: nowrap;
     text-decoration: none;
+  }
+
+  /* Above the file tree, which leaves the bar empty left of the editor tools. */
+  .ide[data-left-dock] .ide-build {
+    position: absolute;
+    top: 50%;
+    left: 0.75rem;
+    max-width: calc(var(--ide-editor-start) - 1.5rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translateY(-50%);
   }
 
   .ide-build:hover,
