@@ -90,6 +90,14 @@ Even the measurement needed checking. macOS keeps counting pages the allocator h
 
 At one point I asked for under 100 MB, and then had to tell it not to make bad design decisions just to hit a number. So it sits at about 230 MB for a 132k-line project, and first diagnostics take 1.5 seconds instead of 0.45. The 0.45 version was giving up after 64 bogus errors, though.
 
+Edits got the same treatment. Another benchmark opens a file, types inside a function and times how long the language server takes to answer, across ten real projects. It compares instruction counts instead of wall time, since on a busy laptop the same run can take twice as long.
+
+The biggest find was in how the compiler hands typechecked code to metaprograms. Member names in `a.b`, named arguments, loop labels and `it` were all being looked up as if they were globals, and most of those lookups searched every imported file and found nothing. Skipping them cut 15% of the work in a Focus edit, and fixed a bug where a struct member called `count` could resolve to an unrelated global `count`.
+
+Then heap profiling showed that a third of Focus's heap was 330k blocks of exactly 640 bytes, the field lists of syntax-tree records handed to metaprograms. Each field took 48 bytes, and packing them into 16 took the peak for checking Focus from 680 MB to 502. The agent's first measurement showed no change at all, because the benchmark was still running an old binary from a different build directory.
+
+All together, an edit in Focus went from 1.3–1.7 seconds to about two thirds of a second. There's no easy 2× left, though. Halving it again needs incremental compilation, or caching scope lookups, which are still 29% of an edit.
+
 And one bug wasn't even ours. LLVM 22's loop unroller [miscompiles certain subtraction loops](https://github.com/llvm/llvm-project/issues/201065), so we turned that part of it off until we moved to LLVM 23, where it's fixed.
 
 ## So, how did it go?
