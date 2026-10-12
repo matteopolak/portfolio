@@ -25,6 +25,8 @@ export interface CodeDemoPage {
     files?: boolean;
     enabled?: boolean;
     revision?: string;
+    /** Compiler version, recorded in the pin by jai-web.yml. */
+    version?: string;
   };
 }
 
@@ -58,6 +60,7 @@ export const codeDemoPages: CodeDemoPage[] = [
       files: true,
       enabled: jaiRelease.enabled,
       revision: jaiRelease.revision ?? '',
+      version: (jaiRelease as { version?: string }).version ?? '',
     },
   },
   {

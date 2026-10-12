@@ -17,6 +17,8 @@
     files?: boolean;
     enabled?: boolean;
     revision?: string;
+    /** Compiler version shown next to the revision's short hash. */
+    version?: string;
     /**
      * `modal` (inside a demo dialog), `page` (a /playground route) or `embed`
      * (a blog post's `<Playground>`, which links out to the full page).
@@ -31,6 +33,7 @@
     files = false,
     enabled = true,
     revision = '',
+    version = '',
     mode = 'modal',
   }: Props = $props();
 
@@ -197,6 +200,16 @@
     <span class="ide-status" data-code-status role="status" aria-live="polite"
       >{status}</span
     >
+    {#if language === 'jai' && revision}
+      <a
+        class="ide-build"
+        href="https://github.com/matteopolak/jai/commit/{revision}"
+        target="_blank"
+        rel="noopener"
+        title="Compiler build {revision}"
+        >jai {version ? `${version} · ` : ''}{revision.slice(0, 7)}</a
+      >
+    {/if}
     <button
       type="button"
       class="ide-text-button"
@@ -930,6 +943,21 @@
     white-space: nowrap;
   }
 
+  .ide-build {
+    flex: none;
+    color: var(--ide-muted);
+    font-family: var(--ide-mono);
+    font-size: 0.72rem;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .ide-build:hover,
+  .ide-build:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+  }
+
   .ide-text-button {
     height: 2rem;
     padding: 0 0.75rem;
@@ -1614,7 +1642,8 @@
       height: 2.5rem;
     }
 
-    .ide-status {
+    .ide-status,
+    .ide-build {
       display: none;
     }
 

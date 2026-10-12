@@ -136,6 +136,11 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
+The workspace header shows the pinned build as `jai <version> · <short sha>`, linked to the
+commit in matteopolak/jai. `jai-web.yml` records `version` from the compiler's
+`[workspace.package]` in `Cargo.toml`. Pins written before that have no `version`, so the
+label shows just the hash.
+
 Run `pnpm sync:web-assets` to stage the pinned release. To try an unreleased compiler,
 build it with `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
 repo and run `JAI_WEB_LOCAL=<dir> node scripts/sync-jai-web.ts`: it copies that build's
