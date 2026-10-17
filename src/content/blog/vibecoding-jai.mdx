@@ -12,19 +12,25 @@ published: true
 
 If you haven't heard of it, Jai is Jonathan Blow's programming language. It's been in a closed beta for years now, and people have shipped real things with it, but the tooling around it is pretty thin. There's a community language server that handles some of the basics, there's no formatter or linter, and if you aren't in the beta, you can't even try the language.
 
-That seemed like a fun thing to fix, so from Oct 1 to Oct 10 I had agents build all of it: a compiler that can run real Jai projects, a language server, a formatter, a linter, and a playground that runs the whole thing in your browser. In fact, here it is:
+That seemed like a fun thing to fix, so from Oct 1 to Oct 10 I had agents build all of it: a compiler that can run real Jai projects, a language server, a formatter, a linter, and a playground that runs the whole thing in your browser. It's called [Jacket](https://github.com/matteopolak/jacket) now, and here it is:
 
 <Playground name="jai" />
 
 I'd already spent a couple of months running agents on [Lodestone](/blog/vibecoding-minecraft), so I'm not going to say much about the setup. The more interesting part is everything that went wrong.
 
+## Specs first
+
+Jai's compiler and standard library aren't public, so this is all clean room, and nobody working on it reads the official sources.
+
+The compiler came first. Agents built it by reading open-source Jai projects on GitHub and working out what the language has to do for them to work. The standard library got a more careful process. One agent wrote a spec of how the standard library behaves from the outside, and another wrote a high-level description of the language, mostly through examples. Then two more agents implemented the standard library from those specs, each in a macOS sandbox that could only read and write its own worktree. Parts of the compiler were later updated or filled in from the specs too.
+
+I reviewed the specs and the core of the compiler by hand, and skimmed most of the rest.
+
 ## Tests the agents didn't write
 
 Here's the problem with having an agent write a compiler. It's also going to write the tests, and if you tell an agent to make the tests pass, it _will_ make the tests pass. Whether the compiler actually works afterwards is a separate question, and not one the agent is especially interested in.
 
-So the very first thing I added, before there was a compiler at all, was a corpus of open-source Jai projects, pinned to specific commits, that all have to compile and run in CI. An agent can bend its own tests to fit whatever it wrote, but there's not much it can do about someone else's game engine. Either it compiles or it doesn't. The corpus started with 7 projects and had 41 by Oct 6.
-
-(This is also all clean room, by the way. Jai's compiler and standard library aren't public, so everything here is built from the documentation and from how the corpus projects use the language. The standard library was written from scratch, and only as far as the corpus needed.)
+So the very first thing I added, before there was a compiler at all, was a corpus of open-source Jai projects, pinned to specific commits, that all have to compile and run in CI. An agent can bend its own tests to fit whatever it wrote, but there's not much it can do about someone else's game engine. Either it compiles or it doesn't. The corpus started with 7 projects and had 41 by Oct 6. There are ordinary tests and fuzzing too, but the corpus is the part the agents can't argue with.
 
 <BarChart
   src="vibecoding-jai/data/commits-per-day.json"
@@ -56,7 +62,9 @@ At one point, an agent got a program compiling by just... not type-checking `swi
 
 The linter managed something even better. It has an autofix that turns an index loop like `for i: 0..n-1 { x := arr[i]; }` into a loop over the elements themselves, using `it`. That's a nice fix, right up until you run it on a nested loop that compares pairs of elements, where it turned `ms[i] - ms[j]` into `it - it`. Which is a perfectly valid program! It's just not the same program.
 
-I don't really have a clever answer for this kind of bug. A lot of my time went into using the tools myself and reading diffs, and I think that's just part of the deal.
+Holes like the `switch` one are what the language server's own fuzzing is for. One kind asks for hover and go-to-definition across whole projects and looks for the gaps. The other makes edits the way you would while typing, leaving files half-finished, and checks that the server recovers.
+
+The rest came from using the tools myself and reading diffs. Whenever I found a bug like these, or just code I didn't like, it went on a list. Each item became a lint rule or a check of some kind, and then the whole codebase got refactored until it passed, so the same mistake doesn't quietly come back somewhere else.
 
 ## Too many agents, one laptop
 
@@ -78,7 +86,7 @@ At some point I noticed that some of the subagents were running on Opus instead 
 
 Agents don't think about performance unless you ask, and for a while I didn't ask. Parts of the language server got slower much faster than files got bigger, which you'll never see on a 50-line test file, and will see almost immediately on a real one.
 
-What fixed it was giving the agent benchmarks to run against real projects, mostly [Focus](https://github.com/focus-editor/focus), a 132k-line text editor written in Jai, and letting it loop: measure, find the cause, fix it, measure again. I didn't need to know what each fix was, only that the numbers kept moving:
+What fixed it was giving the agent benchmarks and a sampling profiler to run against real and generated projects, mostly [Focus](https://github.com/focus-editor/focus), a 132k-line text editor written in Jai, and letting it loop: measure, find the cause, fix it, measure again. I didn't need to know what each fix was, only that the numbers kept moving:
 
 - **Oct 9:** optimized builds of Focus go from 12.7 to 7.8 seconds. First diagnostics on Focus take 0.3 seconds, where before they never finished.
 - **Oct 11, afternoon:** hover and go-to-definition on every identifier in Focus (380k requests) go from over 10 minutes to 9 seconds.
