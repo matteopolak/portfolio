@@ -75,7 +75,7 @@ const projects = buildProjects([
       title: 'jai',
       date: new Date('2026-10-01'),
       tags: ['rust'],
-      repository: 'https://github.com/matteopolak/jai',
+      repository: 'https://github.com/matteopolak/jacket',
       ai: { usage: 'agent-orchestrated', summary: 's', models: ['m'] },
     },
   },
@@ -236,7 +236,7 @@ test('markdownPathFor skips the playgrounds', () => {
   assert.equal(markdownPathFor('/blog'), '/blog.md');
   assert.equal(markdownPathFor('/blog/x'), '/blog/x.md');
   assert.equal(markdownPathFor('/playground'), undefined);
-  assert.equal(markdownPathFor('/playground/jai'), undefined);
+  assert.equal(markdownPathFor('/playground/jacket'), undefined);
 });
 
 test('stripAnsi removes colour codes', () => {

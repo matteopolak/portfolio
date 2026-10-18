@@ -38,7 +38,7 @@ The session opens with the compiler's language tour and runs it once when ready.
 multi-folder workspace (`basics/`, `types/`, `data/`, `memory/`, `generics/`, `meta/`,
 `finale/`, about 14 files) written and tested in the compiler repo (`examples/tour`,
 its `docs/browser/tour.md`). `main.jai` and a preview of `tour.md` open in tabs, `main.jai` active (a saved layout reopens its own tabs instead);
-a `/playground/jai#meta/macros.jai` link opens and activates that file as well.
+a `/playground/jacket#meta/macros.jai` link opens and activates that file as well.
 The index is validated (schema, `main.jai`, at most 64 plain relative paths, 1 MiB
 in total). A release without `tour.json` (every release before the tour shipped),
 or any fetch or validation failure, falls back to the built-in two-file starter
@@ -136,8 +136,8 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
-The workspace header shows the pinned build as `jai <version> · <short sha>`, linked to the
-commit in matteopolak/jai. `jai-web.yml` records `version` from the compiler's
+The workspace header shows the pinned build as `jacket <version> · <short sha>`, linked to the
+commit in matteopolak/jacket. `jai-web.yml` records `version` from the compiler's
 `[workspace.package]` in `Cargo.toml`. Pins written before that have no `version`, so the
 label shows just the hash.
 

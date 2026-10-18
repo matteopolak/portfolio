@@ -17,6 +17,8 @@
     files?: boolean;
     enabled?: boolean;
     revision?: string;
+    /** Full-page playground route the embed and modal link to. */
+    page?: string;
     /** Compiler version shown next to the revision's short hash. */
     version?: string;
     /**
@@ -33,6 +35,7 @@
     files = false,
     enabled = true,
     revision = '',
+    page = `/playground/${language}`,
     version = '',
     mode = 'modal',
   }: Props = $props();
@@ -124,11 +127,11 @@
     {#if language === 'jai' && revision}
       <a
         class="ide-build"
-        href="https://github.com/matteopolak/jai/commit/{revision}"
+        href="https://github.com/matteopolak/jacket/commit/{revision}"
         target="_blank"
         rel="noopener"
         title="Compiler build {revision}"
-        >jai {version ? `${version} · ` : ''}{revision.slice(0, 7)}</a
+        >jacket {version ? `${version} · ` : ''}{revision.slice(0, 7)}</a
       >
     {/if}
     <!-- Editor tools start at the editor column's left edge, not above the file tree. -->
@@ -262,7 +265,7 @@
     {#if mode !== 'page'}
       <a
         class="ide-icon ide-icon--page"
-        href="/playground/{language}"
+        href={page}
         data-code-open-page
         data-astro-reload
         aria-label="Open the {label} playground as a full page"

@@ -160,7 +160,7 @@ test("the server's fix-all action and per-rule docs are used when present", () =
     message: 'unused variable `x`',
   };
   const href =
-    'https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#unused_variable';
+    'https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_variable';
   assert.equal(lintDocs({ ...lint, codeDescription: { href } }), href);
   assert.equal(lintDocs(lint), LINT_DOCS);
   assert.equal(

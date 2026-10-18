@@ -2,7 +2,7 @@
 
 ## What it is
 
-`.md` files in the Jai code workspace (the `/playground/jai` page and the jai modal on `/projects`) get a rendered preview and Markdown syntax highlighting in the editor. Quasi and BaerScript have no file workspace, so they never see a Markdown file.
+`.md` files in the Jai code workspace (the `/playground/jacket` page and the jai modal on `/projects`) get a rendered preview and Markdown syntax highlighting in the editor. Quasi and BaerScript have no file workspace, so they never see a Markdown file.
 
 The preview works like VS Code's: it is a tab of its own ("Preview tour.md", `markdown: true` in `OpenTab`), separate from the file's source tab, so it can be dragged, split and closed like any other tab ([Workspace layout](workspace-layout.md)). A `.md` source tab has an **Open preview to the side** button at the right of its group's tab strip; a preview tab has **Open source to the side**. Both open the other view in the neighbouring group to the right (or left), splitting the group if there is none. The language tour's `tour.md` opens as a preview tab.
 

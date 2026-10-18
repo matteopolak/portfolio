@@ -26,7 +26,7 @@ export const FIX_ALL = 'source.fixAll.jailint';
 
 /** jailint's rules, for a server that sends no per-rule `codeDescription`. */
 export const LINT_DOCS =
-  'https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#rules';
+  'https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules';
 
 /** Where a lint's rule is documented: the server's per-rule link, else the rules section. */
 export function lintDocs(diagnostic: Diagnostic): string {

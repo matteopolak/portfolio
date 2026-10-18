@@ -2,7 +2,7 @@
 
 ## What it is
 
-`/playground/jai`, `/playground/quasi` and `/playground/baerscript` show the same code workspace as the Projects-page modals, filling the whole viewport: the editor, the file tree (Jai only) and the output pane. `/playground/minecraft` fills the viewport with the Lodestone game. Every project with a "Try in browser" button has a route, named after its project slug. `/playground` lists all four. Each page has its own title, description and OpenGraph/Twitter tags, so a shared link previews well.
+`/playground/jacket`, `/playground/quasi` and `/playground/baerscript` show the same code workspace as the Projects-page modals, filling the whole viewport: the editor, the file tree (Jai only) and the output pane. `/playground/minecraft` fills the viewport with the Lodestone game. Every project with a "Try in browser" button has a route, named after its project slug. `/playground` lists all four. Each page has its own title, description and OpenGraph/Twitter tags, so a shared link previews well.
 
 ## How it works
 
@@ -16,7 +16,8 @@
   Project cards also get a `Playground` link (`ProjectCard`'s `playground` prop).
 
 - **Escape.** There is no dialog on the page, so Escape does nothing special and stays with the editor (Vim, completion, search). The modals still prevent `cancel`.
-- **Deep link.** `/playground/jai#lib/math.jai` opens that workspace file: the page sets `data-code-open` on the workspace, and `createSession` selects that file if it exists. Quasi and BaerScript have a single file and ignore the hash. After that the hash follows the file on screen: the jai navigation history pushes a browser entry per navigation, so the browser's Back and Forward move between files and definition jumps (see [Navigation history](code-workspace.md#navigation-history)).
+- **Deep link.** `/playground/jacket#lib/math.jai` opens that workspace file: the page sets `data-code-open` on the workspace, and `createSession` selects that file if it exists. Quasi and BaerScript have a single file and ignore the hash. After that the hash follows the file on screen: the jai navigation history pushes a browser entry per navigation, so the browser's Back and Forward move between files and definition jumps (see [Navigation history](code-workspace.md#navigation-history)).
+- **Old route.** The Jai playground was at `/playground/jai` before the compiler was renamed to Jacket. `public/_redirects` sends it, and `/playground/jai.html`, to `/playground/jacket` with a 301. Browsers keep the `#file` fragment across a redirect, so old deep links still open their file. The demo id stays `jai`: only `path` in `src/data/code-demos.ts` sets the route.
 - **Phones.** The workspace's narrow layout (below `42rem`) applies unchanged: the header, the Code/Output (and Files) tab bar, and no horizontal scroll at 375 px.
 
 - **Lodestone page.** `src/pages/playground/minecraft.astro` is a static page (not part of `[language]`, since it has no code workspace). It creates the same `<lodestone-game mode="modal">` element the Projects modal uses and starts it on load, driving `ProjectDemoLoading` through `watchDemoLoading`. The element fills a `100dvh` host and resizes with it. Two icon buttons sit top-right: back to `/projects#minecraft` and full screen (hidden on the error state). The game is removed on `pagehide`. Its metadata is `lodestoneDemoPage` in `src/data/code-demos.ts`; `playgroundPages` combines it with `codeDemoPages` for the index, the sitemap and the card links.
@@ -30,7 +31,7 @@
 
 ## Configuration
 
-None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jai`, `/playground/quasi`, `/playground/baerscript` and `/playground/minecraft`. All five are in `sitemap.xml`. The Lodestone page needs the SDK synced into `public/lodestone/` (`pnpm sync:web-assets`) and WebGPU in the browser. The Jai page uses the release in `releases/jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
+None at runtime. Production URLs follow `site` in `astro.config.ts`: `https://matteopolak.com/playground`, `/playground/jacket`, `/playground/quasi`, `/playground/baerscript` and `/playground/minecraft`. All five are in `sitemap.xml`. The Lodestone page needs the SDK synced into `public/lodestone/` (`pnpm sync:web-assets`) and WebGPU in the browser. The Jai page uses the release in `releases/jai-web-release.json`. A disabled pointer shows the same "unavailable" message as the modal.
 
 ## Dependencies
 

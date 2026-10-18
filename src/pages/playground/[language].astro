@@ -5,7 +5,7 @@ import CodeWorkspace from '../../components/svelte/CodeWorkspace.svelte';
 import { codeDemoPages, type CodeDemoPage } from '../../data/code-demos';
 
 export const getStaticPaths = (() =>
-  codeDemoPages.map((demo) => ({ params: { language: demo.id }, props: { demo } }))) satisfies GetStaticPaths;
+  codeDemoPages.map((demo) => ({ params: { language: demo.path.slice('/playground/'.length) }, props: { demo } }))) satisfies GetStaticPaths;
 
 const { demo } = Astro.props as { demo: CodeDemoPage };
 const { id, ...workspace } = demo.workspace;

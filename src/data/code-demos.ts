@@ -6,7 +6,7 @@ import jaiRelease from '../../releases/jai-web-release.json';
  * as a full page, so both always show the same starter and release.
  */
 export interface CodeDemoPage {
-  /** Route segment: `/playground/<id>`. */
+  /** Demo id; the route is `path`. */
   id: 'jai' | 'quasi' | 'baerscript';
   /** Project card (and `/projects#<slug>` anchor) the demo belongs to. */
   slug: string;
@@ -25,6 +25,8 @@ export interface CodeDemoPage {
     files?: boolean;
     enabled?: boolean;
     revision?: string;
+    /** Full-page playground route. */
+    page?: string;
     /** Compiler version, recorded in the pin by jai-web.yml. */
     version?: string;
   };
@@ -48,17 +50,18 @@ export const codeDemoPages: CodeDemoPage[] = [
   {
     id: 'jai',
     slug: 'jai',
-    path: '/playground/jai',
-    title: 'Jai playground',
+    path: '/playground/jacket',
+    title: 'Jacket playground',
     description:
-      'Write and run Jai in your browser: a Rust-built Jai compiler compiled to WebAssembly, with a multi-file workspace, diagnostics, hover, go to definition, a formatter and a linter.',
+      'Write and run Jai in your browser with Jacket, a Rust-built Jai compiler compiled to WebAssembly, with a multi-file workspace, diagnostics, hover, go to definition, a formatter and a linter.',
     summary:
-      'Multi-file Jai workspace with the compiler, language server, formatter and linter running in WebAssembly.',
+      'Multi-file Jai workspace with the Jacket compiler, language server, formatter and linter running in WebAssembly.',
     workspace: {
       id: 'jai',
       label: 'Jai',
       files: true,
       enabled: jaiRelease.enabled,
+      page: '/playground/jacket',
       revision: jaiRelease.revision ?? '',
       version: (jaiRelease as { version?: string }).version ?? '',
     },

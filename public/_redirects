@@ -1,0 +1,4 @@
+# The Jai playground moved when the project was renamed to Jacket. Browsers keep
+# the #file fragment across the redirect, so deep links still open their file.
+/playground/jai /playground/jacket 301
+/playground/jai.html /playground/jacket 301
