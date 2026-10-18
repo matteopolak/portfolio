@@ -1,11 +1,15 @@
 name: Publish Jai browser compiler
 
+# Builds the playground's compiler from a Jacket release and pins it in
+# releases/jai-web-release.json. Bump with `pnpm bump:jacket [tag]`, which
+# defaults to the latest release.
 on:
   workflow_dispatch:
     inputs:
       jai_ref:
-        description: Full 40-character tested Jai commit SHA
+        description: Jacket release tag (v0.19.1), `latest`, or a full 40-character commit SHA
         required: true
+        default: latest
       update_pointer:
         description: Update the portfolio deployment pointer after validation
         type: boolean
@@ -23,12 +27,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      JAI_REF: ${{ inputs.jai_ref }}
       CARGO_INCREMENTAL: '0'
     steps:
-      - name: Require an exact compiler revision
+      # A tag or `latest` becomes the exact commit everything below is pinned to.
+      - name: Resolve the compiler revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.jai_ref }}
         run: |
-          [[ "$JAI_REF" =~ ^[a-f0-9]{40}$ ]]
+          ref="$REQUESTED"
+          if [ "$ref" = latest ]; then
+            ref="$(gh release view -R matteopolak/jacket --json tagName --jq .tagName)"
+          fi
+          if ! [[ "$ref" =~ ^[a-f0-9]{40}$ ]]; then
+            ref="$(gh api "repos/matteopolak/jacket/commits/$ref" --jq .sha)"
+          fi
+          [[ "$ref" =~ ^[a-f0-9]{40}$ ]]
+          echo "$REQUESTED -> $ref"
+          echo "JAI_REF=$ref" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -36,7 +52,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: matteopolak/jacket
-          ref: ${{ inputs.jai_ref }}
+          ref: ${{ env.JAI_REF }}
           path: .build/jai
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -57,7 +73,9 @@ jobs:
       - name: Install LLVM 23 and lld
         working-directory: .build/jai
         run: |
-          bash tools/install_ci_llvm_linux.sh
+          # Releases from 0.19 keep these scripts in tools/<subsystem>/.
+          tool() { for p in "tools/$1" tools/*/"$1"; do [ -f "$p" ] && { echo "$p"; return; }; done; echo "no $1 in tools/" >&2; return 1; }
+          bash "$(tool install_ci_llvm_linux.sh)"
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -66,8 +84,9 @@ jobs:
       - name: Check source policy and fetch locked dependencies
         working-directory: .build/jai
         run: |
-          python3 tools/check_dependency_age.py
-          python3 tools/check_ci_sources.py
+          tool() { for p in "tools/$1" tools/*/"$1"; do [ -f "$p" ] && { echo "$p"; return; }; done; echo "no $1 in tools/" >&2; return 1; }
+          python3 "$(tool check_dependency_age.py)"
+          python3 "$(tool check_ci_sources.py)"
           cargo fetch --locked
       - name: Build the native compiler that builds jaifmt.wasm
         working-directory: .build/jai
@@ -76,7 +95,9 @@ jobs:
           command -v wasm-ld
       - name: Build and package the actual browser compiler
         working-directory: .build/jai
-        run: python3 tools/package_browser_release.py --output "$GITHUB_WORKSPACE/.build/jai-release" --jaic "$PWD/target/debug/jaic"
+        run: |
+          tool() { for p in "tools/$1" tools/*/"$1"; do [ -f "$p" ] && { echo "$p"; return; }; done; echo "no $1 in tools/" >&2; return 1; }
+          python3 "$(tool package_browser_release.py)" --output "$GITHUB_WORKSPACE/.build/jai-release" --jaic "$PWD/target/debug/jaic"
       - name: Validate inventory and pin release digests
         run: |
           python3 scripts/verify-jai-bundle.py .build/jai-release "$JAI_REF"
@@ -97,7 +118,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: jai-web-${{ inputs.jai_ref }}
+          name: jai-web-${{ env.JAI_REF }}
           path: |
             .build/jai-release/jai-playground.zip
             .build/jai-release/jai-playground.manifest.json

@@ -136,6 +136,19 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 archive digests. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
+### Bumping the compiler
+
+```bash
+pnpm bump:jacket          # latest Jacket release
+pnpm bump:jacket v0.19.2  # a specific tag (or a full commit SHA)
+```
+
+This dispatches `.github/workflows/jai-web.yml`. It resolves the tag (or `latest`) to a commit
+in matteopolak/jacket, builds and checks the browser bundle with the release's own
+`package_browser_release.py`, publishes it as the `jai-web-<sha>` release and commits the new
+pin, which deploys. Nothing is vendored, so there is no file to edit by hand. Releases from 0.19
+keep their build scripts in `tools/<subsystem>/`; the workflow looks in both places.
+
 The workspace header shows the pinned build as `jacket <version> · <short sha>`, linked to the
 commit in matteopolak/jacket. `jai-web.yml` records `version` from the compiler's
 `[workspace.package]` in `Cargo.toml`. Pins written before that have no `version`, so the
