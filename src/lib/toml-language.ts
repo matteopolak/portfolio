@@ -26,7 +26,7 @@ function finishString(
   return 'string';
 }
 
-/** Highlighting for `jaifmt.toml` and other TOML files in a workspace. */
+/** Highlighting for `jacket.toml` and other TOML files in a workspace. */
 const tomlParser: StreamParser<TomlState> = {
   name: 'toml',
   startState: () => ({ key: true }),

@@ -5,6 +5,7 @@
  * the format call; docs/jai-formatter.md describes the protocol.
  */
 import { FORMAT_CONFIG_PATH } from './format.ts';
+import { PROJECT_CONFIG_PATH } from './project-config.ts';
 
 /** Release asset next to `jai_wasm.wasm`. */
 export const JAIFMT_WASM_ASSET = 'jaifmt.wasm';
@@ -179,8 +180,9 @@ export async function runWasi(
 }
 
 /**
- * The `jaifmt.toml` that applies to `target`: the nearest one between the
- * file's folder and the workspace root, like the engine driver's lookup.
+ * The config that applies to `target`: the nearest folder between the file's
+ * and the workspace root with a `jacket.toml` (its `[format]` table) or a
+ * legacy `jaifmt.toml`, the jacket.toml first, like the engine driver's lookup.
  */
 export function formatConfigFor(
   documents: readonly { path: string; text: string }[],
@@ -189,20 +191,34 @@ export function formatConfigFor(
   const files = new Map(documents.map((d) => [d.path, d.text]));
   const folders = target.split('/').slice(0, -1);
   for (let depth = folders.length; depth >= 0; depth--) {
-    const path = [...folders.slice(0, depth), FORMAT_CONFIG_PATH].join('/');
-    const text = files.get(path);
-    if (text !== undefined) return { path, text };
+    for (const name of [PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH]) {
+      const path = [...folders.slice(0, depth), name].join('/');
+      const text = files.get(path);
+      if (text !== undefined) return { path, text };
+    }
   }
   return undefined;
 }
 
-/** jaifmt.wasm's command line for one file. */
-export function jaifmtArgs(name: string, config?: string): string[] {
+/**
+ * jaifmt.wasm's command line for one file. `--config` takes the text; for a
+ * jacket.toml, `--config-name` tells jaifmt to read its `[format]` table.
+ */
+export function jaifmtArgs(
+  name: string,
+  config?: { path: string; text: string }
+): string[] {
+  if (!config) return [JAIFMT_WASM_ASSET, '--name', name];
+  const jacket =
+    config.path === PROJECT_CONFIG_PATH ||
+    config.path.endsWith(`/${PROJECT_CONFIG_PATH}`);
   return [
     JAIFMT_WASM_ASSET,
     '--name',
     name,
-    ...(config === undefined ? [] : ['--config', config]),
+    '--config',
+    config.text,
+    ...(jacket ? ['--config-name', PROJECT_CONFIG_PATH] : []),
   ];
 }
 
@@ -226,11 +242,7 @@ export async function formatWithWasm(
   const config = formatConfigFor(documents, target);
   let result: WasiResult;
   try {
-    result = await runWasi(
-      module,
-      jaifmtArgs(target, config?.text),
-      source.text
-    );
+    result = await runWasi(module, jaifmtArgs(target, config), source.text);
   } catch (error) {
     if (!(error instanceof WebAssembly.RuntimeError)) throw error;
     return {
@@ -241,9 +253,10 @@ export async function formatWithWasm(
   }
   // jaifmt.wasm only sees the config text; name the file it came from.
   if (config && result.exitCode !== 0)
-    result.stderr = result.stderr.replace(
-      `jaifmt: ${FORMAT_CONFIG_PATH}:`,
-      () => `jaifmt: ${config.path}:`
-    );
+    for (const name of [PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH])
+      result.stderr = result.stderr.replace(
+        `jaifmt: ${name}:`,
+        () => `jaifmt: ${config.path}:`
+      );
   return result;
 }

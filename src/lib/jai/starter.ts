@@ -1,5 +1,6 @@
-import { FORMAT_CONFIG_PATH, formatConfigStarter } from './format.ts';
-import { LINT_SETTINGS, lintConfigStarter } from './language-client.ts';
+import { FORMAT_CONFIG_PATH } from './format.ts';
+import { LINT_SETTINGS } from './language-client.ts';
+import { PROJECT_CONFIG_PATH, projectConfigStarter } from './project-config.ts';
 import { SourcePath } from './workspace.ts';
 
 /**
@@ -23,13 +24,12 @@ main :: () {
     return x * x;
 }
 `,
-  [FORMAT_CONFIG_PATH]: formatConfigStarter,
-  [LINT_SETTINGS]: lintConfigStarter,
+  [PROJECT_CONFIG_PATH]: projectConfigStarter,
 };
 
 /**
- * A clean workspace: a hello-world `main.jai` and the default jaifmt.toml and
- * jailint.toml (the same ones the tour and the built-in starter get).
+ * A clean workspace: a hello-world `main.jai` and the default jacket.toml (the
+ * same one the tour and the built-in starter get).
  */
 export const defaultFiles = (): Record<string, string> => ({
   'main.jai': `#import "Basic";
@@ -38,8 +38,7 @@ main :: () {
     print("Hello, World!\\n");
 }
 `,
-  [FORMAT_CONFIG_PATH]: formatConfigStarter,
-  [LINT_SETTINGS]: lintConfigStarter,
+  [PROJECT_CONFIG_PATH]: projectConfigStarter,
 });
 
 /** The workspace a session starts with, and the tabs to open (the first is active). */
@@ -94,7 +93,7 @@ export function tourPaths(index: unknown): string[] | undefined {
 
 /**
  * Loads the language tour shipped with the compiler release
- * (`/jai/<revision>/tour.json` and `tour/**`), plus the default jaifmt.toml and jailint.toml.
+ * (`/jai/<revision>/tour.json` and `tour/**`), plus the default jacket.toml.
  * Any missing or malformed piece falls back to the built-in starter, so a
  * release from before the tour still opens; only an abort is thrown.
  */
@@ -125,8 +124,14 @@ export async function loadStarter(
       files[path] = texts[index];
     });
     if (bytes > MAX_TOUR_BYTES) return builtinStarter();
-    files[FORMAT_CONFIG_PATH] ??= formatConfigStarter;
-    files[LINT_SETTINGS] ??= lintConfigStarter;
+    // A tour with its own root config keeps it; a jacket.toml beside a legacy
+    // file would silently replace it.
+    if (
+      ![PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH, LINT_SETTINGS].some(
+        (path) => path in files
+      )
+    )
+      files[PROJECT_CONFIG_PATH] = projectConfigStarter;
     const open = ['main.jai'];
     if (paths.includes(TOUR_GUIDE)) open.push(TOUR_GUIDE);
     return { files, open };

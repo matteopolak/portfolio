@@ -699,7 +699,7 @@ const languageFor = (language: EditorLanguage) =>
 
 /**
  * Highlighting for one file. A Jai workspace also holds other files
- * (`jaifmt.toml`, notes), which must not be read as Jai.
+ * (`jacket.toml`, notes), which must not be read as Jai.
  */
 const syntaxFor = (language: EditorLanguage, path: string | undefined) => {
   if (language !== 'jai' || !path || path.endsWith('.jai'))

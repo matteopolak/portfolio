@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { projectConfigStarter } from '../../src/lib/jai/project-config.ts';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   FORMAT_DRIVER_PATH,
-  formatConfigStarter,
   formatFiles,
   formatOutcome,
 } from '../../src/lib/jai/format.ts';
@@ -46,13 +46,41 @@ test('the nearest jaifmt.toml applies, like the engine driver', () => {
     '--name',
     'main.jai',
   ]);
-  assert.deepEqual(jaifmtArgs('x.jai', 'indent_width = 2\n'), [
-    'jaifmt.wasm',
-    '--name',
-    'x.jai',
-    '--config',
-    'indent_width = 2\n',
-  ]);
+  assert.deepEqual(
+    jaifmtArgs('x.jai', { path: 'jaifmt.toml', text: 'indent_width = 2\n' }),
+    ['jaifmt.wasm', '--name', 'x.jai', '--config', 'indent_width = 2\n']
+  );
+  assert.deepEqual(
+    jaifmtArgs('x.jai', {
+      path: 'a/jacket.toml',
+      text: '[format]\nindent_width = 2\n',
+    }),
+    [
+      'jaifmt.wasm',
+      '--name',
+      'x.jai',
+      '--config',
+      '[format]\nindent_width = 2\n',
+      '--config-name',
+      'jacket.toml',
+    ]
+  );
+});
+
+test('a jacket.toml wins over a jaifmt.toml in the same folder, and the nearest folder wins', () => {
+  const files = documents({
+    'jacket.toml': 'root jacket',
+    'jaifmt.toml': 'root legacy',
+    'a/jaifmt.toml': 'a legacy',
+  });
+  assert.deepEqual(formatConfigFor(files, 'main.jai'), {
+    path: 'jacket.toml',
+    text: 'root jacket',
+  });
+  assert.deepEqual(formatConfigFor(files, 'a/b.jai'), {
+    path: 'a/jaifmt.toml',
+    text: 'a legacy',
+  });
 });
 
 test('loading checks the release digest and reports engines without Memory64', async () => {
@@ -102,7 +130,7 @@ test(
       await readFile(join(local!, 'tour.json'), 'utf8')
     ) as { files: string[] };
     const tourFiles: Record<string, string> = {
-      'jaifmt.toml': formatConfigStarter,
+      'jacket.toml': projectConfigStarter,
     };
     for (const name of tour.files)
       tourFiles[name] = await readFile(join(local!, 'tour', name), 'utf8');

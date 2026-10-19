@@ -169,7 +169,7 @@ test("the server's fix-all action and per-rule docs are used when present", () =
   );
 });
 
-test('jailint.toml files are synced to the server; other settings are not', () => {
+test('jacket.toml and jailint.toml files are synced to the server; other settings are not', () => {
   const posted: { method?: string; params?: unknown }[] = [];
   const worker = Object.assign(new EventTarget(), {
     postMessage: (data: { message: { method?: string; params?: unknown } }) =>
@@ -179,6 +179,8 @@ test('jailint.toml files are synced to the server; other settings are not', () =
   const documents = [
     { path: 'main.jai', version: 1, text: 'main :: () {}' },
     { path: 'jaifmt.toml', version: 1, text: 'indent_width = 2\n' },
+    { path: 'jacket.toml', version: 1, text: '[lint.rules]\n' },
+    { path: 'notjacket.toml', version: 1, text: '' },
     { path: 'jailint.toml', version: 1, text: '[rules]\n' },
     { path: 'lib/jailint.toml', version: 1, text: '' },
     { path: 'notjailint.toml', version: 1, text: '' },
@@ -193,6 +195,7 @@ test('jailint.toml files are synced to the server; other settings are not', () =
     opened.map(({ uri, languageId }) => [uri, languageId]),
     [
       ['file:///jai-script/main.jai', 'jai'],
+      ['file:///jai-script/jacket.toml', 'toml'],
       ['file:///jai-script/jailint.toml', 'toml'],
       ['file:///jai-script/lib/jailint.toml', 'toml'],
     ]
@@ -204,7 +207,7 @@ test('jailint.toml files are synced to the server; other settings are not', () =
   ]);
   assert.deepEqual(
     posted.map((m) => m.method),
-    ['textDocument/didChange', 'textDocument/didClose']
+    ['textDocument/didChange', 'textDocument/didClose', 'textDocument/didClose']
   );
 });
 

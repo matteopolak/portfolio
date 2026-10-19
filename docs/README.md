@@ -23,7 +23,7 @@
 | [editor-search.md](./editor-search.md) | VS Code-style find/replace widget for all CodeMirror editors |
 | [markdown-preview.md](./markdown-preview.md)                                                       | Markdown preview tabs (open to the side, phone toggle, links, scroll sync) and `.md` highlighting |
 | [playground-pages.md](./playground-pages.md)                                                       | Full-page `/playground/<project>` routes (Jai, Quasi, BaerScript, Lodestone) sharing the modal demos                 |
-| [jai-formatter.md](./jai-formatter.md)                                                             | Jai Format button: `jaifmt.wasm` (WASI shim) or the engine driver, `jaifmt.toml`, cursor-preserving edits |
+| [jai-formatter.md](./jai-formatter.md)                                                             | Jai Format button: `jaifmt.wasm` (WASI shim) or the engine driver, `jacket.toml`, cursor-preserving edits |
 | [performance.md](./performance.md) | Lighthouse CI budgets, `pnpm lighthouse`, bundle-size and accessibility rules |
 | [seo.md](./seo.md)                                                                                 | Canonical URLs, search metadata, structured data, robots, and generated sitemap         |
 | [Lodestone web embed](./lodestone-web-embed.md)                                                     | SDK validation, progress events, replacement textures, publishing, and embed                          |

@@ -7,6 +7,8 @@ import type {
   InitializeResult,
   WorkerResponse,
 } from './lsp-types.ts';
+import { isProjectConfig } from './project-config.ts';
+
 export function documentUri(path: string): string {
   return `file:///jai-script/${SourcePath.parse(path)
     .name.split('/')
@@ -158,11 +160,11 @@ interface LanguageClientOptions {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-/** jailint's settings file, which the server reads from any folder of the workspace. */
+/** Legacy jailint settings file; new workspaces use jacket.toml's `[lint]` (project-config.ts). */
 export const LINT_SETTINGS = 'jailint.toml';
 /**
- * Default `jailint.toml` for new workspaces: every rule at its default level,
- * plus the opt-in ones turned on, so the playground shows everything jailint can find.
+ * A legacy `jailint.toml`: every rule at its default level, plus the opt-in
+ * ones turned on, so the playground shows everything jailint can find.
  */
 export const lintConfigStarter = `# Settings for jailint, whose findings show in the editor.
 # Levels: "allow" (off), "warn" or "deny". A jailint.toml in a subfolder
@@ -176,8 +178,11 @@ lossy_xx = "warn"        # \`xx\` that narrows a number to a smaller type
 # unused_parameter = "allow"
 `;
 
+/** Files the server reads lint settings from: `jacket.toml` and the legacy `jailint.toml`. */
 export const isLintSettings = (path: string) =>
-  path === LINT_SETTINGS || path.endsWith(`/${LINT_SETTINGS}`);
+  isProjectConfig(path) ||
+  path === LINT_SETTINGS ||
+  path.endsWith(`/${LINT_SETTINGS}`);
 
 export class LanguageClient {
   #worker: Worker;
@@ -362,9 +367,10 @@ export class LanguageClient {
     if (this.#stopped) return;
     const current = new Set<string>();
     for (const { path, text, version } of documents) {
-      // Jai sources are language documents. So is each `jailint.toml`: the
-      // browser server has no disk, so its lint settings come as an open
-      // document (it publishes no diagnostics for it). jaifmt.toml is not.
+      // Jai sources are language documents. So is each `jacket.toml` and
+      // `jailint.toml`: the browser server has no disk, so its lint settings
+      // come as open documents (it publishes no diagnostics for them).
+      // jaifmt.toml is not.
       const languageId = path.endsWith('.jai')
         ? 'jai'
         : isLintSettings(path)

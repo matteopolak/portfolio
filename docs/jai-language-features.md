@@ -221,8 +221,8 @@ keep).
 
 ### Lints and quick fixes
 
-New workspaces start with a root `jailint.toml` (`lintConfigStarter` in
-`language-client.ts`, added by `starter.ts`) that turns on the rules jailint
+New workspaces start with a root `jacket.toml` (`projectConfigStarter` in
+`project-config.ts`, added by `starter.ts`) whose `[lint.rules]` turns on the rules jailint
 leaves off by default (`float_equality`, `lossy_xx`), so the playground shows
 everything it can find. Edit that file to change levels; the server reads it as
 an open document.
@@ -268,14 +268,16 @@ problems`) applies every safe fix in the file. The client advertises
   "Fix N lint problems"; the client adds its own "Fix all lints in this
   file" only when the server sent none.
 - **Settings.** The browser server has no disk, so `LanguageClient.sync`
-  sends every workspace file named `jailint.toml` (at the root or in a folder)
+  sends every workspace file named `jacket.toml` or the legacy `jailint.toml`
+  (at the root or in a folder)
   as an open `toml` document, with `didChange`/`didClose` as it is edited,
   renamed or deleted. The server applies the nearest one above each `.jai`
   file and publishes no diagnostics for the settings file itself; one that
   does not parse yet means the defaults. For example:
 
   ```toml
-  [rules]
+  # jacket.toml (a legacy jailint.toml uses [rules])
+  [lint.rules]
   unused_parameter = "allow"
   float_equality = "deny"    # an error instead of a warning
   ```

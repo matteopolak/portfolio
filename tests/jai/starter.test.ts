@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatConfigStarter } from '../../src/lib/jai/format.ts';
-import { lintConfigStarter } from '../../src/lib/jai/language-client.ts';
+import { projectConfigStarter } from '../../src/lib/jai/project-config.ts';
 import {
   loadStarter,
   starterFiles,
@@ -48,8 +47,7 @@ test('the tour loads as a multi-folder workspace with jaifmt.toml and its guide 
     'main.jai': 'main :: () {}\n',
     'meta/macros.jai': 'm :: () #expand {}\n',
     'tour.md': '# Tour\n',
-    'jaifmt.toml': formatConfigStarter,
-    'jailint.toml': lintConfigStarter,
+    'jacket.toml': projectConfigStarter,
   });
   assert.deepEqual(starter.open, ['main.jai', 'tour.md']);
   assert.ok(requests.includes(`/jai/${revision}/tour/meta/macros.jai`));

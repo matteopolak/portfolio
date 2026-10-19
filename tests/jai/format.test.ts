@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { projectConfigStarter } from '../../src/lib/jai/project-config.ts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   FORMAT_DRIVER_PATH,
   formatChange,
-  formatConfigStarter,
   formatFiles,
   formatOutcome,
   mapOffset,
@@ -75,9 +75,14 @@ test('the cursor keeps its place among non-whitespace characters', () => {
   assert.equal(mapOffset(before, change, before.length), after.length);
 });
 
-test('the starter workspace ships a jaifmt.toml with the defaults', () => {
-  assert.equal(starterFiles['jaifmt.toml'], formatConfigStarter);
-  for (const line of formatConfigStarter.split('\n')) {
+test('the starter workspace ships one jacket.toml with the format defaults', () => {
+  assert.equal(starterFiles['jacket.toml'], projectConfigStarter);
+  assert.equal(starterFiles['jaifmt.toml'], undefined);
+  assert.equal(starterFiles['jailint.toml'], undefined);
+  const format = projectConfigStarter
+    .split(/^\[format\]$/m)[1]
+    .split(/^\[/m)[0];
+  for (const line of format.split('\n')) {
     const code = line.replace(/#.*/, '').trim();
     if (code)
       assert.match(code, /^(indent_width|max_blank_lines|brace_style) = /);
@@ -141,14 +146,14 @@ test(
 );
 
 test(
-  'the tour runs and is already formatted under the default jaifmt.toml',
+  'the tour runs and is already formatted under the default jacket.toml',
   { skip: !local && 'set JAI_WASM_DIR' },
   async () => {
     const index = JSON.parse(
       await readFile(join(local!, 'tour.json'), 'utf8')
     ) as { files: string[] };
     const files: Record<string, string> = {
-      'jaifmt.toml': formatConfigStarter,
+      'jacket.toml': projectConfigStarter,
     };
     for (const name of index.files)
       files[name] = await readFile(join(local!, 'tour', name), 'utf8');

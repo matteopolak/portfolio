@@ -4,10 +4,13 @@ import type { RunOutput } from './engine.ts';
 export const FORMAT_DRIVER_PATH = '__jaifmt__.jai';
 /** Release asset that holds the driver, next to `jai_wasm.wasm`. */
 export const FORMAT_DRIVER_ASSET = 'jaifmt-playground.jai';
-/** Config file the driver looks for, from the target's directory up to the root. */
+/**
+ * Legacy formatter config. The driver looks for `jacket.toml` and then this in
+ * each folder from the target's up to the root (see project-config.ts).
+ */
 export const FORMAT_CONFIG_PATH = 'jaifmt.toml';
 
-/** Default `jaifmt.toml` for new workspaces: the formatter's defaults, explained. */
+/** A legacy `jaifmt.toml` with the formatter's defaults. New workspaces get a `jacket.toml`. */
 export const formatConfigStarter = `# Settings for the Format button (Shift+Alt+F), read by jaifmt.
 # The values below are the defaults. A jaifmt.toml in a subfolder
 # overrides this one for the files under it.
@@ -23,7 +26,7 @@ export const isFormattable = (path: string) => path.endsWith('.jai');
 
 /**
  * The file map for one format run: the whole workspace (so a nested
- * `jaifmt.toml` is found) plus the driver, pointed at `target`.
+ * `jacket.toml` or `jaifmt.toml` is found) plus the driver, pointed at `target`.
  */
 export function formatFiles(
   documents: readonly { path: string; text: string }[],

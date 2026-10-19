@@ -34,7 +34,7 @@ the output pane is a terminal ([Jai terminal](jai-terminal.md)): it shows writes
 The session opens with the compiler's language tour and runs it once when ready.
 `loadStarter` (`src/lib/jai/starter.ts`) fetches `/jai/<full-commit>/tour.json`
 (`{ schema_version: 1, main: "main.jai", files: [...] }`), then every listed file from
-`/jai/<full-commit>/tour/`, and adds the default `jaifmt.toml`. The tour is a
+`/jai/<full-commit>/tour/`, and adds the default `jacket.toml` unless the tour has its own root config. The tour is a
 multi-folder workspace (`basics/`, `types/`, `data/`, `memory/`, `generics/`, `meta/`,
 `finale/`, about 14 files) written and tested in the compiler repo (`examples/tour`,
 its `docs/browser/tour.md`). `main.jai` and a preview of `tour.md` open in tabs, `main.jai` active (a saved layout reopens its own tabs instead);

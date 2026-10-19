@@ -11,8 +11,7 @@ import {
   skippedSummary,
 } from '../src/lib/workspace-import.ts';
 import { defaultFiles, defaultStarter } from '../src/lib/jai/starter.ts';
-import { FORMAT_CONFIG_PATH } from '../src/lib/jai/format.ts';
-import { LINT_SETTINGS } from '../src/lib/jai/language-client.ts';
+import { PROJECT_CONFIG_PATH } from '../src/lib/jai/project-config.ts';
 
 test('the picked folder name is stripped and unsafe paths are dropped', () => {
   assert.equal(normalizeImportPath('myproj/src/main.jai'), 'src/main.jai');
@@ -94,12 +93,10 @@ test('the default Jai workspace is hello world plus the tool configs', () => {
   const files = defaultFiles();
   assert.deepEqual(
     Object.keys(files).sort(),
-    ['main.jai', FORMAT_CONFIG_PATH, LINT_SETTINGS].sort()
+    ['main.jai', PROJECT_CONFIG_PATH].sort()
   );
   assert.match(files['main.jai'], /Hello, World!/u);
-  assert.ok(
-    files[FORMAT_CONFIG_PATH].length > 0 && files[LINT_SETTINGS].length > 0
-  );
+  assert.ok(files[PROJECT_CONFIG_PATH].length > 0);
   assert.deepEqual(defaultStarter().open, ['main.jai']);
   // Each call returns fresh data.
   assert.notEqual(defaultFiles(), defaultFiles());

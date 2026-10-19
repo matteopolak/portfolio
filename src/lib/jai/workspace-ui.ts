@@ -3063,7 +3063,7 @@ export async function createSession(
       const reset = await confirmDialog(panel, {
         title: 'Reset workspace?',
         message:
-          'This replaces every file with a hello-world main.jai and the default jaifmt.toml and jailint.toml, and closes all tabs. Your changes are lost.',
+          'This replaces every file with a hello-world main.jai and the default jacket.toml, and closes all tabs. Your changes are lost.',
         confirmLabel: 'Reset workspace',
       });
       if (!reset || signal.aborted) return;
