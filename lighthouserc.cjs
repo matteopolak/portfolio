@@ -13,7 +13,7 @@ const paths = [
   '/blog/axum-extract',
   '/playground',
   '/playground/quasi',
-  '/playground/jai',
+  '/playground/jacket',
 ];
 
 module.exports = {
