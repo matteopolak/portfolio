@@ -69,11 +69,11 @@ if (local) {
       console.warn(`Local Jai build has no ${name}; ${optional[name]}.`);
     }
   }
-  // The language tour: tour.json lists the files under tour/ (src/lib/jai/starter.ts).
-  try {
-    const index = await readFile(join(source, 'tour.json'), 'utf8');
-    const files: unknown = JSON.parse(index).files;
-    if (!Array.isArray(files)) throw new Error('tour.json has no file list');
+  // Preset workspaces (examples.json, each under <name>/) or, in older
+  // builds, the language tour (tour.json, under tour/); see
+  // src/lib/jai/starter.ts.
+  const stage = async (folder: string, files: unknown) => {
+    if (!Array.isArray(files)) throw new Error(`${folder} has no file list`);
     for (const name of files) {
       if (
         typeof name !== 'string' ||
@@ -81,18 +81,38 @@ if (local) {
           .split('/')
           .some((part) => part === '' || part === '.' || part === '..')
       )
-        throw new Error(`Unsafe tour path ${JSON.stringify(name)}`);
-      const target = join(destination, 'tour', name);
+        throw new Error(`Unsafe path ${JSON.stringify(`${folder}/${name}`)}`);
+      const target = join(destination, folder, name);
       await mkdir(dirname(target), { recursive: true });
-      await copyFile(join(source, 'tour', name), target);
+      await copyFile(join(source, folder, name), target);
     }
-    await writeFile(join(destination, 'tour.json'), index);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  };
+  const indexed = async (name: string) => {
+    try {
+      return await readFile(join(source, name), 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      return undefined;
+    }
+  };
+  const examples = await indexed('examples.json');
+  const tour = examples === undefined && (await indexed('tour.json'));
+  if (examples !== undefined) {
+    const entries: unknown = JSON.parse(examples).examples;
+    if (!Array.isArray(entries)) throw new Error('examples.json has no list');
+    for (const { name, files, assets } of entries) {
+      if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9_-]*$/.test(name))
+        throw new Error(`Unsafe example name ${JSON.stringify(name)}`);
+      await stage(name, [...files, ...(assets ?? [])]);
+    }
+    await writeFile(join(destination, 'examples.json'), examples);
+  } else if (tour) {
+    await stage('tour', JSON.parse(tour).files);
+    await writeFile(join(destination, 'tour.json'), tour);
+  } else
     console.warn(
-      'Local Jai build has no tour; the playground uses the built-in starter.'
+      'Local Jai build has no examples; the playground uses the built-in starter.'
     );
-  }
   console.log(`Staged local Jai build from ${source} as ${pointer.revision}.`);
   process.exit(0);
 }

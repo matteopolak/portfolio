@@ -12,6 +12,7 @@ import {
 } from '../../src/lib/jai/format.ts';
 import { createEngine } from '../../src/lib/jai/engine.ts';
 import { starterFiles } from '../../src/lib/jai/starter.ts';
+import { localWorkspaces } from './local-workspaces.ts';
 
 const driver = 'main :: () {}\nTARGET :: "main.jai";\n';
 
@@ -146,40 +147,40 @@ test(
 );
 
 test(
-  'the tour runs and is already formatted under the default jacket.toml',
+  'the shipped workspaces run and are already formatted under their jacket.toml',
   { skip: !local && 'set JAI_WASM_DIR' },
   async () => {
-    const index = JSON.parse(
-      await readFile(join(local!, 'tour.json'), 'utf8')
-    ) as { files: string[] };
-    const files: Record<string, string> = {
-      'jacket.toml': projectConfigStarter,
-    };
-    for (const name of index.files)
-      files[name] = await readFile(join(local!, 'tour', name), 'utf8');
     const engine = await createEngine(
       await readFile(join(local!, 'jai_wasm.wasm'))
     );
-    const run = engine.play(files, 'main.jai', { budget: 200_000_000 });
-    assert.equal(run.exitCode, 0, run.stderr);
-    assert.match(run.stdout, /That's the tour/);
     const realDriver = await readFile(
       join(local!, 'jaifmt-playground.jai'),
       'utf8'
     );
-    for (const name of index.files.filter((file) => file.endsWith('.jai'))) {
+    for (const { label, files, runs, stdout } of await localWorkspaces(
+      local!
+    )) {
+      if (runs) {
+        const run = engine.play(files, 'main.jai', { budget: 200_000_000 });
+        assert.equal(run.exitCode, 0, `${label}: ${run.stderr}`);
+        if (stdout) assert.match(run.stdout, stdout);
+      }
       const documents = Object.entries(files).map(([path, text]) => ({
         path,
         text,
       }));
-      const result = formatOutcome(
-        engine.play(
-          formatFiles(documents, name, realDriver),
-          FORMAT_DRIVER_PATH,
-          { budget: 200_000_000 }
-        )
-      );
-      assert.deepEqual(result, { text: files[name] }, name);
+      for (const name of Object.keys(files).filter((file) =>
+        file.endsWith('.jai')
+      )) {
+        const result = formatOutcome(
+          engine.play(
+            formatFiles(documents, name, realDriver),
+            FORMAT_DRIVER_PATH,
+            { budget: 200_000_000 }
+          )
+        );
+        assert.deepEqual(result, { text: files[name] }, `${label}/${name}`);
+      }
     }
   }
 );

@@ -93,19 +93,14 @@ export function tourPaths(index: unknown): string[] | undefined {
   return [...paths];
 }
 
-/** Files from a bundle index (`tour.json`, `<example>.json`) and the folder beside it. */
-async function loadIndexed(
+/** Reads `paths` from `base + folder` into a file map, within the size cap. */
+async function loadFiles(
   base: string,
-  index: string,
   folder: string,
+  paths: readonly string[],
   signal: AbortSignal,
   fetcher: typeof fetch
-): Promise<{ files: Record<string, string>; assets: boolean } | undefined> {
-  const response = await fetcher(base + index, { signal });
-  if (!response.ok) return undefined;
-  const json: unknown = await response.json();
-  const paths = tourPaths(json);
-  if (!paths) return undefined;
+): Promise<Record<string, string> | undefined> {
   const texts = await Promise.all(
     paths.map(async (path) => {
       const url =
@@ -122,23 +117,146 @@ async function loadIndexed(
     files[path] = texts[index];
   });
   if (bytes > MAX_TOUR_BYTES) return undefined;
-  // A tour with its own root config keeps it; a jacket.toml beside a legacy
-  // file would silently replace it.
+  // A workspace with its own root config keeps it; a jacket.toml beside a
+  // legacy file would silently replace it.
   if (
     ![PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH, LINT_SETTINGS].some(
       (path) => path in files
     )
   )
     files[PROJECT_CONFIG_PATH] = projectConfigStarter;
-  const { assets } = json as { assets?: unknown };
-  return { files, assets: Array.isArray(assets) && assets.length > 0 };
+  return files;
+}
+
+/** Release asset listing the preset workspaces; each lives in `<name>/` beside it. */
+export const EXAMPLES_INDEX_ASSET = 'examples.json';
+
+/** A preset workspace from `examples.json`. */
+export interface Example {
+  name: string;
+  title: string;
+  summary: string;
+  /** Workspace paths, `main.jai` first. */
+  files: string[];
+  /** Files `load_asset` may fetch from `<name>/`; not copied into the workspace. */
+  assets: string[];
+}
+
+const EXAMPLE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+
+/** The usable entries of an `examples.json`; undefined if it is not one. */
+export function examplesIndex(index: unknown): Example[] | undefined {
+  if (typeof index !== 'object' || index === null) return undefined;
+  const { schema_version, examples } = index as Record<string, unknown>;
+  if (schema_version !== 2 || !Array.isArray(examples)) return undefined;
+  const names = new Set<string>();
+  const usable: Example[] = [];
+  for (const entry of examples) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const { name, title, summary, main, files, assets } = entry as Record<
+      string,
+      unknown
+    >;
+    if (
+      typeof name !== 'string' ||
+      !EXAMPLE_NAME.test(name) ||
+      names.has(name) ||
+      typeof title !== 'string' ||
+      !Array.isArray(assets)
+    )
+      continue;
+    // Run always runs main.jai, so a workspace must have it.
+    const paths = tourPaths({ schema_version: 1, main, files });
+    if (!paths) continue;
+    const assetPaths = assets.filter((path): path is string => {
+      try {
+        return typeof path === 'string' && SourcePath.parse(path).name === path;
+      } catch {
+        return false;
+      }
+    });
+    if (assetPaths.length !== assets.length) continue;
+    names.add(name);
+    usable.push({
+      name,
+      title,
+      summary: typeof summary === 'string' ? summary : '',
+      files: paths,
+      assets: assetPaths,
+    });
+  }
+  return usable.length ? usable : undefined;
 }
 
 /**
- * Loads the language tour shipped with the compiler release
- * (`/jai/<revision>/tour.json` and `tour/**`), plus the default jacket.toml.
- * Any missing or malformed piece falls back to the built-in starter, so a
- * release from before the tour still opens; only an abort is thrown.
+ * The release's preset workspaces (`/jai/<revision>/examples.json`), or an
+ * empty list when it has none or the index is unusable. Only an abort throws.
+ */
+export async function loadExamples(
+  revision: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch = fetch
+): Promise<Example[]> {
+  try {
+    const response = await fetcher(`/jai/${revision}/${EXAMPLES_INDEX_ASSET}`, {
+      signal,
+    });
+    if (!response.ok) return [];
+    return examplesIndex(await response.json()) ?? [];
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return [];
+  }
+}
+
+/**
+ * One preset workspace as a starter. Its assets stay in the bundle, and
+ * `assets` points `load_asset` at its folder. Undefined if a file is missing.
+ */
+export async function loadExample(
+  revision: string,
+  example: Example,
+  signal: AbortSignal,
+  fetcher: typeof fetch = fetch
+): Promise<Starter | undefined> {
+  const base = `/jai/${revision}/`;
+  const folder = `${encodeURIComponent(example.name)}/`;
+  try {
+    const files = await loadFiles(base, folder, example.files, signal, fetcher);
+    if (!files) return undefined;
+    return {
+      files,
+      open: ['main.jai'],
+      ...(example.assets.length ? { assets: base + folder } : {}),
+    };
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return undefined;
+  }
+}
+
+/** Releases before `examples.json`: the language tour (`tour.json`, `tour/**`). */
+async function loadTour(
+  revision: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch
+): Promise<Starter | undefined> {
+  const base = `/jai/${revision}/`;
+  const response = await fetcher(base + TOUR_INDEX_ASSET, { signal });
+  if (!response.ok) return undefined;
+  const paths = tourPaths(await response.json());
+  if (!paths) return undefined;
+  const files = await loadFiles(base, 'tour/', paths, signal, fetcher);
+  if (!files) return undefined;
+  const open = ['main.jai'];
+  if (TOUR_GUIDE in files) open.push(TOUR_GUIDE);
+  return { files, open };
+}
+
+/**
+ * The workspace a session opens with: the release's first preset workspace
+ * (`examples.json`), else its language tour (older releases), else the
+ * built-in starter, so any release still opens; only an abort is thrown.
  */
 export async function loadStarter(
   revision: string,
@@ -146,55 +264,13 @@ export async function loadStarter(
   fetcher: typeof fetch = fetch
 ): Promise<Starter> {
   try {
-    const tour = await loadIndexed(
-      `/jai/${revision}/`,
-      TOUR_INDEX_ASSET,
-      'tour/',
-      signal,
-      fetcher
-    );
-    if (!tour) return builtinStarter();
-    const open = ['main.jai'];
-    if (TOUR_GUIDE in tour.files) open.push(TOUR_GUIDE);
-    return { files: tour.files, open };
+    const [first] = await loadExamples(revision, signal, fetcher);
+    const starter =
+      (first && (await loadExample(revision, first, signal, fetcher))) ||
+      (await loadTour(revision, signal, fetcher));
+    return starter ?? builtinStarter();
   } catch (error) {
     if (signal.aborted) throw error;
     return builtinStarter();
   }
-}
-
-/** Example programs the release ships beside the tour: `<name>.json` and `<name>/`. */
-export const EXAMPLES = [
-  { name: 'textured_cube', title: 'Textured cube (WebGPU)' },
-] as const;
-
-/**
- * Loads a shipped example as a starter. Its asset files stay in the bundle,
- * and `assets` points `load_asset` at its folder. Undefined when the release
- * does not have it.
- */
-export async function loadExample(
-  revision: string,
-  name: string,
-  signal: AbortSignal,
-  fetcher: typeof fetch = fetch
-): Promise<Starter | undefined> {
-  const base = `/jai/${revision}/`;
-  const folder = `${encodeURIComponent(name)}/`;
-  const example = await loadIndexed(
-    base,
-    `${encodeURIComponent(name)}.json`,
-    folder,
-    signal,
-    fetcher
-  ).catch((error: unknown) => {
-    if (signal.aborted) throw error;
-    return undefined;
-  });
-  if (!example) return undefined;
-  return {
-    files: example.files,
-    open: ['main.jai'],
-    ...(example.assets ? { assets: base + folder } : {}),
-  };
 }

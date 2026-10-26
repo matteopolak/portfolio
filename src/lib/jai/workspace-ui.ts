@@ -42,9 +42,10 @@ import {
 } from '../workspace-layout-model.ts';
 import { SourcePath, Workspace, type WorkspaceDocument } from './workspace.ts';
 import {
-  EXAMPLES,
   defaultStarter,
   loadExample,
+  loadExamples,
+  type Example,
   loadStarter,
   type Starter,
 } from './starter.ts';
@@ -3076,24 +3077,32 @@ export async function createSession(
    * borrows the editor's theme classes, since the picker's styles live in
    * the editor theme), then the same confirm as Import folder.
    */
-  async function openExample(name: string, title: string) {
+  async function openExample(entry: Example) {
     const replace = await confirmDialog(panel, {
-      title: `Open ${title}?`,
+      title: `Open ${entry.title}?`,
       message: `This replaces all ${workspace.names.length} files in the workspace with the example. Your changes are lost.`,
       confirmLabel: 'Open example',
     });
     if (!replace || signal.aborted) return;
-    const example = await loadExample(revision, name, signal).catch(
+    const example = await loadExample(revision, entry, signal).catch(
       () => undefined
     );
     if (signal.aborted) return;
-    if (!example)
-      return notify(`This compiler release does not include ${title}.`);
+    if (!example) return notify(`Could not load ${entry.title}.`);
     restartWith(example, false);
   }
+  // Fetched on first open; the list is fixed for a revision.
+  let examples: Promise<Example[]> | undefined;
   panel.querySelector('[data-code-examples]')?.addEventListener(
     'click',
-    () => {
+    async () => {
+      examples ??= loadExamples(revision, signal).catch(() => []);
+      const list = await examples;
+      if (signal.aborted) return;
+      if (!list.length) {
+        examples = undefined;
+        return notify('This compiler release has no examples.');
+      }
       // Over the editors but outside the layout, which owns their children.
       const area = panel.querySelector<HTMLElement>('[data-code-editors]');
       if (!area) return;
@@ -3118,9 +3127,10 @@ export async function createSession(
       panel.append(host);
       showPicker(themed, {
         title: 'Examples',
-        items: EXAMPLES.map(({ name, title }) => ({
-          label: title,
-          run: () => void openExample(name, title),
+        items: list.map((entry) => ({
+          label: entry.title,
+          ...(entry.summary ? { detail: entry.summary } : {}),
+          run: () => void openExample(entry),
         })),
         closed: () => host.remove(),
       });

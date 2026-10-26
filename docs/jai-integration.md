@@ -31,23 +31,22 @@ fresh. Astro navigation also disposes the session. Run uses a fixed
 hanging; Stop also terminates the execution worker. The `jai_play_*` bridge returns
 program stdout/stderr in write order, rendered diagnostics, and `main`'s exit code;
 the output pane is a terminal ([Jai terminal](jai-terminal.md)): it shows writes (stderr in red), diagnostics, and `[exited with code N]` for a non-zero exit, and gives programs `argv` and standard input.
-The session opens with the compiler's language tour and runs it once when ready.
-`loadStarter` (`src/lib/jai/starter.ts`) fetches `/jai/<full-commit>/tour.json`
-(`{ schema_version: 1, main: "main.jai", files: [...] }`), then every listed file from
-`/jai/<full-commit>/tour/`, and adds the default `jacket.toml` unless the tour has its own root config. The tour is a
-multi-folder workspace (`basics/`, `types/`, `data/`, `memory/`, `generics/`, `meta/`,
-`finale/`, about 14 files) written and tested in the compiler repo (`examples/tour`,
-its `docs/browser/tour.md`). `main.jai` and a preview of `tour.md` open in tabs, `main.jai` active (a saved layout reopens its own tabs instead);
-a `/playground/jacket#meta/macros.jai` link opens and activates that file as well.
-The index is validated (schema, `main.jai`, at most 64 plain relative paths, 1 MiB
-in total). A release without `tour.json` (every release before the tour shipped),
-or any fetch or validation failure, falls back to the built-in two-file starter
-(`main.jai` loading `lib/math.jai`); only an abort propagates. Tests:
-`tests/jai/starter.test.ts`.
+The session opens with the release's first preset workspace and runs it once when ready.
+`loadStarter` (`src/lib/jai/starter.ts`) fetches `/jai/<full-commit>/examples.json`:
+
+```json
+{ "schema_version": 2, "examples": [
+  { "name": "basics", "title": "Basics", "summary": "…", "main": "main.jai",
+    "files": ["main.jai", "jacket.toml"], "assets": [] }, …] }
+```
+
+Each workspace lives in `/jai/<full-commit>/<name>/`. `examplesIndex` drops unusable entries (a name that isn't a plain lowercase segment, a duplicate, no `main.jai`, more than 64 files, a path that isn't plain and relative, or a non-array `assets`) and keeps the rest in order. The first one is the default. `loadExample` fetches the listed files (1 MiB in total) and adds the default `jacket.toml` unless the workspace has its own root config. A saved layout reopens its own tabs; a `/playground/jacket#path` link also opens and activates that file.
+
+Fallbacks: releases before `examples.json` (Jacket 0.29) shipped the language tour instead, `tour.json` (`{ schema_version: 1, main: "main.jai", files }`) with files under `tour/`, and that opens with `main.jai` plus a preview of `tour.md`. If neither loads, the session opens the built-in two-file starter (`main.jai` loading `lib/math.jai`). Only an abort propagates. Tests: `tests/jai/starter.test.ts`.
 
 ### Examples and assets
 
-A release may ship examples beside the tour: `<name>.json` (the tour's index format plus an optional `assets` list) and a `<name>/` folder holding the sources and asset files. The playground lists them in `EXAMPLES` (`src/lib/jai/starter.ts`), currently only `textured_cube` (Jacket 0.28+, `examples/webgpu/textured_cube`). `loadExample` loads only the listed sources into the workspace. Asset files stay in the bundle, and when the index lists any, the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
+Open an example (the book button in the Files header) lists every usable `examples.json` entry by title, with its summary as detail; a release without the index says it has none. `loadExample` loads only the entry's `files` into the workspace. Asset files stay in the bundle, and when `assets` is non-empty the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
 
 That base travels as `assets` in the worker's `init` message to `createEngine(wasm, { host, assets: { base } })` (`src/lib/jai/engine.ts`), which answers stdlib `Extensions/Assets`:
 
@@ -56,7 +55,7 @@ That base travels as `assets` in the worker's `init` message to `createEngine(wa
 
 `load_asset` checks `jai_host_provides` first. The engine answers that itself for its functions and the host's combined, because the WebGPU host's own answer only knows its own functions. Without a base, `load_asset` reports the file missing, and the textured cube draws plain faces.
 
-To add an example, add its name and title to `EXAMPLES`; the release must ship `<name>.json`. Tests: `tests/jai/starter.test.ts` (loading) and `tests/jai/assets.test.ts` (path rules, limit, hand-over).
+Examples are defined in the compiler repo; the playground has no list of its own. Tests: `tests/jai/starter.test.ts` (loading) and `tests/jai/assets.test.ts` (path rules, limit, hand-over).
 
 ### Producer contract
 
@@ -170,10 +169,9 @@ label shows just the hash.
 Run `pnpm sync:web-assets` to stage the pinned release. To try an unreleased compiler,
 build it with `python3 tools/build_scripting_wasm.py --release --output <dir>` in the compiler
 repo and run `JAI_WEB_LOCAL=<dir> node scripts/sync-jai-web.ts`: it copies that build's
-`jai_wasm.wasm`, `jaifmt-playground.jai`, `jaifmt.wasm` (built with `--jaic`) and, when present, `tour.json` with the `tour/`
-files it lists into `public/jai/<pinned revision>/` without verification (public/jai is
-ignored). `JAI_WASM_DIR=<dir> pnpm test:jai` also runs that build's tour and checks it is
-already formatted under the default `jaifmt.toml`. `pnpm dev`'s `predev` re-syncs the pinned release, so start
+`jai_wasm.wasm`, `jaifmt-playground.jai`, `jaifmt.wasm` (built with `--jaic`) and, when present, `examples.json` with every
+workspace's files and assets (or, for older builds, `tour.json` with its `tour/` files) into `public/jai/<pinned revision>/` without verification (public/jai is
+ignored). `JAI_WASM_DIR=<dir> pnpm test:jai` also checks that build's workspaces (`tests/jai/local-workspaces.ts`): the first runs with exit code 0, and every one is lint-free and already formatted. `pnpm dev`'s `predev` re-syncs the pinned release, so start
 the server with `pnpm exec astro dev` afterwards; the next normal sync restores the release. `sync-jai-web.ts` validates
 the pointer and release digests; `verify-jai-bundle.py` validates the exact archive
 inventory, paths, regular-file modes, sizes, digests and Wasm header before writing

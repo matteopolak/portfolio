@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectConfigStarter } from '../../src/lib/jai/project-config.ts';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -18,6 +17,7 @@ import {
 } from '../../src/lib/jai/jaifmt-wasm.ts';
 import { createEngine } from '../../src/lib/jai/engine.ts';
 import { starterFiles } from '../../src/lib/jai/starter.ts';
+import { localWorkspaces } from './local-workspaces.ts';
 
 const documents = (files: Record<string, string>) =>
   Object.entries(files).map(([path, text]) => ({ path, text }));
@@ -126,14 +126,7 @@ test(
     const viaWasm = async (files: Record<string, string>, target: string) =>
       formatOutcome(await formatWithWasm(module, documents(files), target));
 
-    const tour = JSON.parse(
-      await readFile(join(local!, 'tour.json'), 'utf8')
-    ) as { files: string[] };
-    const tourFiles: Record<string, string> = {
-      'jacket.toml': projectConfigStarter,
-    };
-    for (const name of tour.files)
-      tourFiles[name] = await readFile(join(local!, 'tour', name), 'utf8');
+    const shipped = await localWorkspaces(local!);
     const messy =
       'main :: () {\nx:=1;\n      if x==1 {\nprint("%\\n",x);\n}\n}\n\n\n\n\nf::(a:int,b:int)->int{return a+b;}\n';
     const cases: [Record<string, string>, string][] = [
@@ -150,9 +143,11 @@ test(
       ],
       [{ 'main.jai': 'x :: 1;\r\ny :: 2;\r\n' }, 'main.jai'],
       [{ 'main.jai': 'greet :: "héllo, wörld ✓";\n' }, 'main.jai'],
-      ...tour.files
-        .filter((name) => name.endsWith('.jai'))
-        .map((name): [Record<string, string>, string] => [tourFiles, name]),
+      ...shipped.flatMap(({ files }) =>
+        Object.keys(files)
+          .filter((name) => name.endsWith('.jai'))
+          .map((name): [Record<string, string>, string] => [files, name])
+      ),
     ];
     for (const [files, target] of cases) {
       const expected = viaDriver(files, target);

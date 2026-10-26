@@ -21,6 +21,7 @@ import { LanguageClient } from '../../src/lib/jai/language-client.ts';
 import { planWorkspaceEdit } from '../../src/lib/jai/language-actions.ts';
 import { createEngine } from '../../src/lib/jai/engine.ts';
 import { starterFiles } from '../../src/lib/jai/starter.ts';
+import { localWorkspaces } from './local-workspaces.ts';
 import type {
   CodeAction,
   Diagnostic,
@@ -398,18 +399,14 @@ test(
 );
 
 test(
-  'the starter and the tour have no lints',
+  'the starter and the shipped workspaces have no lints',
   { skip: !local && 'set JAI_WASM_DIR' },
   async () => {
-    const index = JSON.parse(
-      await readFile(join(local!, 'tour.json'), 'utf8')
-    ) as { files: string[] };
-    const tour: Record<string, string> = {};
-    for (const name of index.files)
-      tour[name] = await readFile(join(local!, 'tour', name), 'utf8');
     for (const [label, files] of [
       ['starter', starterFiles],
-      ['tour', tour],
+      ...(await localWorkspaces(local!)).map(
+        ({ label, files }) => [label, files] as const
+      ),
     ] as const) {
       const { send } = await server();
       // The last diagnostics each file got, once every file is open.
