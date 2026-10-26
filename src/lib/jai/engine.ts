@@ -46,6 +46,15 @@ export interface Host {
   output?: (text: string, stream: 'stdout' | 'stderr') => void;
 }
 
+/**
+ * Where `load_asset` (stdlib Extensions/Assets) fetches from: `base` is a
+ * directory URL, and `limit` caps a response (16 MiB by default).
+ */
+export interface Assets {
+  base: string | URL;
+  limit?: number;
+}
+
 export interface Engine {
   /** Whether programs can wait for the page (JSPI); needed by `playAsync`. */
   jspi: boolean;
@@ -70,7 +79,7 @@ export interface Engine {
 // The browser and Node verification harness instantiate the exact same Rust compiler (jaic).
 export async function createEngine(
   wasmBytes: BufferSource,
-  { host }: { host?: Host } = {}
+  { host, assets }: { host?: Host; assets?: Assets } = {}
 ): Promise<Engine> {
   const module = await WebAssembly.compile(wasmBytes);
   if (WebAssembly.Module.imports(module).some((i) => i.module !== 'jai_host')) {
@@ -138,6 +147,17 @@ export async function createEngine(
     lastError = error instanceof Error ? error.message : String(error);
     return 2;
   };
+  // The engine's own procedures, then the host's, and `jai_host_provides`
+  // answered for all of them (a host's own answer only knows its functions).
+  const functions: Host['functions'] = {
+    ...(assets ? assetFunctions(assets, view) : {}),
+    ...host?.functions,
+  };
+  functions.jai_host_provides = ([name, length]) =>
+    Object.hasOwn(
+      functions,
+      text.decode(view(Number(name), Number(length), 'host function name'))
+    );
   const isThenable = (value: unknown): value is PromiseLike<unknown> =>
     typeof (value as PromiseLike<unknown> | null)?.then === 'function';
   const imports = {
@@ -150,8 +170,6 @@ export async function createEngine(
         results: number,
         resultCount: number
       ) {
-        const functions = host?.functions;
-        if (!functions) return 1;
         try {
           const key = text.decode(view(name, nameLength, 'host call name'));
           if (!Object.hasOwn(functions, key)) return 1;
@@ -371,4 +389,66 @@ export async function createEngine(
         push(3, arg + '\0');
       }
   }
+}
+
+/*
+ * Extensions/Assets in the browser: `jai_asset_fetch` resolves to a handle (0
+ * when the path is refused or the fetch fails), then `jai_asset_size` and
+ * `jai_asset_take` hand its bytes over once. Paths stay inside `base`: no
+ * `..`, empty parts, backslashes, colons or NULs, and no redirects.
+ */
+export function assetFunctions(
+  { base, limit = 16 * 1024 * 1024 }: Assets,
+  view: (pointer: number, length: number, what: string) => Uint8Array
+): Host['functions'] {
+  const root = new URL(base, globalThis.location?.href);
+  if (!root.pathname.endsWith('/')) root.pathname += '/';
+  const strict = new TextDecoder('utf-8', { fatal: true });
+  const held = new Map<number, Uint8Array>();
+  let next = 1;
+  const relative = (path: string) =>
+    path.length > 0 &&
+    !/[\\:\0]/.test(path) &&
+    path.split('/').every((part) => part !== '' && part !== '..');
+  async function fetchAsset(path: string) {
+    if (!relative(path)) return 0;
+    const url = new URL(path, root);
+    if (url.origin !== root.origin || !url.pathname.startsWith(root.pathname))
+      return 0;
+    try {
+      const response = await fetch(url, {
+        credentials: 'omit',
+        redirect: 'error',
+      });
+      if (!response.ok) return 0;
+      if (Number(response.headers.get('content-length') ?? 0) > limit) return 0;
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.length > limit) return 0;
+      held.set(next, bytes);
+      return next++;
+    } catch {
+      return 0;
+    }
+  }
+  return {
+    jai_asset_fetch([pointer, length]) {
+      let path: string;
+      try {
+        path = strict.decode(
+          view(Number(pointer), Number(length), 'asset path')
+        );
+      } catch {
+        return 0;
+      }
+      return fetchAsset(path);
+    },
+    jai_asset_size: ([handle]) => held.get(Number(handle))?.length ?? 0,
+    jai_asset_take([handle, pointer, length]) {
+      const bytes = held.get(Number(handle));
+      if (!bytes || Number(length) !== bytes.length) return 0;
+      held.delete(Number(handle));
+      view(Number(pointer), bytes.length, 'asset buffer').set(bytes);
+      return 1;
+    },
+  };
 }

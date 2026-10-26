@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { projectConfigStarter } from '../../src/lib/jai/project-config.ts';
 import {
+  EXAMPLES,
+  loadExample,
   loadStarter,
   starterFiles,
   tourPaths,
@@ -110,4 +112,52 @@ test('tour indexes must name main.jai and only plain relative paths', () => {
     undefined
   );
   assert.equal(tourPaths(null), undefined);
+});
+
+test('a shipped example loads from <name>.json and points load_asset at its folder', async () => {
+  const requests: string[] = [];
+  const fetcher = server(
+    {
+      'textured_cube.json': index(['main.jai'], {
+        assets: ['assets/jacket.png'],
+      }),
+      'textured_cube/main.jai': 'main :: () {}\n',
+    },
+    requests
+  );
+  const starter = await loadExample(
+    revision,
+    'textured_cube',
+    new AbortController().signal,
+    fetcher
+  );
+  assert.deepEqual(starter, {
+    files: {
+      'main.jai': 'main :: () {}\n',
+      'jacket.toml': projectConfigStarter,
+    },
+    open: ['main.jai'],
+    assets: `/jai/${revision}/textured_cube/`,
+  });
+  // Assets are fetched by the program, not copied into the workspace.
+  assert.ok(!requests.some((url) => url.endsWith('.png')));
+});
+
+test('an example missing from the release, or without assets, loads accordingly', async () => {
+  const signal = new AbortController().signal;
+  assert.equal(
+    await loadExample(revision, 'textured_cube', signal, server({})),
+    undefined
+  );
+  const plain = await loadExample(
+    revision,
+    'plain',
+    signal,
+    server({ 'plain.json': index(['main.jai']), 'plain/main.jai': 'x' })
+  );
+  assert.equal(plain?.assets, undefined);
+  assert.deepEqual(
+    EXAMPLES.map(({ name }) => name),
+    ['textured_cube']
+  );
 });

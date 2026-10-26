@@ -41,7 +41,13 @@ import {
   type SplitSide,
 } from '../workspace-layout-model.ts';
 import { SourcePath, Workspace, type WorkspaceDocument } from './workspace.ts';
-import { defaultStarter, loadStarter, type Starter } from './starter.ts';
+import {
+  EXAMPLES,
+  defaultStarter,
+  loadExample,
+  loadStarter,
+  type Starter,
+} from './starter.ts';
 import { confirmDialog, pickFolder, readFolder } from '../workspace-actions.ts';
 import { initializeFileTree } from './file-tree.ts';
 import {
@@ -2544,6 +2550,7 @@ export async function createSession(
         ...(offscreen
           ? { canvas: offscreen, hostUrl: `/jai/${revision}/webgpu_host.mjs` }
           : {}),
+        ...(starter.assets ? { assets: starter.assets } : {}),
       };
       worker.postMessage(init, offscreen ? [offscreen] : []);
     });
@@ -3027,7 +3034,14 @@ export async function createSession(
         workspace.documents.map(({ path: name, text }) => [name, text])
       );
       files[path] = code;
-      restartWith({ files, open: [...new Set(['main.jai', path])] }, false);
+      restartWith(
+        {
+          files,
+          open: [...new Set(['main.jai', path])],
+          ...(starter.assets ? { assets: starter.assets } : {}),
+        },
+        false
+      );
     },
     { signal }
   );
@@ -3054,6 +3068,66 @@ export async function createSession(
       });
       if (!replace || signal.aborted) return;
       restartWith({ files: result.files, open: [result.entry] }, false);
+    },
+    { signal }
+  );
+  /*
+   * Open an example: the shipped examples in a picker over the editors (it
+   * borrows the editor's theme classes, since the picker's styles live in
+   * the editor theme), then the same confirm as Import folder.
+   */
+  async function openExample(name: string, title: string) {
+    const replace = await confirmDialog(panel, {
+      title: `Open ${title}?`,
+      message: `This replaces all ${workspace.names.length} files in the workspace with the example. Your changes are lost.`,
+      confirmLabel: 'Open example',
+    });
+    if (!replace || signal.aborted) return;
+    const example = await loadExample(revision, name, signal).catch(
+      () => undefined
+    );
+    if (signal.aborted) return;
+    if (!example)
+      return notify(`This compiler release does not include ${title}.`);
+    restartWith(example, false);
+  }
+  panel.querySelector('[data-code-examples]')?.addEventListener(
+    'click',
+    () => {
+      // Over the editors but outside the layout, which owns their children.
+      const area = panel.querySelector<HTMLElement>('[data-code-editors]');
+      if (!area) return;
+      const origin = panel.getBoundingClientRect();
+      // On phones the editors may be the hidden pane: then the whole panel.
+      const shown = area.getBoundingClientRect();
+      const box = shown.width && shown.height ? shown : origin;
+      // The theme classes style their element as an editor root (relative,
+      // flex), so they go on a child that fills the positioned host.
+      const host = document.createElement('div');
+      const themed = host.appendChild(document.createElement('div'));
+      themed.className = editor.view.themeClasses;
+      themed.style.cssText = 'height:100%;background:none;border:0';
+      Object.assign(host.style, {
+        position: 'absolute',
+        left: `${box.left - origin.left}px`,
+        top: `${box.top - origin.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        pointerEvents: 'none',
+      });
+      panel.append(host);
+      showPicker(themed, {
+        title: 'Examples',
+        items: EXAMPLES.map(({ name, title }) => ({
+          label: title,
+          run: () => void openExample(name, title),
+        })),
+        closed: () => host.remove(),
+      });
+      // The host lets clicks through to the editor; the list takes them.
+      host
+        .querySelector<HTMLElement>('.jai-picker')
+        ?.style.setProperty('pointer-events', 'auto');
     },
     { signal }
   );

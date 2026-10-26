@@ -243,6 +243,8 @@ export type WorkerRequest =
        */
       canvas?: OffscreenCanvas;
       hostUrl?: string;
+      /** The directory `load_asset` fetches from (an example's folder in the bundle). */
+      assets?: string;
     }
   /** Canvas events for a running program (stdlib/Input/wasm.jai's Canvas_Event). */
   | { type: 'input'; id?: undefined; event: CanvasInputEvent }

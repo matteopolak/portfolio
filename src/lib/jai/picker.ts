@@ -168,12 +168,13 @@ export function showPicker(host: HTMLElement, options: PickerOptions) {
   current = { close };
   items = options.items ?? [];
   render();
+  // Without scrolling: a picker outside the editor would scroll the panel.
   if (input) {
-    input.focus();
+    input.focus({ preventScroll: true });
     void update().catch(() => {});
   } else {
     root.tabIndex = -1;
-    root.focus();
+    root.focus({ preventScroll: true });
   }
   return { close };
 }

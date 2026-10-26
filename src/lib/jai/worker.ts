@@ -79,6 +79,7 @@ scope.onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
         }
         engine = await createEngine(await response.arrayBuffer(), {
           host: programHost(),
+          ...(data.assets ? { assets: { base: data.assets } } : {}),
         });
         reply({
           type: 'init',

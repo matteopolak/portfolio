@@ -45,6 +45,19 @@ or any fetch or validation failure, falls back to the built-in two-file starter
 (`main.jai` loading `lib/math.jai`); only an abort propagates. Tests:
 `tests/jai/starter.test.ts`.
 
+### Examples and assets
+
+A release may ship examples beside the tour: `<name>.json` (the tour's index format plus an optional `assets` list) and a `<name>/` folder holding the sources and asset files. The playground lists them in `EXAMPLES` (`src/lib/jai/starter.ts`), currently only `textured_cube` (Jacket 0.28+, `examples/webgpu/textured_cube`). `loadExample` loads only the listed sources into the workspace. Asset files stay in the bundle, and when the index lists any, the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
+
+That base travels as `assets` in the worker's `init` message to `createEngine(wasm, { host, assets: { base } })` (`src/lib/jai/engine.ts`), which answers stdlib `Extensions/Assets`:
+
+- `jai_asset_fetch(path)` fetches `path` against the base and returns a handle, or 0. Paths must be plain relative paths (no `..`, empty parts, `\`, `:` or NUL) and must stay under the base. Fetches send no credentials, follow no redirects, and responses over 16 MiB are refused.
+- `jai_asset_size(handle)` and `jai_asset_take(handle, buffer, count)` then hand the bytes over once.
+
+`load_asset` checks `jai_host_provides` first. The engine answers that itself for its functions and the host's combined, because the WebGPU host's own answer only knows its own functions. Without a base, `load_asset` reports the file missing, and the textured cube draws plain faces.
+
+To add an example, add its name and title to `EXAMPLES`; the release must ship `<name>.json`. Tests: `tests/jai/starter.test.ts` (loading) and `tests/jai/assets.test.ts` (path rules, limit, hand-over).
+
 ### Producer contract
 
 - Release repository: `matteopolak/portfolio`; tag: `jai-web-<full-40-character-sha>`.

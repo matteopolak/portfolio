@@ -45,6 +45,8 @@ main :: () {
 export interface Starter {
   files: Record<string, string>;
   open: string[];
+  /** The directory `load_asset` fetches from, for a shipped example. */
+  assets?: string;
 }
 
 /** Release asset that lists the tour's files; they live under `tour/` next to it. */
@@ -91,6 +93,47 @@ export function tourPaths(index: unknown): string[] | undefined {
   return [...paths];
 }
 
+/** Files from a bundle index (`tour.json`, `<example>.json`) and the folder beside it. */
+async function loadIndexed(
+  base: string,
+  index: string,
+  folder: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch
+): Promise<{ files: Record<string, string>; assets: boolean } | undefined> {
+  const response = await fetcher(base + index, { signal });
+  if (!response.ok) return undefined;
+  const json: unknown = await response.json();
+  const paths = tourPaths(json);
+  if (!paths) return undefined;
+  const texts = await Promise.all(
+    paths.map(async (path) => {
+      const url =
+        base + folder + path.split('/').map(encodeURIComponent).join('/');
+      const file = await fetcher(url, { signal });
+      if (!file.ok) throw new Error(`Missing file ${path}`);
+      return file.text();
+    })
+  );
+  const files: Record<string, string> = {};
+  let bytes = 0;
+  paths.forEach((path, index) => {
+    bytes += texts[index].length;
+    files[path] = texts[index];
+  });
+  if (bytes > MAX_TOUR_BYTES) return undefined;
+  // A tour with its own root config keeps it; a jacket.toml beside a legacy
+  // file would silently replace it.
+  if (
+    ![PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH, LINT_SETTINGS].some(
+      (path) => path in files
+    )
+  )
+    files[PROJECT_CONFIG_PATH] = projectConfigStarter;
+  const { assets } = json as { assets?: unknown };
+  return { files, assets: Array.isArray(assets) && assets.length > 0 };
+}
+
 /**
  * Loads the language tour shipped with the compiler release
  * (`/jai/<revision>/tour.json` and `tour/**`), plus the default jacket.toml.
@@ -102,41 +145,56 @@ export async function loadStarter(
   signal: AbortSignal,
   fetcher: typeof fetch = fetch
 ): Promise<Starter> {
-  const base = `/jai/${revision}/`;
   try {
-    const response = await fetcher(base + TOUR_INDEX_ASSET, { signal });
-    if (!response.ok) return builtinStarter();
-    const paths = tourPaths(await response.json());
-    if (!paths) return builtinStarter();
-    const texts = await Promise.all(
-      paths.map(async (path) => {
-        const url =
-          base + 'tour/' + path.split('/').map(encodeURIComponent).join('/');
-        const file = await fetcher(url, { signal });
-        if (!file.ok) throw new Error(`Missing tour file ${path}`);
-        return file.text();
-      })
+    const tour = await loadIndexed(
+      `/jai/${revision}/`,
+      TOUR_INDEX_ASSET,
+      'tour/',
+      signal,
+      fetcher
     );
-    const files: Record<string, string> = {};
-    let bytes = 0;
-    paths.forEach((path, index) => {
-      bytes += texts[index].length;
-      files[path] = texts[index];
-    });
-    if (bytes > MAX_TOUR_BYTES) return builtinStarter();
-    // A tour with its own root config keeps it; a jacket.toml beside a legacy
-    // file would silently replace it.
-    if (
-      ![PROJECT_CONFIG_PATH, FORMAT_CONFIG_PATH, LINT_SETTINGS].some(
-        (path) => path in files
-      )
-    )
-      files[PROJECT_CONFIG_PATH] = projectConfigStarter;
+    if (!tour) return builtinStarter();
     const open = ['main.jai'];
-    if (paths.includes(TOUR_GUIDE)) open.push(TOUR_GUIDE);
-    return { files, open };
+    if (TOUR_GUIDE in tour.files) open.push(TOUR_GUIDE);
+    return { files: tour.files, open };
   } catch (error) {
     if (signal.aborted) throw error;
     return builtinStarter();
   }
+}
+
+/** Example programs the release ships beside the tour: `<name>.json` and `<name>/`. */
+export const EXAMPLES = [
+  { name: 'textured_cube', title: 'Textured cube (WebGPU)' },
+] as const;
+
+/**
+ * Loads a shipped example as a starter. Its asset files stay in the bundle,
+ * and `assets` points `load_asset` at its folder. Undefined when the release
+ * does not have it.
+ */
+export async function loadExample(
+  revision: string,
+  name: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch = fetch
+): Promise<Starter | undefined> {
+  const base = `/jai/${revision}/`;
+  const folder = `${encodeURIComponent(name)}/`;
+  const example = await loadIndexed(
+    base,
+    `${encodeURIComponent(name)}.json`,
+    folder,
+    signal,
+    fetcher
+  ).catch((error: unknown) => {
+    if (signal.aborted) throw error;
+    return undefined;
+  });
+  if (!example) return undefined;
+  return {
+    files: example.files,
+    open: ['main.jai'],
+    ...(example.assets ? { assets: base + folder } : {}),
+  };
 }

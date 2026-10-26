@@ -341,6 +341,19 @@
                 <button
                   type="button"
                   class="ide-icon ide-icon--small"
+                  data-code-examples
+                  aria-label="Open an example"
+                  title="Open an example (replaces all files)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"
+                    ><path
+                      d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13M9 7h6M9 11h4"
+                    ></path></svg
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="ide-icon ide-icon--small"
                   data-code-import
                   aria-label="Import folder"
                   title="Import folder (replaces all files)"
