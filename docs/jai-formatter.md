@@ -2,7 +2,7 @@
 
 ## What it is
 
-The Jai workspace has a **Format** button (and Shift+Alt+F) that rewrites the open `.jai` file with jaifmt, the formatter in the compiler's `Jai_Format` stdlib module. It runs entirely in the browser, off the main thread. A `jaifmt.toml` at the workspace root (in the starter files) configures it.
+The Jai workspace has a **Format** button (and Shift+Alt+F) that rewrites the open `.jai` file with jaifmt, the formatter in the compiler's `Jai_Format` stdlib module. It runs entirely in the browser, off the main thread. The `[format]` table of a `jacket.toml` (the starter has one at the root) configures it.
 
 There are two ways to run jaifmt, with the same result byte for byte:
 
@@ -14,16 +14,16 @@ There are two ways to run jaifmt, with the same result byte for byte:
 1. **Loading.** `createSession` (`src/lib/jai/workspace-ui.ts`) calls `loadFormatter` while the compiler boots; the button is shown disabled meanwhile. `loadFormatter` starts a dedicated worker (`worker.ts`, without the compiler) and sends it `jaifmt-load`. The worker fetches `/jai/<revision>/jaifmt.wasm` and `build-metadata.json`, and `loadJaifmt` (`src/lib/jai/jaifmt-wasm.ts`) checks the module's SHA-256 against `jaifmt_wasm_sha256` (when the metadata has it), then `WebAssembly.validate`s and compiles it once.
    - Validates: the worker keeps the compiled module and every format goes there.
    - `validate` is false (no Memory64), the fetch fails (a release from before `jaifmt.wasm`) or the digest differs: that worker is terminated and `loadDriver` fetches `jaifmt-playground.jai`. If the driver is missing too, or has no `TARGET :: "...";` line, `driverMissing` is set and the button is hidden.
-2. **Running `jaifmt.wasm`.** `formatSelected` → `runFormatter` posts `jaifmt` with the workspace documents and the target path. `formatWithWasm` finds the nearest config (`formatConfigFor`: the target's folder, then each parent, like the driver; in each folder `jacket.toml` first, then the legacy `jaifmt.toml`) and calls `runWasi` with `["jaifmt.wasm", "--name", <path>, "--config", <toml text>]`, plus `--config-name jacket.toml` for a jacket.toml so jaifmt reads its `[format]` table, and the file as stdin. Releases before 0.20 do not know `--config-name`. `runWasi` instantiates the module afresh with a minimal `wasi_snapshot_preview1` shim: `fd_read` (fd 0 from the source), `fd_write` (fd 1/2 collected), `args_*`, empty `environ_*`, `clock_time_get` and `proc_exit` (throws, caught for the exit code); any other import returns `ENOSYS`. jaic's wasm64 modules pass WASI addresses as 32-bit offsets into the 64-bit memory; the shim accepts numbers or BigInts and re-reads `memory.buffer` on every call, since the module may grow it. A trap becomes exit 134 and a `jaifmt: jaifmt.wasm trapped: ...` error.
+2. **Running `jaifmt.wasm`.** `formatSelected` → `runFormatter` posts `jaifmt` with the workspace documents and the target path. `formatWithWasm` finds the nearest config (`formatConfigFor`: the nearest `jacket.toml` from the target's folder up, like the driver) and calls `runWasi` with `["jaifmt.wasm", "--name", <path>, "--config", <jacket.toml text>]` and the file as stdin. Since Jacket 0.28, `--config` is always read as a `jacket.toml` and the old `--config-name` flag is rejected; a legacy `jaifmt.toml` is ignored. `runWasi` instantiates the module afresh with a minimal `wasi_snapshot_preview1` shim: `fd_read` (fd 0 from the source), `fd_write` (fd 1/2 collected), `args_*`, empty `environ_*`, `clock_time_get` and `proc_exit` (throws, caught for the exit code); any other import returns `ENOSYS`. jaic's wasm64 modules pass WASI addresses as 32-bit offsets into the 64-bit memory; the shim accepts numbers or BigInts and re-reads `memory.buffer` on every call, since the module may grow it. A trap becomes exit 134 and a `jaifmt: jaifmt.wasm trapped: ...` error.
 3. **Running the driver (fallback).** `formatFiles` (`src/lib/jai/format.ts`) copies every workspace file and adds the driver as `__jaifmt__.jai`, with its `TARGET` line pointing at the open file. A compiler worker of its own, created on the first format, runs it with `engine.play(files, "__jaifmt__.jai")`. Format never shares the execution worker: editing restarts auto-run, which terminates that worker and would kill the format run.
 4. **Applying.** Both paths return the driver's contract, which `formatOutcome` turns into `{ text }` or `{ error }`:
    - Exit 0: stdout is the whole formatted file. `formatChange` computes one minimal change (the common prefix and suffix are kept). It is dispatched as a single CodeMirror transaction, so one undo restores the original. `mapOffset` keeps each cursor or selection end at the same place among the non-whitespace characters. Formatting only moves whitespace, so a cursor before `x` stays before `x` after a reindent. The status line then says `Formatted main.jai` (or that the file is already formatted).
-   - Exit 1 (bad `jaifmt.toml`, input that does not lex, unbalanced brackets, a failed token-equivalence check): stdout is empty and the one `jaifmt: ...` stderr line is written to the output pane as an error. The file is left as it was. `jaifmt.wasm` only sees the config's text, so `formatWithWasm` rewrites its `jaifmt: jaifmt.toml:` prefix to the config's workspace path (`jaifmt: lib/jaifmt.toml: line 1: ...`); the driver names it `/workspace/lib/jaifmt.toml`.
+   - Exit 1 (a bad `[format]` table, input that does not lex, unbalanced brackets, a failed token-equivalence check): stdout is empty and the one `jaifmt: ...` stderr line is written to the output pane as an error. The file is left as it was. `jaifmt.wasm` only sees the config's text, so `formatWithWasm` rewrites its `jaifmt: jacket.toml:` prefix to the config's workspace path (`jaifmt: lib/jacket.toml: line 2: ...`); the driver names it `/workspace/lib/jacket.toml`.
    - A null exit code (driver only) means the driver itself failed to compile, for example a compiler build without `Jai_Format`. Its diagnostics are shown.
    - The file is also left alone if it changed while formatting (a version mismatch).
 5. **Timing.** Each run logs to the console: `jaifmt.wasm: main.jai in 1.1 ms (3.0 ms with the worker round trip)`, or `jaifmt (engine driver): main.jai in 80.2 ms`.
 
-The button is disabled for non-`.jai` files (such as `jaifmt.toml`), for read-only stdlib views, and while a format is running. Non-`.jai` files are also kept out of the language server (`LanguageClient.sync`), so `jaifmt.toml` gets no Jai diagnostics, hover or completion.
+The button is disabled for non-`.jai` files (such as `jacket.toml`), for read-only stdlib views, and while a format is running. Non-`.jai` files are also kept out of the language server (`LanguageClient.sync`), so `jacket.toml` gets no Jai diagnostics, hover or completion.
 
 ## How to change it
 
@@ -46,7 +46,7 @@ The button is disabled for non-`.jai` files (such as `jaifmt.toml`), for read-on
 
 ## Configuration
 
-The `[format]` table of `jacket.toml` (the starter version shows the defaults). A legacy `jaifmt.toml` holds the same keys at the top level and is still read when its folder has no `jacket.toml`.
+The `[format]` table of `jacket.toml` (the starter version shows the defaults).
 
 ```toml
 [format]
@@ -57,7 +57,7 @@ max_blank_lines = 2        # longest run of blank lines kept, 0-100
 brace_style = "same_line"  # or "preserve"
 ```
 
-A `jacket.toml` (or `jaifmt.toml`) in a subfolder applies to the files below it. The driver uses a 200-million-block budget, the same as Run.
+A `jacket.toml` in a subfolder applies to the files below it. The driver uses a 200-million-block budget, the same as Run.
 
 ## Dependencies
 

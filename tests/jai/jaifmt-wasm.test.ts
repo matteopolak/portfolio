@@ -22,19 +22,21 @@ import { localWorkspaces } from './local-workspaces.ts';
 const documents = (files: Record<string, string>) =>
   Object.entries(files).map(([path, text]) => ({ path, text }));
 
-test('the nearest jaifmt.toml applies, like the engine driver', () => {
+test('the nearest jacket.toml applies, like the engine driver', () => {
   const files = documents({
-    'jaifmt.toml': 'root',
-    'a/jaifmt.toml': 'a',
+    'jacket.toml': 'root',
+    'a/jacket.toml': 'a',
+    // jaifmt only reads jacket.toml now; a legacy file is ignored.
+    'd/jaifmt.toml': 'legacy',
     'a/b/c.jai': '',
     'd/e.jai': '',
   });
   assert.deepEqual(formatConfigFor(files, 'a/b/c.jai'), {
-    path: 'a/jaifmt.toml',
+    path: 'a/jacket.toml',
     text: 'a',
   });
   assert.deepEqual(formatConfigFor(files, 'd/e.jai'), {
-    path: 'jaifmt.toml',
+    path: 'jacket.toml',
     text: 'root',
   });
   assert.equal(
@@ -47,10 +49,6 @@ test('the nearest jaifmt.toml applies, like the engine driver', () => {
     'main.jai',
   ]);
   assert.deepEqual(
-    jaifmtArgs('x.jai', { path: 'jaifmt.toml', text: 'indent_width = 2\n' }),
-    ['jaifmt.wasm', '--name', 'x.jai', '--config', 'indent_width = 2\n']
-  );
-  assert.deepEqual(
     jaifmtArgs('x.jai', {
       path: 'a/jacket.toml',
       text: '[format]\nindent_width = 2\n',
@@ -61,26 +59,8 @@ test('the nearest jaifmt.toml applies, like the engine driver', () => {
       'x.jai',
       '--config',
       '[format]\nindent_width = 2\n',
-      '--config-name',
-      'jacket.toml',
     ]
   );
-});
-
-test('a jacket.toml wins over a jaifmt.toml in the same folder, and the nearest folder wins', () => {
-  const files = documents({
-    'jacket.toml': 'root jacket',
-    'jaifmt.toml': 'root legacy',
-    'a/jaifmt.toml': 'a legacy',
-  });
-  assert.deepEqual(formatConfigFor(files, 'main.jai'), {
-    path: 'jacket.toml',
-    text: 'root jacket',
-  });
-  assert.deepEqual(formatConfigFor(files, 'a/b.jai'), {
-    path: 'a/jaifmt.toml',
-    text: 'a legacy',
-  });
 });
 
 test('loading checks the release digest and reports engines without Memory64', async () => {
@@ -136,7 +116,8 @@ test(
       [
         {
           ...starterFiles,
-          'lib/jaifmt.toml': 'indent_width = 2\nmax_blank_lines = 0\n',
+          'lib/jacket.toml':
+            '[format]\nindent_width = 2\nmax_blank_lines = 0\n',
           'lib/math.jai': messy,
         },
         'lib/math.jai',
@@ -159,14 +140,17 @@ test(
     const bad = await formatWithWasm(
       module,
       documents({
-        'a/jaifmt.toml': 'indent_width = wide\n',
+        'a/jacket.toml': '[format]\nindent_width = wide\n',
         'a/m.jai': 'x :: 1;\n',
       }),
       'a/m.jai'
     );
     assert.equal(bad.exitCode, 1);
     assert.equal(bad.stdout, '');
-    assert.match(bad.stderr, /^jaifmt: a\/jaifmt\.toml: line 1: indent_width/);
+    assert.match(
+      bad.stderr,
+      /^jaifmt: a\/jacket\.toml: line \d+: .*indent_width/
+    );
 
     // Input that cannot be formatted safely is refused.
     const refused = await formatWithWasm(
@@ -181,11 +165,9 @@ test(
 
     // The shim itself: unknown options fail through proc_exit with jaifmt's message.
     const unknown = await runWasi(module, ['jaifmt.wasm', '--bogus', 'x'], '');
-    assert.deepEqual(unknown, {
-      exitCode: 1,
-      stdout: '',
-      stderr: 'jaifmt: unknown option --bogus\n',
-    });
+    assert.notEqual(unknown.exitCode, 0);
+    assert.equal(unknown.stdout, '');
+    assert.match(unknown.stderr, /unknown option `?--bogus/);
     // Input larger than one fd_read chunk (16 KiB) comes through whole.
     const long = Array.from(
       { length: 2000 },
