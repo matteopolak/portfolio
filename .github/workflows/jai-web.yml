@@ -28,6 +28,8 @@ jobs:
     timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: '0'
+      # Jacket's Python tools import their shared folders from tools/ (`from toolkit... import`).
+      PYTHONPATH: ${{ github.workspace }}/.build/jai/tools
     steps:
       # A tag or `latest` becomes the exact commit everything below is pinned to.
       - name: Resolve the compiler revision
