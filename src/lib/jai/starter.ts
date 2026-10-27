@@ -47,6 +47,8 @@ export interface Starter {
   open: string[];
   /** The directory `load_asset` fetches from, for a shipped example. */
   assets?: string;
+  /** The preset workspace this is (`examples.json` name), if it is one. */
+  example?: string;
 }
 
 /** Release asset that lists the tour's files; they live under `tour/` next to it. */
@@ -227,6 +229,7 @@ export async function loadExample(
     return {
       files,
       open: ['main.jai'],
+      example: example.name,
       ...(example.assets.length ? { assets: base + folder } : {}),
     };
   } catch (error) {

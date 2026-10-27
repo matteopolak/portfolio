@@ -3073,17 +3073,27 @@ export async function createSession(
     { signal }
   );
   /*
-   * Open an example: the shipped examples in a picker over the editors (it
-   * borrows the editor's theme classes, since the picker's styles live in
-   * the editor theme), then the same confirm as Import folder.
+   * The release's preset workspaces, listed under the file tree. Choosing one
+   * restarts the session with it; if the workspace differs from what the
+   * session opened with, a confirm comes first, since the edits are lost.
    */
+  const changedFromStarter = () => {
+    const documents = workspace.documents;
+    return (
+      documents.length !== Object.keys(starter.files).length ||
+      documents.some(({ path, text }) => starter.files[path] !== text)
+    );
+  };
   async function openExample(entry: Example) {
-    const replace = await confirmDialog(panel, {
-      title: `Open ${entry.title}?`,
-      message: `This replaces all ${workspace.names.length} files in the workspace with the example. Your changes are lost.`,
-      confirmLabel: 'Open example',
-    });
-    if (!replace || signal.aborted) return;
+    if (changedFromStarter()) {
+      const replace = await confirmDialog(panel, {
+        title: `Open ${entry.title}?`,
+        message:
+          'This replaces the workspace with the example. Your edits are lost.',
+        confirmLabel: 'Open example',
+      });
+      if (!replace || signal.aborted) return;
+    }
     const example = await loadExample(revision, entry, signal).catch(
       () => undefined
     );
@@ -3091,56 +3101,42 @@ export async function createSession(
     if (!example) return notify(`Could not load ${entry.title}.`);
     restartWith(example, false);
   }
-  // Fetched on first open; the list is fixed for a revision.
-  let examples: Promise<Example[]> | undefined;
-  panel.querySelector('[data-code-examples]')?.addEventListener(
-    'click',
-    async () => {
-      examples ??= loadExamples(revision, signal).catch(() => []);
-      const list = await examples;
-      if (signal.aborted) return;
-      if (!list.length) {
-        examples = undefined;
-        return notify('This compiler release has no examples.');
-      }
-      // Over the editors but outside the layout, which owns their children.
-      const area = panel.querySelector<HTMLElement>('[data-code-editors]');
-      if (!area) return;
-      const origin = panel.getBoundingClientRect();
-      // On phones the editors may be the hidden pane: then the whole panel.
-      const shown = area.getBoundingClientRect();
-      const box = shown.width && shown.height ? shown : origin;
-      // The theme classes style their element as an editor root (relative,
-      // flex), so they go on a child that fills the positioned host.
-      const host = document.createElement('div');
-      const themed = host.appendChild(document.createElement('div'));
-      themed.className = editor.view.themeClasses;
-      themed.style.cssText = 'height:100%;background:none;border:0';
-      Object.assign(host.style, {
-        position: 'absolute',
-        left: `${box.left - origin.left}px`,
-        top: `${box.top - origin.top}px`,
-        width: `${box.width}px`,
-        height: `${box.height}px`,
-        pointerEvents: 'none',
+  const examplesList = panel.querySelector<HTMLElement>('[data-code-examples]');
+  if (examplesList)
+    void loadExamples(revision, signal)
+      .catch(() => [])
+      .then((examples) => {
+        if (signal.aborted) return;
+        const section = examplesList.closest<HTMLElement>(
+          '[data-code-examples-pane]'
+        );
+        if (section) section.hidden = !examples.length;
+        examplesList.replaceChildren(
+          ...examples.map((entry) => {
+            const item = document.createElement('li');
+            const button = item.appendChild(document.createElement('button'));
+            button.type = 'button';
+            button.className = 'example-item';
+            if (entry.name === starter.example)
+              button.setAttribute('aria-current', 'true');
+            const title = button.appendChild(document.createElement('span'));
+            title.className = 'example-title';
+            title.textContent = entry.title;
+            if (entry.summary) {
+              const summary = button.appendChild(
+                document.createElement('span')
+              );
+              summary.className = 'example-summary';
+              summary.textContent = entry.summary;
+              button.title = entry.summary;
+            }
+            button.addEventListener('click', () => void openExample(entry), {
+              signal,
+            });
+            return item;
+          })
+        );
       });
-      panel.append(host);
-      showPicker(themed, {
-        title: 'Examples',
-        items: list.map((entry) => ({
-          label: entry.title,
-          ...(entry.summary ? { detail: entry.summary } : {}),
-          run: () => void openExample(entry),
-        })),
-        closed: () => host.remove(),
-      });
-      // The host lets clicks through to the editor; the list takes them.
-      host
-        .querySelector<HTMLElement>('.jai-picker')
-        ?.style.setProperty('pointer-events', 'auto');
-    },
-    { signal }
-  );
   panel.querySelector('[data-code-reset]')?.addEventListener(
     'click',
     async () => {

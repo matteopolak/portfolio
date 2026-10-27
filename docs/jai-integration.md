@@ -46,7 +46,7 @@ Fallbacks: releases before `examples.json` (Jacket 0.29) shipped the language to
 
 ### Examples and assets
 
-Open an example (the book button in the Files header) lists every usable `examples.json` entry by title, with its summary as detail; a release without the index says it has none. `loadExample` loads only the entry's `files` into the workspace. Asset files stay in the bundle, and when `assets` is non-empty the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
+The Examples list under the file tree shows every usable `examples.json` entry by title and summary, and marks the one the session opened (`Starter.example`); a release without the index hides it. `loadExample` loads only the entry's `files` into the workspace. Asset files stay in the bundle, and when `assets` is non-empty the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
 
 That base travels as `assets` in the worker's `init` message to `createEngine(wasm, { host, assets: { base } })` (`src/lib/jai/engine.ts`), which answers stdlib `Extensions/Assets`:
 

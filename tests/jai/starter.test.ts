@@ -166,6 +166,7 @@ test('a session opens the first example from examples.json', async () => {
   assert.deepEqual(starter, {
     files: { 'main.jai': 'basics\n', 'jacket.toml': '[format]\n' },
     open: ['main.jai'],
+    example: 'basics',
   });
 });
 
@@ -213,6 +214,7 @@ test('an example with assets points load_asset at its folder', async () => {
       'jacket.toml': projectConfigStarter,
     },
     open: ['main.jai'],
+    example: 'textured-cube',
     assets: `/jai/${revision}/textured-cube/`,
   });
   // Assets are fetched by the program, not copied into the workspace.

@@ -341,19 +341,6 @@
                 <button
                   type="button"
                   class="ide-icon ide-icon--small"
-                  data-code-examples
-                  aria-label="Open an example"
-                  title="Open an example (replaces all files)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"
-                    ><path
-                      d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13M9 7h6M9 11h4"
-                    ></path></svg
-                  >
-                </button>
-                <button
-                  type="button"
-                  class="ide-icon ide-icon--small"
                   data-code-import
                   aria-label="Import folder"
                   title="Import folder (replaces all files)"
@@ -380,6 +367,18 @@
               </span>
             </div>
             <nav class="ide-tree" data-code-files aria-label="File tree"></nav>
+            <!-- Filled from the release's examples.json by jai/workspace-ui.ts. -->
+            <section
+              class="ide-examples"
+              data-code-examples-pane
+              aria-label="Examples"
+              hidden
+            >
+              <div class="ide-pane-head ide-pane-head--static">
+                <span>Examples</span>
+              </div>
+              <ul class="ide-examples-list" data-code-examples></ul>
+            </section>
           </aside>
         </div>
         <div class="ide-divider ide-divider--col" aria-hidden="true"></div>
@@ -1121,11 +1120,87 @@
   }
 
   .ide-tree {
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
     padding: 0 0 1rem;
+  }
+
+  /* The lower half of the Files pane: the release's preset workspaces. */
+  .ide-examples {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-top: 1px solid var(--ide-rule);
+  }
+
+  .ide-examples[hidden] {
+    display: none;
+  }
+
+  .ide-pane-head--static {
+    cursor: auto;
+  }
+
+  .ide-examples-list {
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0 0 1rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+  }
+
+  .ide-examples-list :global(.example-item) {
+    position: relative;
+    display: grid;
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.45rem 0.75rem 0.45rem 1rem;
+    border: 0;
+    border-radius: var(--radius-xs) !important;
+    background: none;
+    color: var(--ide-fg) !important;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ide-examples-list :global(.example-item:hover) {
+    background: var(--ide-hover) !important;
+  }
+
+  .ide-examples-list :global(.example-item[aria-current]) {
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-raised) !important;
+  }
+
+  .ide-examples-list :global(.example-item[aria-current])::before {
+    position: absolute;
+    top: var(--radius-xs);
+    bottom: var(--radius-xs);
+    left: 0;
+    width: 2px;
+    content: '';
+    background: var(--accent-2);
+  }
+
+  .ide-examples-list :global(.example-title) {
+    overflow: hidden;
+    font: 0.8125rem/1.2 var(--ide-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ide-examples-list :global(.example-summary) {
+    overflow: hidden;
+    color: var(--ide-muted);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ide-tree :global(.tree-row) {
