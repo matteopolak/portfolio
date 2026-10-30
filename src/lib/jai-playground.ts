@@ -2,6 +2,7 @@ import {
   initializeWorkspaceLayout,
   showPane,
 } from './code-workspace-layout.ts';
+import { programFromHash, programStarter } from './jai/program-link.ts';
 import type { Starter } from './jai/starter.ts';
 import {
   whenWorkspaceMounted,
@@ -36,8 +37,13 @@ export function initializeJaiPlayground(
   let pending: Promise<void> | undefined;
   let ready = false;
   let generation = 0;
-  // Set by Import folder / Reset: the next session starts from it, not the tour.
-  let nextStarter: Starter | undefined;
+  // Set by Import folder / Reset: the next session starts from it, not the
+  // release's first example. A `#code=` link sets the first one; a bad one is
+  // ignored.
+  const linked = programFromHash(`#${panel.dataset.codeProgram ?? ''}`);
+  delete panel.dataset.codeProgram;
+  let nextStarter: Starter | undefined =
+    linked === undefined ? undefined : programStarter(linked);
   // The workspace is a Svelte island: its dock layout moves server-rendered
   // nodes, so nothing touches the DOM until the island has hydrated.
   function mount() {

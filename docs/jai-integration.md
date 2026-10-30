@@ -44,6 +44,21 @@ Each workspace lives in `/jai/<full-commit>/<name>/`. `examplesIndex` drops unus
 
 Fallbacks: releases before `examples.json` (Jacket 0.29) shipped the language tour instead, `tour.json` (`{ schema_version: 1, main: "main.jai", files }`) with files under `tour/`, and that opens with `main.jai` plus a preview of `tour.md`. If neither loads, the session opens the built-in two-file starter (`main.jai` loading `lib/math.jai`). Only an abort propagates. Tests: `tests/jai/starter.test.ts`.
 
+### Program links
+
+`/playground/jacket#code=<base64url>` opens the playground with that program as `main.jai` (plus the default `jacket.toml`) instead of the first example. The Jacket API docs' "Open in playground" button builds these links. The fragment is the program's UTF-8 bytes in unpadded base64url:
+
+```js
+location.href =
+  '/playground/jacket#code=' +
+  btoa(String.fromCharCode(...new TextEncoder().encode(code)))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/, '');
+```
+
+`playground-page.ts` hands the fragment to the panel (`data-code-program`), and `initializeJaiPlayground` turns it into the first session's starter with `programFromHash` and `programStarter` (`src/lib/jai/program-link.ts`, kept out of `starter.ts` so the page script stays small). A fragment that is not valid base64url, not valid UTF-8 or over 1 MiB is ignored, and the session opens as usual. Later sessions (Reset, an example) don't reuse it. Tests: `tests/jai/program-link.test.ts`.
+
 ### Examples and assets
 
 The Examples list under the file tree shows every usable `examples.json` entry by title and summary, and marks the one the session opened (`Starter.example`); a release without the index hides it. `loadExample` loads only the entry's `files` into the workspace. Asset files stay in the bundle, and when `assets` is non-empty the `Starter` gets `assets: "/jai/<full-commit>/<name>/"`.
@@ -128,13 +143,13 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 
 **Semantics.** These follow the compiler's `Basic` print (`__format_to_builder` in the compiler repo's `stdlib/Basic/Print.jai`), not older Jai:
 
-| Source | Meaning |
-| --- | --- |
-| `%` or `%0` | the next argument |
-| `%N` | argument N (1-based); a following `%` continues with N+1 |
-| `%%` | two specifiers, so two arguments (not a literal percent) |
-| `%00` | prints nothing |
-| `\%` | a literal `%` (the lexer turns it into byte 31) |
+| Source      | Meaning                                                  |
+| ----------- | -------------------------------------------------------- |
+| `%` or `%0` | the next argument                                        |
+| `%N`        | argument N (1-based); a following `%` continues with N+1 |
+| `%%`        | two specifiers, so two arguments (not a literal percent) |
+| `%00`       | prints nothing                                           |
+| `\%`        | a literal `%` (the lexer turns it into byte 31)          |
 
 **Hover.** Format-string text itself is emitted as a `formatString` token (same `tags.string` colour), so the whole literal, quotes included, is findable in the syntax tree. `formatStringHover` in `code-editor.ts` (Jai editor only) fires when the node under the pointer is `formatString`, `formatSpecifier` or `formatPercent`. `formatStringAt(text, offset)` in `format-string.ts` finds the literal on that line, numbers its specifiers with `formatSpecs`, and splits the remaining call arguments at top-level commas with `trailingArguments` (skipping nested brackets, strings and comments). The tooltip reuses the overload-list layout (`.jai-hover--overloads` rows): the highlighted literal on top, then one row per specifier, `%2 → Argument 2 hp`, with "(not passed)" in the error colour for a short call, and `\%` / `%00` rows explained as "a literal %" / "prints nothing". The row of the specifier under the pointer is emphasised (`data-current`). A literal with no specifiers gets no hover.
 

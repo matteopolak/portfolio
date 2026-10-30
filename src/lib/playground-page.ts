@@ -20,9 +20,15 @@ export function initializePlaygroundPage() {
   const controller = new AbortController();
   const { signal } = controller;
   const panel = root.querySelector<HTMLElement>('[data-code-workspace]');
-  // `#lib/math.jai` opens that workspace file (jai only; other demos have one file).
-  const file = decodeURIComponent(location.hash.slice(1));
-  if (panel && file) panel.dataset.codeOpen = file;
+  // `#code=<base64url>` starts with that program (the Jacket docs' "Open in
+  // playground"); `#lib/math.jai` opens that workspace file (jai only; other
+  // demos have one file).
+  if (location.hash.startsWith('#code=')) {
+    if (panel) panel.dataset.codeProgram = location.hash.slice(1);
+  } else {
+    const file = decodeURIComponent(location.hash.slice(1));
+    if (panel && file) panel.dataset.codeOpen = file;
+  }
 
   watchDemoLoading(root, signal);
   wireFullscreen(root, panel, signal);
