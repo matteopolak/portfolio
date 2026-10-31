@@ -47,12 +47,12 @@ export function readTheme(host: HTMLElement): ITheme {
   const color = (token: string) => resolveColor(host, `var(${token})`);
   const fg = color('--ide-fg');
   return {
-    background: color('--ide-sunken'),
+    background: color('--ide-panel'),
     foreground: fg,
     cursor: color('--ide-fg-strong'),
-    cursorAccent: color('--ide-sunken'),
+    cursorAccent: color('--ide-panel'),
     selectionBackground: color('--ide-selection'),
-    black: color('--ide-sunken'),
+    black: color('--ide-panel'),
     brightBlack: color('--ide-faint'),
     red: color('--ide-error'),
     brightRed: color('--ide-error'),

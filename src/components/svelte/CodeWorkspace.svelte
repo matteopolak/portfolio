@@ -544,16 +544,16 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--ide-sunken);
+    background: var(--ide-panel);
   }
 
   .ide-output__head {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    height: 2.25rem;
+    height: var(--ide-head);
     flex: none;
-    padding: 0 0.35rem 0 1rem;
+    padding: 0 0.4rem 0 1rem;
     /* The header is the panel's drag handle, like the file tree's. */
     cursor: grab;
     user-select: none;
@@ -582,7 +582,7 @@
     width: 1.65rem;
     height: 1.65rem;
     place-items: center;
-    border-radius: var(--radius-sm) !important;
+    border-radius: var(--ide-r-sm) !important;
     color: var(--ide-muted) !important;
   }
 
@@ -610,7 +610,7 @@
     min-height: 0;
     overflow: hidden;
     overscroll-behavior: contain;
-    background: var(--ide-sunken);
+    background: var(--ide-panel);
   }
 
   .ide-terminal[hidden] {
@@ -630,7 +630,7 @@
   }
 
   .ide-terminal :global(.xterm-viewport) {
-    background-color: var(--ide-sunken) !important;
+    background-color: var(--ide-panel) !important;
     overscroll-behavior: contain;
   }
 
@@ -777,6 +777,12 @@
     --ide-hover: light-dark(#efeff2, #26262b);
     --ide-rule: light-dark(#e6e6ea, #2c2c31);
     --ide-hair: light-dark(#f0f0f2, #242428);
+    /* The frame the panels float on, and the panels themselves. */
+    --ide-frame: light-dark(#eeeef1, #141417);
+    --ide-panel: var(--ide-bg);
+    /* The selected file, example and tab: a soft pill, not a colour. */
+    --ide-pill: light-dark(#e9e9ee, #2d2d33);
+    --ide-pill-strong: light-dark(#dcdce3, #2d2d33);
     --ide-fg: light-dark(#2f2f35, #d4d4d8);
     --ide-fg-strong: light-dark(#18181b, #f0f0f2);
     --ide-fg2: light-dark(#56565e, #b0b0b8);
@@ -820,6 +826,11 @@
     --ide-sans:
       Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
       sans-serif;
+    /* Panel spacing and corner radii. */
+    --ide-gap: 6px;
+    --ide-r: 12px;
+    --ide-r-sm: 8px;
+    --ide-head: 2.5rem;
     --ide-mono:
       'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo,
       Consolas, 'Liberation Mono', monospace;
@@ -831,7 +842,7 @@
     height: 100%;
     overflow: hidden;
     color: var(--ide-fg);
-    background: var(--ide-bg);
+    background: var(--ide-frame);
     border: 1px solid var(--ide-rule);
     border-radius: var(--radius-lg);
     box-shadow: 0 12px 32px var(--ide-shadow);
@@ -912,28 +923,16 @@
     gap: 0.5rem;
     min-width: 0;
     height: 3rem;
-    padding: 0 0.5rem 0 calc(var(--ide-editor-start) + 0.4rem);
-    background: var(--ide-sunken);
-    border-bottom: 1px solid var(--ide-rule);
+    padding: 0 calc(var(--ide-gap) + 0.25rem) 0
+      calc(var(--ide-editor-start) + 0.25rem);
   }
 
   /* `--ide-editor-offset` is measured by code-workspace-layout.ts; the fallback is the default tree width. */
   .ide[data-left-dock] .ide-bar {
     --ide-editor-start: min(
-      var(--ide-editor-offset, calc(15rem + 1px)),
+      var(--ide-editor-offset, calc(15rem + 3 * var(--ide-gap))),
       calc(100% - 19rem)
     );
-  }
-
-  /* The left dock's divider continues through the bar, so the tools read as the editor's. */
-  .ide[data-left-dock] .ide-bar::before {
-    position: absolute;
-    top: 0;
-    bottom: -1px;
-    left: calc(var(--ide-editor-start) - 1px);
-    width: 1px;
-    content: '';
-    background: var(--ide-rule);
   }
 
   /* `margin-right: auto` keeps Run and the window buttons right-aligned when the status is hidden. */
@@ -999,8 +998,8 @@
   .ide[data-left-dock] .ide-build {
     position: absolute;
     top: 50%;
-    left: 0.75rem;
-    max-width: calc(var(--ide-editor-start) - 1.5rem);
+    left: calc(var(--ide-gap) + 0.75rem);
+    max-width: calc(var(--ide-editor-start) - 2rem);
     overflow: hidden;
     text-overflow: ellipsis;
     transform: translateY(-50%);
@@ -1016,16 +1015,16 @@
     height: 2rem;
     padding: 0 0.75rem;
     font-size: 0.8rem !important;
-    font-weight: 650 !important;
-    border: 1px solid var(--ide-rule) !important;
-    border-radius: var(--radius-sm) !important;
+    font-weight: 600 !important;
+    border-radius: var(--ide-r-sm) !important;
+    background: var(--ide-pill) !important;
   }
 
   .ide-text-button:hover {
     background: var(--ide-hover) !important;
   }
 
-  /* The docs' primary button: link-blue text on its tint. */
+  /* The primary action: a solid accent button. */
   .ide-run {
     display: inline-flex;
     align-items: center;
@@ -1033,9 +1032,9 @@
     height: 2rem;
     padding: 0 0.7rem 0 0.6rem;
     margin-left: 0.25rem;
-    border-radius: var(--radius-sm) !important;
-    color: var(--ide-link) !important;
-    background: var(--ide-selected) !important;
+    border-radius: var(--ide-r-sm) !important;
+    color: var(--ide-on-accent) !important;
+    background: var(--ide-accent) !important;
     font-size: 13px !important;
     font-weight: 600 !important;
     transition:
@@ -1051,8 +1050,11 @@
   }
 
   .ide-run:hover:not(:disabled) {
-    box-shadow: inset 0 0 0 1px
-      color-mix(in srgb, var(--ide-link) 45%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--ide-accent) 88%,
+      var(--ide-fg-strong)
+    ) !important;
   }
 
   .ide-run:disabled {
@@ -1062,11 +1064,10 @@
 
   .ide-run kbd {
     padding: 0 0.35rem;
-    border: 1px solid var(--ide-rule);
-    border-bottom-width: 2px;
     border-radius: 5px;
-    color: var(--ide-muted);
-    background: var(--ide-sunken);
+    color: inherit;
+    background: color-mix(in srgb, var(--ide-on-accent) 18%, transparent);
+    opacity: 0.85;
     font: 500 11px/1.5 var(--ide-mono);
   }
 
@@ -1076,6 +1077,7 @@
   }
 
   .ide-run--stop:hover:not(:disabled) {
+    background: var(--ide-error-bg) !important;
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--ide-error) 45%, transparent);
   }
@@ -1086,7 +1088,7 @@
     height: 2rem;
     place-items: center;
     flex: none;
-    border-radius: var(--radius-sm) !important;
+    border-radius: var(--ide-r-sm) !important;
     color: var(--ide-muted) !important;
     transition:
       color 120ms ease,
@@ -1128,6 +1130,7 @@
     display: grid;
     grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     min-height: 0;
+    padding: 0 var(--ide-gap) var(--ide-gap);
   }
 
   .ide-files {
@@ -1136,7 +1139,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: var(--ide-sunken);
+    background: var(--ide-panel);
   }
 
   .ide-pane-head {
@@ -1144,9 +1147,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    height: 2.25rem;
+    height: var(--ide-head);
     flex: none;
-    padding: 0 0.35rem 0 1rem;
+    padding: 0 0.4rem 0 1rem;
     color: var(--ide-muted);
     font-size: 12px;
     font-weight: 600;
@@ -1164,7 +1167,7 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 0 0 1rem;
+    padding: 0 0.375rem 1rem;
   }
 
   /* The lower half of the Files pane: the release's preset workspaces. */
@@ -1173,7 +1176,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-top: 1px solid var(--ide-rule);
+    margin-top: 0.25rem;
   }
 
   .ide-examples[hidden] {
@@ -1188,7 +1191,7 @@
     flex: 1 1 0;
     min-height: 0;
     margin: 0;
-    padding: 0 0 1rem;
+    padding: 0 0.375rem 1rem;
     overflow: auto;
     overscroll-behavior: contain;
     list-style: none;
@@ -1199,9 +1202,9 @@
     display: grid;
     gap: 0.2rem;
     width: 100%;
-    padding: 0.45rem 0.75rem 0.45rem 1rem;
+    padding: 0.5rem 0.75rem 0.5rem 0.625rem;
     border: 0;
-    border-radius: var(--radius-xs) !important;
+    border-radius: var(--ide-r-sm) !important;
     background: none;
     color: var(--ide-fg2) !important;
     text-align: left;
@@ -1209,16 +1212,15 @@
   }
 
   .ide-examples-list :global(.example-item:hover) {
-    background: var(--ide-hover) !important;
+    background: var(--ide-overlay) !important;
   }
 
   .ide-examples-list :global(.example-item[aria-current]) {
-    background: var(--ide-selected) !important;
+    background: var(--ide-pill) !important;
   }
 
   .ide-examples-list :global(.example-item[aria-current] .example-title) {
-    color: var(--ide-link);
-    font-weight: 600;
+    color: var(--ide-fg-strong);
   }
 
   .ide-examples-list :global(.example-title) {
@@ -1249,7 +1251,7 @@
    * level of nesting moves the icon a full step right of its parent's.
    */
   .ide-tree {
-    --tree-gutter: 1.75rem;
+    --tree-gutter: 1.375rem;
     --tree-indent: 1.15rem;
   }
 
@@ -1262,7 +1264,7 @@
     height: 1.875rem;
     padding: 0 2rem 0
       calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
-    border-radius: var(--radius-xs) !important;
+    border-radius: var(--ide-r-sm) !important;
     color: var(--ide-fg2) !important;
     font: 13px/1 var(--ide-mono) !important;
     text-align: left;
@@ -1272,14 +1274,13 @@
   .ide-tree :global(.tree-item:hover),
   .ide-tree :global(.tree-row:hover .tree-item) {
     color: var(--ide-fg) !important;
-    background: var(--ide-hover) !important;
+    background: var(--ide-overlay) !important;
   }
 
-  /* The open file reads like the docs' current page in the side navigation. */
+  /* The open file: plain text on a soft pill. */
   .ide-tree :global(.tree-item[aria-current]) {
-    color: var(--ide-link) !important;
-    background: var(--ide-selected) !important;
-    font-weight: 600 !important;
+    color: var(--ide-fg-strong) !important;
+    background: var(--ide-pill) !important;
   }
 
   .ide-tree :global(.tree-icon) {
@@ -1351,12 +1352,12 @@
 
   .ide-tree :global(.tree-more) {
     position: absolute;
-    right: 0.3rem;
+    right: 0.25rem;
     display: grid;
     width: 1.5rem;
     height: 1.5rem;
     place-items: center;
-    border-radius: var(--radius-xs) !important;
+    border-radius: 6px !important;
     color: var(--ide-muted) !important;
     opacity: 0;
   }
@@ -1369,7 +1370,7 @@
 
   .ide-tree :global(.tree-more:hover) {
     color: var(--ide-fg-strong) !important;
-    background: var(--ide-rule) !important;
+    background: var(--ide-hover) !important;
   }
 
   .ide-tree :global(.tree-more-icon) {
@@ -1390,7 +1391,7 @@
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
     border: 1px solid var(--ide-accent);
-    border-radius: var(--radius-xs);
+    border-radius: 6px;
     outline: none;
     font: 0.875rem/1 var(--ide-mono);
   }
@@ -1405,8 +1406,8 @@
     min-width: 11rem;
     padding: 0.3rem;
     background: var(--ide-raised);
-    border: 1px solid var(--ide-rule);
-    border-radius: var(--radius);
+    border: 1px solid var(--ide-hair);
+    border-radius: var(--ide-r);
     box-shadow: 0 0.75rem 2rem var(--ide-shadow);
   }
 
@@ -1415,7 +1416,7 @@
     width: 100%;
     padding: 0.45rem 0.7rem;
     /* Menu radius minus its 0.3rem padding, so items nest inside the frame. */
-    border-radius: var(--radius-xs) !important;
+    border-radius: 7px !important;
     color: var(--ide-fg);
     font-size: 0.8rem;
     text-align: left;
@@ -1445,10 +1446,9 @@
   .ide-group-head {
     display: flex;
     flex: none;
-    height: 2.25rem;
+    height: var(--ide-head);
     min-width: 0;
-    background: var(--ide-sunken);
-    box-shadow: inset 0 -1px var(--ide-rule);
+    padding: 0.3125rem 0.3125rem 0;
   }
 
   .ide-editor {
@@ -1462,10 +1462,11 @@
     flex: 1 1 0;
   }
 
-  /* Open-file tabs (jai). The strip matches the file tree's 2.25rem pane head. */
+  /* Open-file tabs (jai): pills in a strip as tall as the file tree's pane head. */
   .ide-filetabs {
     display: flex;
     flex: 1 1 auto;
+    gap: 0.125rem;
     height: 100%;
     min-width: 0;
     overflow-x: auto;
@@ -1484,40 +1485,28 @@
     align-items: center;
     flex: none;
     max-width: 16rem;
+    height: calc(var(--ide-head) - 0.625rem);
     color: var(--ide-muted);
-    border-right: 1px solid var(--ide-rule);
-    /* Tabs round on top only; the bottom stays flush with the editor below. */
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border-radius: var(--ide-r-sm);
   }
 
   .ide-filetabs :global(.ide-filetab:hover) {
     color: var(--ide-fg);
-    background: var(--ide-hover);
+    background: var(--ide-overlay);
   }
 
   .ide-filetabs :global(.ide-filetab[data-active]) {
     color: var(--ide-fg-strong);
-    background: var(--ide-bg);
+    background: var(--ide-pill);
   }
 
-  /* The active tab's rule is a straight bar between the rounded corners; an
-     inset shadow would follow the radius and taper at the ends. */
-  .ide-filetabs :global(.ide-filetab[data-active])::after {
-    position: absolute;
-    top: 0;
-    left: var(--radius-sm);
-    right: var(--radius-sm);
-    height: 2px;
-    content: '';
-    background: var(--ide-accent);
-  }
-
-  /* With several groups, only the focused group's tab keeps the blue rule. */
+  /* With several groups, the unfocused group's open tab is quieter. */
   :global(.ide-split)
     .ide-group:not([data-active])
     .ide-filetabs
-    :global(.ide-filetab[data-active])::after {
-    background: var(--ide-faint);
+    :global(.ide-filetab[data-active]) {
+    color: var(--ide-fg);
+    background: var(--ide-overlay);
   }
 
   .ide-filetabs :global(.ide-filetab[data-dragging]) {
@@ -1530,8 +1519,8 @@
     gap: 0.4rem;
     min-width: 0;
     height: 100%;
-    padding: 0 0.15rem 0 0.8rem;
-    font: 0.78rem/2.25rem var(--ide-mono) !important;
+    padding: 0 0.1rem 0 0.7rem;
+    font: 0.78rem/1 var(--ide-mono) !important;
     white-space: nowrap;
   }
 
@@ -1570,9 +1559,9 @@
     display: grid;
     width: 1.35rem;
     height: 1.35rem;
-    margin: 0 0.4rem 0 0.2rem;
+    margin: 0 0.3rem 0 0.2rem;
     place-items: center;
-    border-radius: var(--radius-xs) !important;
+    border-radius: 6px !important;
     color: var(--ide-muted) !important;
     opacity: 0;
   }
@@ -1591,7 +1580,7 @@
 
   .ide-filetabs :global(.ide-filetab-close:hover) {
     color: var(--ide-fg-strong) !important;
-    background: var(--ide-rule) !important;
+    background: var(--ide-hover) !important;
   }
 
   .ide-empty {
@@ -1745,10 +1734,6 @@
       padding: env(safe-area-inset-top) 0.35rem 0 0.35rem;
     }
 
-    .ide[data-left-dock] .ide-bar::before {
-      display: none;
-    }
-
     .ide-run {
       height: 2.5rem;
       padding: 0 0.9rem 0 0.75rem;
@@ -1780,17 +1765,12 @@
       cursor: auto;
     }
 
-    .ide-group-head {
-      height: 2.75rem;
-    }
-
-    .ide-filetabs {
-      height: 2.75rem;
+    .ide {
+      --ide-head: 3rem;
     }
 
     .ide-filetabs :global(.ide-filetab-open) {
       font-size: 0.85rem !important;
-      line-height: 2.75rem !important;
     }
 
     /* Touch has no hover: every tab shows its close button. */
@@ -1828,9 +1808,7 @@
 
     .ide-tabs {
       display: flex;
-      padding-bottom: env(safe-area-inset-bottom);
-      background: var(--ide-sunken);
-      border-top: 1px solid var(--ide-rule);
+      padding: 0 var(--ide-gap) env(safe-area-inset-bottom);
     }
 
     .ide-tabs button {
@@ -1844,7 +1822,8 @@
       height: 3.5rem;
       color: var(--ide-muted);
       font-size: 0.7rem;
-      font-weight: 650;
+      font-weight: 600;
+      isolation: isolate;
     }
 
     .ide-tabs button svg {
@@ -1856,14 +1835,17 @@
       color: var(--ide-fg-strong);
     }
 
+    /* The selected tab's icon sits on a pill, like the selected file. */
     .ide-tabs button[aria-selected='true']::before {
       position: absolute;
-      top: -1px;
-      left: 25%;
-      right: 25%;
-      height: 3px;
+      top: 0.4rem;
+      left: calc(50% - 1.75rem);
+      z-index: -1;
+      width: 3.5rem;
+      height: 1.75rem;
       content: '';
-      background: var(--ide-accent);
+      border-radius: var(--radius-pill);
+      background: var(--ide-pill-strong);
     }
 
     .ide-tab-dot {
@@ -1924,6 +1906,19 @@
       flex-direction: column;
     }
 
+    /* Each panel is a rounded card on the frame. */
+    .ide .ide-files,
+    .ide .ide-group,
+    .ide .ide-output,
+    .ide .ide-editors > .ide-editor {
+      overflow: hidden;
+      border-radius: var(--ide-r);
+    }
+
+    .ide .ide-dock {
+      gap: var(--ide-gap);
+    }
+
     .ide .ide-dock > .ide-files,
     .ide .ide-dock > .ide-output {
       flex: 1 1 0;
@@ -1963,9 +1958,9 @@
       position: relative;
       z-index: 6;
       flex: none;
-      background: var(--ide-rule);
+      background: transparent no-repeat center;
       touch-action: none;
-      transition: background 120ms ease;
+      transition: background-size 120ms ease;
     }
 
     .ide .ide-divider::after {
@@ -1973,29 +1968,44 @@
       content: '';
     }
 
+    /* Dividers are the gaps between cards; hovering one shows a thin line. */
     .ide .ide-divider--col {
-      width: 1px;
+      width: var(--ide-gap);
       cursor: col-resize;
+      background-size: 2px 0;
     }
 
     .ide .ide-divider--col::after {
-      inset: 0 -4px;
+      inset: 0 -2px;
     }
 
     .ide .ide-divider--row {
-      height: 1px;
+      height: var(--ide-gap);
       cursor: row-resize;
+      background-size: 0 2px;
     }
 
     .ide .ide-divider--row::after {
-      inset: -4px 0;
+      inset: -2px 0;
     }
 
     .ide .ide-divider[role='separator']:hover,
     .ide .ide-divider:focus-visible,
     .ide .ide-divider.active {
-      background: var(--ide-accent);
+      background-image: linear-gradient(var(--ide-accent), var(--ide-accent));
       outline: none;
+    }
+
+    .ide .ide-divider--col[role='separator']:hover,
+    .ide .ide-divider--col:focus-visible,
+    .ide .ide-divider--col.active {
+      background-size: 2px calc(100% - 2 * var(--ide-r));
+    }
+
+    .ide .ide-divider--row[role='separator']:hover,
+    .ide .ide-divider--row:focus-visible,
+    .ide .ide-divider--row.active {
+      background-size: calc(100% - 2 * var(--ide-r)) 2px;
     }
 
     /* A collapsed output keeps its rule but cannot be resized. */
