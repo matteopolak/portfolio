@@ -22,11 +22,10 @@
     /** Compiler version shown next to the revision's short hash. */
     version?: string;
     /**
-     * `modal` (inside a demo dialog), `page` (a /playground route), `docs`
-     * (the Jacket docs' playground page, framed under the docs header) or
+     * `modal` (inside a demo dialog), `page` (a /playground route) or
      * `embed` (a blog post's `<Playground>`, which links out to the full page).
      */
-    mode?: 'modal' | 'page' | 'docs' | 'embed';
+    mode?: 'modal' | 'page' | 'embed';
   }
 
   const {
@@ -111,7 +110,6 @@
   class="ide ide--{language}"
   class:ide--single={!files}
   class:ide--page={mode !== 'modal'}
-  class:ide--docs={mode === 'docs'}
   data-code-workspace
   data-code-language={language}
   data-code-starter={starter}
@@ -769,8 +767,7 @@
   /*
    * The Jacket docs' palette (/docs/jacket, site.css in matteopolak/jacket).
    * Each token is `light-dark(light, dark)`: the workspace follows the system
-   * colour scheme, and `<html data-ide-theme="light|dark">` (set by the docs
-   * playground's theme button) pins one. Text tokens clear 4.5:1 on their
+   * colour scheme, and `<html data-ide-theme="light|dark">` pins one. Text tokens clear 4.5:1 on their
    * surfaces in both schemes.
    */
   .ide {
@@ -860,13 +857,8 @@
 
   /* Full-screen and the full-page playground fill the viewport: no frame corners. */
   .ide:fullscreen,
-  .ide--page:not(.ide--docs) {
+  .ide--page {
     border-radius: 0;
-  }
-
-  /* On the docs page the workspace is a card under the header, like the docs' examples. */
-  .ide--docs {
-    box-shadow: none;
   }
 
   .ide:fullscreen {

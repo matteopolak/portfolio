@@ -17,7 +17,6 @@ docs/*
 !docs/editor-search.md
 !docs/svelte-islands.md
 !docs/site-design.md
-!docs/jacket-docs-playground.md
 scripts/*
 !scripts/generate-favicons.ts
 !scripts/check-seo.ts

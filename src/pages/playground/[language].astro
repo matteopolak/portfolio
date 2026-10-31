@@ -4,11 +4,8 @@ import PlaygroundLayout from '../../layouts/PlaygroundLayout.astro';
 import CodeWorkspace from '../../components/svelte/CodeWorkspace.svelte';
 import { codeDemoPages, type CodeDemoPage } from '../../data/code-demos';
 
-// The Jacket playground is in the docs instead (src/pages/docs/jacket/playground.astro).
 export const getStaticPaths = (() =>
-  codeDemoPages
-    .filter((demo) => demo.path.startsWith('/playground/'))
-    .map((demo) => ({ params: { language: demo.path.slice('/playground/'.length) }, props: { demo } }))) satisfies GetStaticPaths;
+  codeDemoPages.map((demo) => ({ params: { language: demo.path.slice('/playground/'.length) }, props: { demo } }))) satisfies GetStaticPaths;
 
 const { demo } = Astro.props as { demo: CodeDemoPage };
 const { id, ...workspace } = demo.workspace;

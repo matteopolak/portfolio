@@ -40,17 +40,17 @@ The session opens with the release's first preset workspace and runs it once whe
     "files": ["main.jai", "jacket.toml"], "assets": [] }, …] }
 ```
 
-Each workspace lives in `/jai/<full-commit>/<name>/`. `examplesIndex` drops unusable entries (a name that isn't a plain lowercase segment, a duplicate, no `main.jai`, more than 64 files, a path that isn't plain and relative, or a non-array `assets`) and keeps the rest in order. The first one is the default. `loadExample` fetches the listed files (1 MiB in total) and adds the default `jacket.toml` unless the workspace has its own root config. A saved layout reopens its own tabs; a `/docs/jacket/playground#path` link also opens and activates that file.
+Each workspace lives in `/jai/<full-commit>/<name>/`. `examplesIndex` drops unusable entries (a name that isn't a plain lowercase segment, a duplicate, no `main.jai`, more than 64 files, a path that isn't plain and relative, or a non-array `assets`) and keeps the rest in order. The first one is the default. `loadExample` fetches the listed files (1 MiB in total) and adds the default `jacket.toml` unless the workspace has its own root config. A saved layout reopens its own tabs; a `/playground/jacket#path` link also opens and activates that file.
 
 Fallbacks: releases before `examples.json` (Jacket 0.29) shipped the language tour instead, `tour.json` (`{ schema_version: 1, main: "main.jai", files }`) with files under `tour/`, and that opens with `main.jai` plus a preview of `tour.md`. If neither loads, the session opens the built-in two-file starter (`main.jai` loading `lib/math.jai`). Only an abort propagates. Tests: `tests/jai/starter.test.ts`.
 
 ### Program links
 
-`/docs/jacket/playground#code=<base64url>` opens the playground with that program as `main.jai` (plus the default `jacket.toml`) instead of the first example. The Jacket API docs' "Open in playground" button builds these links. The fragment is the program's UTF-8 bytes in unpadded base64url:
+`/playground/jacket#code=<base64url>` opens the playground with that program as `main.jai` (plus the default `jacket.toml`) instead of the first example. The Jacket API docs' "Open in playground" button builds these links. The fragment is the program's UTF-8 bytes in unpadded base64url:
 
 ```js
 location.href =
-  '/docs/jacket/playground#code=' +
+  '/playground/jacket#code=' +
   btoa(String.fromCharCode(...new TextEncoder().encode(code)))
     .replaceAll('+', '-')
     .replaceAll('/', '_')
@@ -216,8 +216,8 @@ against that pointer before claiming deployment.
 Each Jacket release from 0.31.0 attaches `jacket-docs-<version>.tar.gz`: the standard library's API reference as a static site (about 7.4k files), built by `jacket doc --base-url /docs/jacket/` with the browser compiler for its Run buttons. The portfolio serves it at `/docs/jacket/`. Nothing generated is committed.
 
 - **Publish (`jacket-web.yml`).** After building the playground bundle, "Fetch and check the API docs" reads the version from the compiler's `Cargo.toml` and looks for the asset on release `v<version>`. That tag must resolve to the pinned commit, and the download must match GitHub's `sha256` digest for the asset. `scripts/stage-jacket-docs.py` then checks the inventory. The tarball is re-published as `jacket-docs.tar.gz` on the immutable `jai-web-<sha>` release, and its digest goes into the pin. A release without the asset (before 0.31.0) publishes without docs. Re-running for a release published before docs existed uploads the docs to it once; otherwise the existing bytes must match.
-- **Build (`sync-jai-web.ts`, in `prebuild`).** When the pin has `docsAsset`, it downloads the tarball from the `jai-web-<sha>` release (64 MiB cap), checks the pinned digest, and runs `stage-jacket-docs.py --out public/docs/jacket`. That script rejects anything but regular files and directories with plain relative paths, more than 12,000 files, any file over 25 MiB (the Cloudflare Pages limit) or 256 MiB in total, and a site without `index.html`. It drops the tarball's `runtime/` copy of the compiler and rewrites `runtime.json` to `{"engine": "/jai/<sha>/engine.mjs", "wasm": "/jai/<sha>/jai_wasm.wasm"}`, the playground's copy, which the docs' run worker loads. A pin without docs removes `public/docs/jacket`. `public/docs/` is gitignored, and `check:seo` skips `dist/docs` (except our own `docs/jacket/playground.html`), because the generated pages carry their own metadata.
-- The docs' "Open in playground" button links to `/docs/jacket/playground#code=…` (see [Program links](#program-links)). Their header links to the playground, which is an Astro page inside the docs ([Jacket docs playground](jacket-docs-playground.md)).
+- **Build (`sync-jai-web.ts`, in `prebuild`).** When the pin has `docsAsset`, it downloads the tarball from the `jai-web-<sha>` release (64 MiB cap), checks the pinned digest, and runs `stage-jacket-docs.py --out public/docs/jacket`. That script rejects anything but regular files and directories with plain relative paths, more than 12,000 files, any file over 25 MiB (the Cloudflare Pages limit) or 256 MiB in total, and a site without `index.html`. It drops the tarball's `runtime/` copy of the compiler and rewrites `runtime.json` to `{"engine": "/jai/<sha>/engine.mjs", "wasm": "/jai/<sha>/jai_wasm.wasm"}`, the playground's copy, which the docs' run worker loads. A pin without docs removes `public/docs/jacket`. `public/docs/` is gitignored, and `check:seo` skips `dist/docs`, because the generated pages carry their own metadata.
+- The docs' "Open in playground" button links to `/playground/jacket#code=…` (see [Program links](#program-links)). Their header links back to the playground.
 - Cloudflare Pages serves `/docs/jacket/` from `index.html` (and redirects `/docs/jacket` there). The site headers (COOP/COEP) apply to it too, so it must load only same-origin assets, as it does.
 - Tests: `tests/jai/test_jacket_docs.py` (staging, `runtime.json`, refusals).
 

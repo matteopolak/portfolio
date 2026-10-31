@@ -2,10 +2,8 @@ import jaiRelease from '../../releases/jai-web-release.json';
 
 /*
  * Build-time description of each in-browser code demo. The Projects page
- * mounts one modal per entry and `path` renders the same workspace as a full
- * page, so both always show the same starter and release. Most pages are
- * `/playground/<id>`; the Jacket playground lives in the Jacket docs
- * (`/docs/jacket/playground`, src/pages/docs/jacket/playground.astro).
+ * mounts one modal per entry and `/playground/<id>` renders the same workspace
+ * as a full page, so both always show the same starter and release.
  */
 export interface CodeDemoPage {
   /** Demo id; the route is `path`. */
@@ -48,14 +46,11 @@ const baerscriptStarter = `+v
 +v
 >v`;
 
-/** The Jacket playground, inside the docs; /playground/jacket redirects here. */
-export const JACKET_PLAYGROUND = '/docs/jacket/playground';
-
 export const codeDemoPages: CodeDemoPage[] = [
   {
     id: 'jai',
     slug: 'jai',
-    path: JACKET_PLAYGROUND,
+    path: '/playground/jacket',
     title: 'Jacket playground',
     description:
       'Write and run Jai in your browser with Jacket, a Rust-built Jai compiler compiled to WebAssembly, with a multi-file workspace, diagnostics, hover, go to definition, a formatter and a linter.',
@@ -66,7 +61,7 @@ export const codeDemoPages: CodeDemoPage[] = [
       label: 'Jai',
       files: true,
       enabled: jaiRelease.enabled,
-      page: JACKET_PLAYGROUND,
+      page: '/playground/jacket',
       revision: jaiRelease.revision ?? '',
       version: (jaiRelease as { version?: string }).version ?? '',
     },
