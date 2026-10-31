@@ -309,64 +309,70 @@
       {#if files}
         <div class="ide-dock" data-dock="left" style="flex-basis: 240px">
           <aside class="ide-files" data-code-files-pane aria-label="Files">
-            <div class="ide-pane-head" data-panel-handle>
-              <span>Files</span>
-              <span class="ide-pane-actions">
-                <button
-                  type="button"
-                  class="ide-icon ide-icon--small"
-                  data-tree-new-file
-                  aria-label="New file"
-                  title="New file"
-                >
-                  <svg viewBox="0 0 20 20" aria-hidden="true"
-                    ><path
-                      d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"
-                    ></path></svg
+            <div class="ide-files-main">
+              <div class="ide-pane-head" data-panel-handle>
+                <span>Files</span>
+                <span class="ide-pane-actions">
+                  <button
+                    type="button"
+                    class="ide-icon ide-icon--small"
+                    data-tree-new-file
+                    aria-label="New file"
+                    title="New file"
                   >
-                </button>
-                <button
-                  type="button"
-                  class="ide-icon ide-icon--small"
-                  data-tree-new-folder
-                  aria-label="New folder"
-                  title="New folder"
-                >
-                  <svg viewBox="0 0 20 20" aria-hidden="true"
-                    ><path
-                      d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"
-                    ></path></svg
+                    <svg viewBox="0 0 20 20" aria-hidden="true"
+                      ><path
+                        d="M5.5 2.5h6l3.5 3.5v11.5h-9.5zM10.25 9v5.5M7.5 11.75H13"
+                      ></path></svg
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="ide-icon ide-icon--small"
+                    data-tree-new-folder
+                    aria-label="New folder"
+                    title="New folder"
                   >
-                </button>
-                <button
-                  type="button"
-                  class="ide-icon ide-icon--small"
-                  data-code-import
-                  aria-label="Import folder"
-                  title="Import folder (replaces all files)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"
-                    ><path
-                      d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1M2 13h10M9 16l3-3-3-3"
-                    ></path></svg
+                    <svg viewBox="0 0 20 20" aria-hidden="true"
+                      ><path
+                        d="M2.5 5.5h5.25l1.75 1.75h8v9.25h-15zM10 9.25v5M7.5 11.75h5"
+                      ></path></svg
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="ide-icon ide-icon--small"
+                    data-code-import
+                    aria-label="Import folder"
+                    title="Import folder (replaces all files)"
                   >
-                </button>
-                <button
-                  type="button"
-                  class="ide-icon ide-icon--small"
-                  data-code-reset
-                  aria-label="Reset workspace"
-                  title="Reset workspace to the default"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"
-                    ><path
-                      d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"
-                    ></path></svg
+                    <svg viewBox="0 0 24 24" aria-hidden="true"
+                      ><path
+                        d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1M2 13h10M9 16l3-3-3-3"
+                      ></path></svg
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="ide-icon ide-icon--small"
+                    data-code-reset
+                    aria-label="Reset workspace"
+                    title="Reset workspace to the default"
                   >
-                </button>
-              </span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"
+                      ><path
+                        d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"
+                      ></path></svg
+                    >
+                  </button>
+                </span>
+              </div>
+              <nav
+                class="ide-tree"
+                data-code-files
+                aria-label="File tree"
+              ></nav>
             </div>
-            <nav class="ide-tree" data-code-files aria-label="File tree"></nav>
             <!-- Filled from the release's examples.json by jai/workspace-ui.ts. -->
             <section
               class="ide-examples"
@@ -1138,7 +1144,23 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+
+  /* Files and Examples are two cards; code-workspace-layout.ts puts a row
+     divider (the gap) between them. */
+  .ide-files-main,
+  .ide-examples {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
     background: var(--ide-panel);
+    border-radius: var(--ide-r);
+  }
+
+  .ide-files-main {
+    min-height: 5rem;
   }
 
   .ide-pane-head {
@@ -1171,11 +1193,7 @@
 
   /* The lower half of the Files pane: the release's preset workspaces. */
   .ide-examples {
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    margin-top: 0.25rem;
+    min-height: 4.5rem;
   }
 
   .ide-examples[hidden] {
@@ -1906,7 +1924,6 @@
     }
 
     /* Each panel is a rounded card on the frame. */
-    .ide .ide-files,
     .ide .ide-group,
     .ide .ide-output,
     .ide .ide-editors > .ide-editor {
@@ -1916,6 +1933,24 @@
 
     .ide .ide-dock {
       gap: var(--ide-gap);
+    }
+
+    .ide .ide-divider:has(+ .ide-examples[hidden]) {
+      display: none;
+    }
+
+    /* Rows, tabs and pills built in script miss the scoped button rules. */
+    .ide
+      :is(
+        .tree-item,
+        .tree-more,
+        .example-item,
+        .ide-filetab-open,
+        .ide-filetab-close,
+        .tree-menu button,
+        .ide-tabs button
+      ) {
+      cursor: pointer;
     }
 
     .ide .ide-dock > .ide-files,

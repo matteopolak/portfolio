@@ -752,6 +752,69 @@ function initializeLayout(
   return controller;
 }
 
+const EXAMPLES_MIN = 72;
+const TREE_MIN = 80;
+
+/**
+ * The Files pane's Examples card can be resized against the file tree. Its
+ * height is saved next to the layout and cleared by Reset layout.
+ */
+function examplesSplit(
+  panel: HTMLElement,
+  controller: WorkspaceLayoutController,
+  signal: AbortSignal
+) {
+  const files = panel.querySelector<HTMLElement>('[data-code-files-pane]');
+  const examples = panel.querySelector<HTMLElement>(
+    '[data-code-examples-pane]'
+  );
+  if (!files || !examples) return;
+  const key = `${storageKey(panel)}:examples`;
+  const apply = (height: number | undefined) => {
+    examples.style.flex = height === undefined ? '' : `0 1 ${height}px`;
+  };
+  try {
+    const saved = Number(localStorage.getItem(key));
+    if (saved > 0) apply(saved);
+  } catch {
+    /* No storage: the default split. */
+  }
+  const handle = divider(
+    panel,
+    {
+      axis: 'row',
+      label: 'Resize examples',
+      current: () => examples.getBoundingClientRect().height,
+      sign: -1,
+      minimum: EXAMPLES_MIN,
+      // The divider is the frame gap (6px); leave the tree its minimum.
+      maximum: () => files.getBoundingClientRect().height - 6 - TREE_MIN,
+      set: apply,
+      done: () => {
+        try {
+          localStorage.setItem(
+            key,
+            String(Math.round(examples.getBoundingClientRect().height))
+          );
+        } catch {
+          /* Lasts for this page. */
+        }
+      },
+    },
+    signal
+  );
+  examples.before(handle);
+  controller.onReset(() => {
+    apply(undefined);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* Nothing saved. */
+    }
+  }, signal);
+  signal.addEventListener('abort', () => handle.remove(), { once: true });
+}
+
 /**
  * Wires the shared workspace chrome: the dockable panels and their resize
  * handles and the output collapse toggle. (The pane tabs and the platform
@@ -762,6 +825,7 @@ export function initializeWorkspaceLayout(
   signal: AbortSignal
 ) {
   const controller = initializeLayout(panel, signal);
+  if (controller) examplesSplit(panel, controller, signal);
 
   panel
     .querySelector<HTMLButtonElement>('[data-code-clear]')

@@ -57,6 +57,7 @@ Operations return new objects: `movePanel`, `resizeDock`, `splitGroup` (a split 
 ## Configuration
 
 - `localStorage["code-workspace-layout:jai" | ":quasi" | ":baerscript"]`: the saved layout.
+- `localStorage["code-workspace-layout:jai:examples"]`: the Examples list height in the Files pane (see [code-workspace](code-workspace.md)).
 - `DOCK_SIZES` (default dock sizes), `MAX_GROUPS` (16), `MAX_DEPTH` (8), `MAX_TABS` (64) in the model; `DRAG_THRESHOLD` (5px), `SAVE_DELAY` (250ms) and `NARROW_QUERY` in the controller.
 
 ## Dependencies
