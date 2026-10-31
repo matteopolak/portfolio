@@ -28,6 +28,7 @@ scripts/*
 !scripts/sync-baerscript-web.ts
 !scripts/sync-lodestone-web.ts
 !scripts/sync-jai-web.ts
+!scripts/stage-jacket-docs.py
 !scripts/fetch-resume.ts
 # local resume tooling tests and fixtures
 tests/resume/
