@@ -786,8 +786,8 @@
     --ide-fg: light-dark(#2f2f35, #d4d4d8);
     --ide-fg-strong: light-dark(#18181b, #f0f0f2);
     --ide-fg2: light-dark(#56565e, #b0b0b8);
-    --ide-muted: light-dark(#6a6a74, #9c9ca5);
-    --ide-faint: light-dark(#6e6e78, #9898a2);
+    --ide-muted: light-dark(#5f5f69, #9c9ca5);
+    --ide-faint: light-dark(#64646e, #9898a2);
     --ide-overlay: light-dark(rgb(24 24 27 / 0.045), rgb(255 255 255 / 0.05));
     --ide-shadow: light-dark(rgb(24 24 27 / 0.1), rgb(0 0 0 / 0.45));
     --ide-scroll: light-dark(#dcdce0, #38383e);
@@ -821,7 +821,7 @@
     --ide-syntax-format-percent: light-dark(#a8507a, #c98aa6);
     --ide-syntax-number: light-dark(#9a4f2c, #e09a7a);
     --ide-syntax-directive: light-dark(#a33d6b, #e08fb3);
-    --ide-syntax-comment: light-dark(#6a6a74, #9c9ca5);
+    --ide-syntax-comment: light-dark(#5f5f69, #9c9ca5);
     --ide-syntax-punct: light-dark(#56565e, #b0b0b8);
     --ide-sans:
       Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -1066,8 +1066,7 @@
     padding: 0 0.35rem;
     border-radius: 5px;
     color: inherit;
-    background: color-mix(in srgb, var(--ide-on-accent) 18%, transparent);
-    opacity: 0.85;
+    background: color-mix(in srgb, var(--ide-fg-strong) 22%, transparent);
     font: 500 11px/1.5 var(--ide-mono);
   }
 
