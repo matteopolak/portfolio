@@ -8,7 +8,7 @@ from it in the shared code editor modal.
 
 ## How it works
 
-The portfolio's `jai-web.yml` workflow builds one full, immutable compiler commit.
+The portfolio's `jacket-web.yml` workflow ("Publish Jacket web") builds one full, immutable compiler commit and pins the release's API docs with it.
 The portfolio owns the entire interface: `CodeWorkspace.astro` renders the shared
 header, file tree, CodeMirror editor and output pane described in
 [Shared code workspace](code-workspace.md). There is no embedded release page,
@@ -160,7 +160,7 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 ## Configuration
 
 `releases/jai-web-release.json` records the repository, immutable tag, revision, manifest and
-archive digests. A disabled pointer keeps the project visible with an honest
+archive digests, and from Jacket 0.31.0 the API docs (`docsAsset`, `docsSha256`). A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
 ### Bumping the compiler
@@ -170,14 +170,14 @@ pnpm bump:jacket          # latest Jacket release
 pnpm bump:jacket v0.19.2  # a specific tag (or a full commit SHA)
 ```
 
-This dispatches `.github/workflows/jai-web.yml`. It resolves the tag (or `latest`) to a commit
+This dispatches `.github/workflows/jacket-web.yml`. It resolves the tag (or `latest`) to a commit
 in matteopolak/jacket, builds and checks the browser bundle with the release's own
 `package_browser_release.py`, publishes it as the `jai-web-<sha>` release and commits the new
 pin, which deploys. Nothing is vendored, so there is no file to edit by hand. Releases from 0.19
 keep their build scripts in `tools/<subsystem>/`; the workflow looks in both places.
 
 The workspace header shows the pinned build as `jacket <version> · <short sha>`, linked to the
-commit in matteopolak/jacket. `jai-web.yml` records `version` from the compiler's
+commit in matteopolak/jacket. `jacket-web.yml` records `version` from the compiler's
 `[workspace.package]` in `Cargo.toml`. Pins written before that have no `version`, so the
 label shows just the hash.
 
@@ -204,12 +204,22 @@ client navigation and the removed route. Set `VIEWPORT_WIDTH=390` for mobile and
 include same-origin CORP alongside COEP/COOP so module workers can load under site
 isolation. Browser/editor tests remain distinct from full language compatibility.
 
-Dispatch `jai-web.yml` with `jai_ref` set to a full tested commit SHA. The workflow
+Dispatch `jacket-web.yml` with `jai_ref` set to a full tested commit SHA. The workflow
 retains immutable release assets and, by default, updates the consumer pointer
 after its build passes. Reusing a tag requires byte-identical assets; it never
 overwrites an existing release. A pointer commit created by `GITHUB_TOKEN` needs
 a separate portfolio CI dispatch. Check Cloudflare and anonymous live assets
 against that pointer before claiming deployment.
+
+### API docs (`/docs/jacket`)
+
+Each Jacket release from 0.31.0 attaches `jacket-docs-<version>.tar.gz`: the standard library's API reference as a static site (about 7.4k files), built by `jacket doc --base-url /docs/jacket/` with the browser compiler for its Run buttons. The portfolio serves it at `/docs/jacket/`. Nothing generated is committed.
+
+- **Publish (`jacket-web.yml`).** After building the playground bundle, "Fetch and check the API docs" reads the version from the compiler's `Cargo.toml` and looks for the asset on release `v<version>`. That tag must resolve to the pinned commit, and the download must match GitHub's `sha256` digest for the asset. `scripts/stage-jacket-docs.py` then checks the inventory. The tarball is re-published as `jacket-docs.tar.gz` on the immutable `jai-web-<sha>` release, and its digest goes into the pin. A release without the asset (before 0.31.0) publishes without docs. Re-running for a release published before docs existed uploads the docs to it once; otherwise the existing bytes must match.
+- **Build (`sync-jai-web.ts`, in `prebuild`).** When the pin has `docsAsset`, it downloads the tarball from the `jai-web-<sha>` release (64 MiB cap), checks the pinned digest, and runs `stage-jacket-docs.py --out public/docs/jacket`. That script rejects anything but regular files and directories with plain relative paths, more than 12,000 files, any file over 25 MiB (the Cloudflare Pages limit) or 256 MiB in total, and a site without `index.html`. It drops the tarball's `runtime/` copy of the compiler and rewrites `runtime.json` to `{"engine": "/jai/<sha>/engine.mjs", "wasm": "/jai/<sha>/jai_wasm.wasm"}`, the playground's copy, which the docs' run worker loads. A pin without docs removes `public/docs/jacket`. `public/docs/` is gitignored, and `check:seo` skips `dist/docs`, because the generated pages carry their own metadata.
+- The docs' "Open in playground" button links to `/playground/jacket#code=…` (see [Program links](#program-links)). Their header links back to the playground.
+- Cloudflare Pages serves `/docs/jacket/` from `index.html` (and redirects `/docs/jacket` there). The site headers (COOP/COEP) apply to it too, so it must load only same-origin assets, as it does.
+- Tests: `tests/jai/test_jacket_docs.py` (staging, `runtime.json`, refusals).
 
 ## Dependencies
 

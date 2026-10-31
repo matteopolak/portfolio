@@ -11,7 +11,7 @@
     "dev": "astro dev",
     "prebuild": "pnpm generate:favicons && pnpm sync:web-assets && pnpm fetch:resume",
     "fetch:resume": "node scripts/fetch-resume.ts",
-    "bump:jacket": "sh -c 'gh workflow run jai-web.yml -R matteopolak/portfolio -f jai_ref=\"${1:-latest}\"' --",
+    "bump:jacket": "sh -c 'gh workflow run jacket-web.yml -R matteopolak/portfolio -f jai_ref=\"${1:-latest}\"' --",
     "build": "astro build",
     "generate:favicons": "node scripts/generate-favicons.ts",
     "sync:web-assets": "node scripts/sync-lodestone-web.ts && node scripts/sync-quasi-web.ts && node scripts/sync-baerscript-web.ts && node scripts/sync-jai-web.ts",

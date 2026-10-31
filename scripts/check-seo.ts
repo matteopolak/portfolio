@@ -19,7 +19,15 @@ import { join, relative, resolve } from 'node:path';
 const origin = 'https://matteopolak.com';
 const dist = resolve(import.meta.dirname, '..', 'dist');
 // Vendored runtime assets, not pages.
-const skipped = new Set(['_astro', 'jai', 'quasi', 'baerscript', 'lodestone']);
+// `docs` is the generated Jacket API reference (docs/jai-integration.md).
+const skipped = new Set([
+  '_astro',
+  'jai',
+  'quasi',
+  'baerscript',
+  'lodestone',
+  'docs',
+]);
 
 async function htmlFiles(directory: string): Promise<string[]> {
   const files: string[] = [];

@@ -27,7 +27,7 @@ export interface CodeDemoPage {
     revision?: string;
     /** Full-page playground route. */
     page?: string;
-    /** Compiler version, recorded in the pin by jai-web.yml. */
+    /** Compiler version, recorded in the pin by jacket-web.yml. */
     version?: string;
   };
 }

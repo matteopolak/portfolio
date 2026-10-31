@@ -81,3 +81,4 @@ resume/*.pdf
 jobs/
 /src/generated/favicons/
 .lighthouseci/
+public/docs/

@@ -1,8 +1,9 @@
-name: Publish Jai browser compiler
+name: Publish Jacket web
 
-# Builds the playground's compiler from a Jacket release and pins it in
-# releases/jai-web-release.json. Bump with `pnpm bump:jacket [tag]`, which
-# defaults to the latest release.
+# Builds the playground's compiler from a Jacket release, takes the release's
+# API docs (jacket-docs-<version>.tar.gz, from 0.31.0) for /docs/jacket, and
+# pins both in releases/jai-web-release.json. Bump with
+# `pnpm bump:jacket [tag]`, which defaults to the latest release.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +17,7 @@ on:
         default: true
 
 concurrency:
-  group: jai-web-publish
+  group: jacket-web-publish
   cancel-in-progress: false
 
 permissions:
@@ -100,6 +101,25 @@ jobs:
         run: |
           tool() { for p in "tools/$1" tools/*/"$1"; do [ -f "$p" ] && { echo "$p"; return; }; done; echo "no $1 in tools/" >&2; return 1; }
           python3 "$(tool package_browser_release.py)" --output "$GITHUB_WORKSPACE/.build/jai-release" --jaic "$PWD/target/debug/jaic"
+      # The docs are built by Jacket's release workflow; take them from the
+      # release whose tag is this commit, checked against GitHub's digest.
+      # Releases before 0.31.0 have none, and the site then has no /docs/jacket.
+      - name: Fetch and check the API docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open(".build/jai/Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          asset="jacket-docs-$version.tar.gz"
+          release="$(gh api "repos/matteopolak/jacket/releases/tags/v$version" 2>/dev/null || true)"
+          digest="$(jq -r --arg name "$asset" '.assets[]? | select(.name == $name) | .digest // empty' <<<"$release")"
+          if [ -z "$digest" ]; then
+            echo "Jacket v$version has no $asset; publishing without docs."
+            exit 0
+          fi
+          test "$(gh api "repos/matteopolak/jacket/commits/v$version" --jq .sha)" = "$JAI_REF"
+          gh release download "v$version" -R matteopolak/jacket --pattern "$asset" --output .build/jai-release/jacket-docs.tar.gz
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          python3 scripts/stage-jacket-docs.py .build/jai-release/jacket-docs.tar.gz "$JAI_REF" --sha256 "${digest#sha256:}"
       - name: Validate inventory and pin release digests
         run: |
           python3 scripts/verify-jai-bundle.py .build/jai-release "$JAI_REF"
@@ -116,14 +136,17 @@ jobs:
                          manifestAsset='jai-playground.manifest.json',
                          manifestSha256=digest('jai-playground.manifest.json'),
                          bundleAsset='jai-playground.zip', sha256=digest('jai-playground.zip'))
+          if (directory / 'jacket-docs.tar.gz').exists():
+              pointer.update(docsAsset='jacket-docs.tar.gz', docsSha256=digest('jacket-docs.tar.gz'))
           Path('.build/jai-web-release.json').write_text(json.dumps(pointer, indent=2) + '\n')
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: jai-web-${{ env.JAI_REF }}
+          name: jacket-web-${{ env.JAI_REF }}
           path: |
             .build/jai-release/jai-playground.zip
             .build/jai-release/jai-playground.manifest.json
+            .build/jai-release/jacket-docs.tar.gz
             .build/jai-web-release.json
           if-no-files-found: error
       - name: Publish immutable release assets
@@ -136,8 +159,18 @@ jobs:
             gh release download "$tag" --pattern jai-playground.zip --pattern jai-playground.manifest.json --dir .build/existing-jai-release
             cmp .build/existing-jai-release/jai-playground.zip .build/jai-release/jai-playground.zip
             cmp .build/existing-jai-release/jai-playground.manifest.json .build/jai-release/jai-playground.manifest.json
+            # A release published before the docs existed gets them added once.
+            if [ -f .build/jai-release/jacket-docs.tar.gz ]; then
+              if gh release download "$tag" --pattern jacket-docs.tar.gz --dir .build/existing-jai-release 2>/dev/null; then
+                cmp .build/existing-jai-release/jacket-docs.tar.gz .build/jai-release/jacket-docs.tar.gz
+              else
+                gh release upload "$tag" .build/jai-release/jacket-docs.tar.gz
+              fi
+            fi
           else
-            gh release create "$tag" .build/jai-release/jai-playground.zip .build/jai-release/jai-playground.manifest.json \
+            docs=()
+            [ -f .build/jai-release/jacket-docs.tar.gz ] && docs=(.build/jai-release/jacket-docs.tar.gz)
+            gh release create "$tag" .build/jai-release/jai-playground.zip .build/jai-release/jai-playground.manifest.json "${docs[@]}" \
               --target "$GITHUB_SHA" --prerelease --latest=false --title "Jai browser compiler $JAI_REF" \
               --notes 'Experimental Rust-built compiler and independently authored browser workspace. Exact revision and file digests are recorded in the manifest.'
           fi
@@ -159,6 +192,6 @@ jobs:
           if ! git diff --cached --quiet; then
             git config user.name github-actions[bot]
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git commit -m "chore: pin Jai browser compiler to $JAI_REF"
+            git commit -m "chore: pin Jacket web to $JAI_REF"
             git push origin "HEAD:${{ github.event.repository.default_branch }}"
           fi
