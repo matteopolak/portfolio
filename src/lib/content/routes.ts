@@ -61,6 +61,8 @@ export function markdownPathFor(path: string): string | undefined {
   if (path === '/404') return undefined;
   if (path === '/playground' || path.startsWith('/playground/'))
     return undefined;
+  // The Jacket playground lives in the docs (/docs/jacket/playground).
+  if (path.startsWith('/docs/')) return undefined;
   const clean = path.replace(/\/+$/, '');
   return `${clean}.md`;
 }

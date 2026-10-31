@@ -36,7 +36,13 @@ const sectionNames: Record<string, string> = {
 // Home > section > page, from the URL. The last crumb is the page itself.
 const crumbs: { name: string; path: string }[] = [{ name: 'Home', path: '/' }];
 const segments = canonicalPath.split('/').filter(Boolean);
-segments.forEach((segment, index) => {
+// Pages inside the Jacket docs (/docs/jacket/playground) sit under the docs' home, not /docs.
+const docsPage = canonicalPath.startsWith('/docs/jacket/');
+if (docsPage) {
+  crumbs.push({ name: 'Jacket docs', path: '/docs/jacket/' });
+  crumbs.push({ name: pageTitle, path: canonicalPath });
+}
+(docsPage ? [] : segments).forEach((segment, index) => {
   const path = `/${segments.slice(0, index + 1).join('/')}`;
   const last = index === segments.length - 1;
   crumbs.push({

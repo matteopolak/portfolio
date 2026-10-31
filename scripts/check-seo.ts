@@ -72,7 +72,15 @@ const titles = new Map<string, string>();
 const descriptions = new Map<string, string>();
 const canonicals: string[] = [];
 
-const files = await htmlFiles(dist);
+// The Jacket playground is the one page of ours inside the docs.
+const docsPlayground = join(dist, 'docs/jacket/playground.html');
+const files = [
+  ...(await htmlFiles(dist)),
+  ...(await readFile(docsPlayground).then(
+    () => [docsPlayground],
+    () => []
+  )),
+];
 if (files.length === 0)
   throw new Error('dist/ has no pages: run `pnpm build` first.');
 
@@ -80,6 +88,13 @@ for (const file of files) {
   const path = route(file);
   const fail = (message: string) => errors.push(`${path}: ${message}`);
   const html = await readFile(file, 'utf8');
+
+  // A redirect stub (src/pages/playground/jacket.astro) is not a page.
+  if (/<meta\b[^>]*http-equiv="refresh"/u.test(html)) {
+    if (!meta(html, 'name', 'robots')?.includes('noindex'))
+      fail('redirect page must be noindex');
+    continue;
+  }
 
   // The 404 page is served for unknown paths: noindex, no canonical checks,
   // no sitemap entry, no markdown variant.

@@ -1,4 +1,7 @@
-# The Jai playground moved when the project was renamed to Jacket. Browsers keep
-# the #file fragment across the redirect, so deep links still open their file.
-/playground/jai /playground/jacket 301
-/playground/jai.html /playground/jacket 301
+# The Jacket playground lives in the Jacket docs. Browsers keep the fragment
+# across the redirect, so `#code=…` program links and `#lib/math.jai` file
+# links still open. /playground/jai is its name from before the Jacket rename.
+/playground/jacket /docs/jacket/playground 301
+/playground/jacket.html /docs/jacket/playground 301
+/playground/jai /docs/jacket/playground 301
+/playground/jai.html /docs/jacket/playground 301

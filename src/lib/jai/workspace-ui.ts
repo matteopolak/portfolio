@@ -3242,7 +3242,7 @@ export async function createSession(
       else tabs.open(path);
     if (opening[0]) tabs.open(opening[0]);
   }
-  // A playground deep link (`/playground/jacket#lib/math.jai`) opens that file.
+  // A playground deep link (`/docs/jacket/playground#lib/math.jai`) opens that file.
   const requested = panel.dataset.codeOpen;
   if (requested && names.has(requested)) tabs.open(requested);
   saveLayout(restored);

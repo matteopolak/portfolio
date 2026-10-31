@@ -8,7 +8,7 @@ import {
 } from './code-demos';
 
 /**
- * Starts the full-page playground on `/playground/<id>`: the same workspace
+ * Starts the full-page playground on `/playground/<id>` (Jacket: `/docs/jacket/playground`): the same workspace
  * and runtime as the Projects modal, mounted in `[data-playground-page]`
  * and loaded immediately. There is no dialog, so Escape has no effect here
  * either; it stays with the editor (Vim, completion, search).
