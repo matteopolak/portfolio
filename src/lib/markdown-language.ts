@@ -37,7 +37,7 @@ const markdownTags = styleTags({
 const markdownColors = HighlightStyle.define([
   {
     tag: [tags.heading, headingMark],
-    color: 'color-mix(in oklch, var(--accent-2-light) 55%, white)',
+    color: 'var(--ide-link)',
     fontWeight: '700',
   },
   { tag: tags.strong, color: 'var(--ide-fg-strong)', fontWeight: '700' },
@@ -55,7 +55,7 @@ const markdownColors = HighlightStyle.define([
   { tag: tags.labelName, color: 'var(--ide-syntax-type)' },
   {
     tag: tags.link,
-    color: 'color-mix(in oklch, var(--accent-2-light) 55%, white)',
+    color: 'var(--ide-link)',
   },
   {
     tag: tags.url,

@@ -46,7 +46,6 @@ function resolveColor(host: HTMLElement, value: string): string {
 export function readTheme(host: HTMLElement): ITheme {
   const color = (token: string) => resolveColor(host, `var(${token})`);
   const fg = color('--ide-fg');
-  const cyan = resolveColor(host, 'oklch(82% 0.1 210)');
   return {
     background: color('--ide-sunken'),
     foreground: fg,
@@ -57,16 +56,16 @@ export function readTheme(host: HTMLElement): ITheme {
     brightBlack: color('--ide-faint'),
     red: color('--ide-error'),
     brightRed: color('--ide-error'),
-    green: color('--ide-syntax-string'),
-    brightGreen: color('--ide-syntax-string'),
-    yellow: color('--ide-syntax-keyword'),
-    brightYellow: color('--ide-syntax-keyword'),
-    blue: color('--ide-syntax-type'),
-    brightBlue: color('--ide-syntax-type'),
-    magenta: color('--ide-syntax-format'),
-    brightMagenta: color('--ide-syntax-format'),
-    cyan,
-    brightCyan: cyan,
+    green: color('--ide-ok'),
+    brightGreen: color('--ide-ok'),
+    yellow: color('--ide-warn'),
+    brightYellow: color('--ide-warn'),
+    blue: color('--ide-link'),
+    brightBlue: color('--ide-link'),
+    magenta: color('--ide-syntax-keyword'),
+    brightMagenta: color('--ide-syntax-keyword'),
+    cyan: color('--ide-syntax-type'),
+    brightCyan: color('--ide-syntax-type'),
     white: fg,
     brightWhite: color('--ide-fg-strong'),
   };
@@ -136,11 +135,18 @@ export async function createTerminal(
     frame = requestAnimationFrame(refit);
   });
   observer.observe(host);
+  // The tokens switch with the system scheme, or with `data-ide-theme` on
+  // <html> (the docs playground's theme button).
   const scheme = matchMedia('(prefers-color-scheme: dark)');
   const rethink = () => {
     term.options.theme = readTheme(host);
   };
   scheme.addEventListener('change', rethink);
+  const pinned = new MutationObserver(rethink);
+  pinned.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-ide-theme'],
+  });
   refit();
 
   const listeners: (() => void)[] = [];
@@ -151,6 +157,7 @@ export async function createTerminal(
     cancelAnimationFrame(frame);
     observer.disconnect();
     scheme.removeEventListener('change', rethink);
+    pinned.disconnect();
     for (const stop of listeners) stop();
     term.dispose();
   };

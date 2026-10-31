@@ -1,7 +1,7 @@
 /*
- * Markdown preview in the code workspace (see markdown-preview.ts). The
- * workspace is a dark surface on every site theme, so everything here uses its
- * `--ide-*` tokens from CodeWorkspace.astro. Tailwind's preflight resets
+ * Markdown preview in the code workspace (see markdown-preview.ts). Colours
+ * come from the workspace's `--ide-*` tokens (CodeWorkspace.svelte), which
+ * switch with its light or dark scheme. Tailwind's preflight resets
  * headings and lists, so the prose styles are spelled out.
  */
 
@@ -65,7 +65,7 @@
   left: var(--radius-sm);
   height: 2px;
   content: '';
-  background: var(--accent-2);
+  background: var(--ide-accent);
 }
 
 .ide .ide-group-actions svg {
@@ -90,7 +90,7 @@
   padding: 1.25rem var(--md-gutter) 3rem;
   color: var(--ide-fg);
   background: var(--ide-bg);
-  font: 0.9375rem/1.65 var(--font-sans);
+  font: 0.9375rem/1.65 var(--ide-sans);
   overflow-wrap: break-word;
 }
 
@@ -100,7 +100,7 @@
 }
 
 .ide .md-preview:focus-visible {
-  outline: 2px solid var(--accent-3);
+  outline: 2px solid var(--ide-link);
   outline-offset: -2px;
 }
 
@@ -149,9 +149,13 @@
 }
 
 .ide .md-preview a {
-  color: color-mix(in oklch, var(--accent-2-light) 55%, white);
+  color: var(--ide-link);
   text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--accent-2) 50%, transparent);
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--ide-accent) 50%,
+    transparent
+  );
   text-underline-offset: 0.18em;
 }
 
@@ -203,7 +207,7 @@
 .ide .md-preview li > input[type='checkbox']:first-child {
   margin: 0 0.45rem 0 -1.3rem;
   vertical-align: -0.1em;
-  accent-color: var(--accent-2);
+  accent-color: var(--ide-accent);
 }
 
 .ide .md-preview blockquote {
@@ -297,7 +301,7 @@
 }
 
 .ide .md-preview tbody tr:nth-child(even) {
-  background: oklch(100% 0 0 / 0.025);
+  background: var(--ide-overlay);
 }
 
 .ide .md-preview img {

@@ -33,6 +33,13 @@ const { title, description } = Astro.props;
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: oklch(21% 0.006 270);
+    /* The workspace's own page colour (the Jacket docs' background), light or dark with the system. */
+    background: #fafafa;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html.playground-document body {
+      background: #1b1b1f;
+    }
   }
 </style>

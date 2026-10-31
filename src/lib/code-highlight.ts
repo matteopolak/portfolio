@@ -54,7 +54,7 @@ export const highlightStyle = HighlightStyle.define([
     tag: docCommentTags.code,
     color: commentToward(45, 'var(--ide-fg)'),
     fontStyle: 'normal',
-    backgroundColor: 'oklch(100% 0 0 / 0.05)',
+    backgroundColor: 'var(--ide-overlay)',
     borderRadius: 'var(--radius-xs)',
   },
   {
@@ -65,7 +65,7 @@ export const highlightStyle = HighlightStyle.define([
   // A resolved link's semantic token (`.cm-sem-*`) colours it by kind instead.
   {
     tag: docCommentTags.link,
-    color: commentToward(60, 'var(--accent-2-light)'),
+    color: commentToward(60, 'var(--ide-link)'),
   },
   { tag: tags.number, color: 'var(--ide-syntax-number)' },
   {

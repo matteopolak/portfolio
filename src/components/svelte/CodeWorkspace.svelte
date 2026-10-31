@@ -22,10 +22,11 @@
     /** Compiler version shown next to the revision's short hash. */
     version?: string;
     /**
-     * `modal` (inside a demo dialog), `page` (a /playground route) or `embed`
-     * (a blog post's `<Playground>`, which links out to the full page).
+     * `modal` (inside a demo dialog), `page` (a /playground route), `docs`
+     * (the Jacket docs' playground page, framed under the docs header) or
+     * `embed` (a blog post's `<Playground>`, which links out to the full page).
      */
-    mode?: 'modal' | 'page' | 'embed';
+    mode?: 'modal' | 'page' | 'docs' | 'embed';
   }
 
   const {
@@ -110,6 +111,7 @@
   class="ide ide--{language}"
   class:ide--single={!files}
   class:ide--page={mode !== 'modal'}
+  class:ide--docs={mode === 'docs'}
   data-code-workspace
   data-code-language={language}
   data-code-starter={starter}
@@ -262,7 +264,7 @@
         ><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg
       >
     </button>
-    {#if mode !== 'page'}
+    {#if mode === 'modal' || mode === 'embed'}
       <a
         class="ide-icon ide-icon--page"
         href={page}
@@ -561,8 +563,9 @@
 
   .ide-output__title {
     color: var(--ide-muted);
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
   }
 
   .ide-output__summary {
@@ -687,14 +690,14 @@
   }
 
   pre:focus-visible {
-    outline: 2px solid var(--accent-3);
+    outline: 2px solid var(--ide-link);
     outline-offset: -2px;
   }
 
   pre:empty::before {
     content: attr(data-empty);
     color: var(--ide-faint);
-    font-family: var(--font-sans);
+    font-family: var(--ide-sans);
   }
 
   pre:global([aria-busy='true']):empty::before {
@@ -732,23 +735,23 @@
   }
 
   pre :global(:is(.ansi-fg-yellow, .ansi-fg-bright-yellow)) {
-    color: var(--ide-syntax-keyword);
+    color: var(--ide-warn);
   }
 
   pre :global(:is(.ansi-fg-green, .ansi-fg-bright-green)) {
-    color: var(--ide-syntax-string);
+    color: var(--ide-ok);
   }
 
   pre :global(:is(.ansi-fg-blue, .ansi-fg-bright-blue)) {
-    color: var(--ide-syntax-type);
+    color: var(--ide-link);
   }
 
   pre :global(:is(.ansi-fg-cyan, .ansi-fg-bright-cyan)) {
-    color: oklch(82% 0.1 210);
+    color: var(--ide-syntax-type);
   }
 
   pre :global(:is(.ansi-fg-magenta, .ansi-fg-bright-magenta)) {
-    color: var(--ide-syntax-format);
+    color: var(--ide-syntax-keyword);
   }
 
   pre :global(:is(.ansi-fg-black, .ansi-fg-bright-black)) {
@@ -763,40 +766,66 @@
     color: var(--ide-muted);
   }
 
+  /*
+   * The Jacket docs' palette (/docs/jacket, site.css in matteopolak/jacket).
+   * Each token is `light-dark(light, dark)`: the workspace follows the system
+   * colour scheme, and `<html data-ide-theme="light|dark">` (set by the docs
+   * playground's theme button) pins one. Text tokens clear 4.5:1 on their
+   * surfaces in both schemes.
+   */
   .ide {
-    --ide-bg: oklch(21% 0.006 270);
-    --ide-sunken: oklch(17.5% 0.006 270);
-    --ide-raised: oklch(25.5% 0.008 270);
-    --ide-hover: oklch(28% 0.009 270);
-    --ide-rule: oklch(31% 0.008 270);
-    --ide-fg: oklch(90% 0.016 91);
-    --ide-fg-strong: oklch(97.598% 0.02449 91.61);
-    --ide-muted: oklch(76% 0.012 270);
-    --ide-faint: oklch(75% 0.01 270);
-    --ide-active-line: oklch(100% 0 0 / 0.035);
-    --ide-selection: color-mix(in oklch, var(--accent-2) 24%, transparent);
-    --ide-selection-match: oklch(100% 0 0 / 0.07);
-    --ide-search: color-mix(in oklch, var(--accent-3) 22%, transparent);
-    --ide-search-outline: color-mix(in oklch, var(--accent-3) 55%, transparent);
-    /* Syntax colours are fixed (not the site accents, which are pastel and
-       change per theme) so tokens stay distinct; every one clears 4.5:1 on
-       --ide-bg. */
-    --ide-syntax-keyword: oklch(76% 0.12 255);
-    --ide-syntax-type: oklch(80% 0.1 185);
-    --ide-syntax-function: oklch(87% 0.12 95);
-    --ide-syntax-string: oklch(79% 0.14 145);
-    /* Format specifiers (`%`, `%1`) in print-family strings: violet, away from the green strings. */
-    --ide-syntax-format: oklch(76% 0.16 310);
-    --ide-syntax-format-percent: oklch(72% 0.09 310);
-    --ide-syntax-number: oklch(79% 0.12 45);
-    --ide-syntax-directive: oklch(75% 0.14 10);
-    --ide-syntax-comment: oklch(70% 0.02 270);
-    --ide-syntax-punct: oklch(78% 0.01 270);
-    --ide-error: color-mix(in oklch, var(--accent-1-light) 58%, white);
+    --ide-bg: light-dark(#fdfdfd, #1e1e22);
+    --ide-sunken: light-dark(#f7f7f8, #19191c);
+    --ide-raised: light-dark(#ffffff, #242428);
+    --ide-hover: light-dark(#efeff2, #26262b);
+    --ide-rule: light-dark(#e6e6ea, #2c2c31);
+    --ide-hair: light-dark(#f0f0f2, #242428);
+    --ide-fg: light-dark(#2f2f35, #d4d4d8);
+    --ide-fg-strong: light-dark(#18181b, #f0f0f2);
+    --ide-fg2: light-dark(#56565e, #b0b0b8);
+    --ide-muted: light-dark(#6a6a74, #8f8f98);
+    --ide-faint: light-dark(#6e6e78, #8c8c96);
+    --ide-overlay: light-dark(rgb(24 24 27 / 0.045), rgb(255 255 255 / 0.05));
+    --ide-shadow: light-dark(rgb(24 24 27 / 0.1), rgb(0 0 0 / 0.45));
+    --ide-scroll: light-dark(#dcdce0, #38383e);
+    --ide-scroll-hover: light-dark(#b8b8bf, #4c4c54);
+    /* The docs' link blue: selection, focus, the active tab and file. */
+    --ide-accent: light-dark(#4a63c8, #8e99e6);
+    --ide-link: light-dark(#4a63c8, #a1abf0);
+    --ide-on-accent: light-dark(#ffffff, #1b1b1f);
+    --ide-selected: light-dark(#eceffa, #262a40);
+    --ide-ok: light-dark(#2f7d4d, #6dc98f);
+    --ide-ok-bg: light-dark(#f4f9f6, #1a2620);
+    --ide-warn: light-dark(#94600c, #d9b26a);
+    --ide-error: light-dark(#b3463d, #e5877f);
+    --ide-error-bg: light-dark(#fcf5f4, #2b2020);
+    --ide-active-line: light-dark(
+      rgb(74 99 200 / 0.045),
+      rgb(255 255 255 / 0.035)
+    );
+    --ide-selection: color-mix(in srgb, var(--ide-accent) 22%, transparent);
+    --ide-selection-match: var(--ide-overlay);
+    --ide-search: color-mix(in srgb, var(--ide-warn) 20%, transparent);
+    --ide-search-outline: color-mix(in srgb, var(--ide-warn) 55%, transparent);
+    /* Syntax: the docs' keyword, type and string colours, plus a few of the
+       same weight for what the docs never highlight. */
+    --ide-syntax-keyword: light-dark(#70589f, #ae9ddb);
+    --ide-syntax-type: light-dark(#36766f, #7fbfb3);
+    --ide-syntax-function: light-dark(#3d55b0, #a9b4f2);
+    --ide-syntax-string: light-dark(#8d6032, #cfae86);
+    /* Format specifiers (`%`, `%1`) in print-family strings: away from the strings' brown. */
+    --ide-syntax-format: light-dark(#a33d6b, #e08fb3);
+    --ide-syntax-format-percent: light-dark(#a8507a, #c98aa6);
+    --ide-syntax-number: light-dark(#9a4f2c, #e09a7a);
+    --ide-syntax-directive: light-dark(#a33d6b, #e08fb3);
+    --ide-syntax-comment: light-dark(#6a6a74, #8f8f98);
+    --ide-syntax-punct: light-dark(#56565e, #b0b0b8);
+    --ide-sans:
+      Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+      sans-serif;
     --ide-mono:
-      ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas,
-      'Liberation Mono', monospace;
-    --ide-accent: var(--accent-1);
+      'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo,
+      Consolas, 'Liberation Mono', monospace;
 
     position: relative;
     display: grid;
@@ -806,27 +835,38 @@
     overflow: hidden;
     color: var(--ide-fg);
     background: var(--ide-bg);
-    border: 1px solid oklch(100% 0 0 / 0.08);
+    border: 1px solid var(--ide-rule);
     border-radius: var(--radius-lg);
-    box-shadow:
-      0 1.5rem 4rem oklch(0% 0 0 / 0.38),
-      0 0.25rem 1rem oklch(0% 0 0 / 0.2);
+    box-shadow: 0 12px 32px var(--ide-shadow);
+    color-scheme: light dark;
+    font-family: var(--ide-sans);
+    font-size: 14px;
+  }
+
+  :global(:root[data-ide-theme='light']) .ide {
+    color-scheme: light;
+  }
+
+  :global(:root[data-ide-theme='dark']) .ide {
     color-scheme: dark;
-    font-family: var(--font-sans);
   }
 
-  .ide--quasi {
-    --ide-accent: var(--accent-2);
-  }
-
-  .ide--baerscript {
-    --ide-accent: var(--accent-3);
+  /* Thin scrollbars in the theme's colours, as in the docs. */
+  .ide,
+  .ide :global(*) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ide-scroll) transparent;
   }
 
   /* Full-screen and the full-page playground fill the viewport: no frame corners. */
   .ide:fullscreen,
-  .ide--page {
+  .ide--page:not(.ide--docs) {
     border-radius: 0;
+  }
+
+  /* On the docs page the workspace is a card under the header, like the docs' examples. */
+  .ide--docs {
+    box-shadow: none;
   }
 
   .ide:fullscreen {
@@ -848,7 +888,7 @@
   .ide button:focus-visible,
   .ide a:focus-visible,
   .ide [tabindex]:focus-visible {
-    outline: 2px solid var(--accent-3);
+    outline: 2px solid var(--ide-link);
     outline-offset: -2px;
   }
 
@@ -940,13 +980,8 @@
   }
 
   .ide-tool--vim:global([aria-pressed='true']) {
-    color: var(--ide-fg-strong) !important;
-    background: var(--ide-raised) !important;
-    box-shadow: inset 0 0 0 1px var(--accent-2);
-  }
-
-  .ide-tool--vim:global([aria-pressed='true']) svg {
-    color: color-mix(in oklch, var(--accent-2-light) 45%, white);
+    color: var(--ide-link) !important;
+    background: var(--ide-selected) !important;
   }
 
   .ide-status {
@@ -998,6 +1033,7 @@
     background: var(--ide-hover) !important;
   }
 
+  /* The docs' primary button: link-blue text on its tint. */
   .ide-run {
     display: inline-flex;
     align-items: center;
@@ -1006,11 +1042,13 @@
     padding: 0 0.7rem 0 0.6rem;
     margin-left: 0.25rem;
     border-radius: var(--radius-sm) !important;
-    color: var(--accent-3-on) !important;
-    background: var(--accent-3) !important;
-    font-size: 0.8rem !important;
-    font-weight: 700 !important;
-    transition: filter 120ms ease;
+    color: var(--ide-link) !important;
+    background: var(--ide-selected) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease;
   }
 
   .ide-run svg {
@@ -1021,24 +1059,33 @@
   }
 
   .ide-run:hover:not(:disabled) {
-    filter: brightness(1.08);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--ide-link) 45%, transparent);
   }
 
   .ide-run:disabled {
-    opacity: 0.45;
-    cursor: default !important;
+    opacity: 0.55;
+    cursor: not-allowed !important;
   }
 
   .ide-run kbd {
-    padding: 0.1rem 0.3rem;
-    border-radius: var(--radius-xs);
-    font: 600 0.68rem/1 var(--ide-mono);
-    background: oklch(0% 0 0 / 0.12);
+    padding: 0 0.35rem;
+    border: 1px solid var(--ide-rule);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    color: var(--ide-muted);
+    background: var(--ide-sunken);
+    font: 500 11px/1.5 var(--ide-mono);
   }
 
   .ide-run--stop {
-    color: var(--accent-1-on) !important;
-    background: var(--accent-1) !important;
+    color: var(--ide-error) !important;
+    background: var(--ide-error-bg) !important;
+  }
+
+  .ide-run--stop:hover:not(:disabled) {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--ide-error) 45%, transparent);
   }
 
   .ide-icon {
@@ -1065,8 +1112,8 @@
   }
 
   .ide-icon--close:hover {
-    color: var(--accent-1-on) !important;
-    background: var(--accent-1) !important;
+    color: var(--ide-error) !important;
+    background: var(--ide-error-bg) !important;
   }
 
   .ide-icon--fullscreen {
@@ -1109,8 +1156,9 @@
     flex: none;
     padding: 0 0.35rem 0 1rem;
     color: var(--ide-muted);
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     cursor: grab;
     user-select: none;
   }
@@ -1163,7 +1211,7 @@
     border: 0;
     border-radius: var(--radius-xs) !important;
     background: none;
-    color: var(--ide-fg) !important;
+    color: var(--ide-fg2) !important;
     text-align: left;
     cursor: pointer;
   }
@@ -1173,23 +1221,17 @@
   }
 
   .ide-examples-list :global(.example-item[aria-current]) {
-    color: var(--ide-fg-strong) !important;
-    background: var(--ide-raised) !important;
+    background: var(--ide-selected) !important;
   }
 
-  .ide-examples-list :global(.example-item[aria-current])::before {
-    position: absolute;
-    top: var(--radius-xs);
-    bottom: var(--radius-xs);
-    left: 0;
-    width: 2px;
-    content: '';
-    background: var(--accent-2);
+  .ide-examples-list :global(.example-item[aria-current] .example-title) {
+    color: var(--ide-link);
+    font-weight: 600;
   }
 
   .ide-examples-list :global(.example-title) {
     overflow: hidden;
-    font: 0.8125rem/1.2 var(--ide-mono);
+    font: 500 13px/1.3 var(--ide-sans);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1197,7 +1239,7 @@
   .ide-examples-list :global(.example-summary) {
     overflow: hidden;
     color: var(--ide-muted);
-    font-size: 0.75rem;
+    font-size: 12px;
     line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1229,32 +1271,23 @@
     padding: 0 2rem 0
       calc(var(--tree-gutter) + var(--depth, 0) * var(--tree-indent));
     border-radius: var(--radius-xs) !important;
-    color: var(--ide-fg) !important;
-    font: 0.875rem/1 var(--ide-mono) !important;
+    color: var(--ide-fg2) !important;
+    font: 13px/1 var(--ide-mono) !important;
     text-align: left;
     white-space: nowrap;
   }
 
   .ide-tree :global(.tree-item:hover),
   .ide-tree :global(.tree-row:hover .tree-item) {
+    color: var(--ide-fg) !important;
     background: var(--ide-hover) !important;
   }
 
+  /* The open file reads like the docs' current page in the side navigation. */
   .ide-tree :global(.tree-item[aria-current]) {
-    position: relative;
-    color: var(--ide-fg-strong) !important;
-    background: var(--ide-raised) !important;
-  }
-
-  /* A straight bar clear of the rounded corners (see the file tabs). */
-  .ide-tree :global(.tree-item[aria-current])::before {
-    position: absolute;
-    top: var(--radius-xs);
-    bottom: var(--radius-xs);
-    left: 0;
-    width: 2px;
-    content: '';
-    background: var(--accent-2);
+    color: var(--ide-link) !important;
+    background: var(--ide-selected) !important;
+    font-weight: 600 !important;
   }
 
   .ide-tree :global(.tree-icon) {
@@ -1264,20 +1297,21 @@
   }
 
   .ide-tree :global(.folder .tree-icon) {
-    color: color-mix(in oklch, var(--accent-3-light) 75%, var(--ide-muted));
+    color: color-mix(in srgb, var(--ide-warn) 70%, var(--ide-muted));
   }
 
   /* File-type tints, shared by tree rows and tabs (icons from jai/file-icons.ts). */
+  /* Jai files take the Jacket logo's coral. */
   .ide :global(svg[data-icon='jai']) {
-    color: color-mix(in oklch, var(--accent-1-light) 62%, white);
+    color: light-dark(#c95a45, #ff8e78);
   }
 
   .ide :global(svg[data-icon='config']) {
-    color: color-mix(in oklch, var(--accent-2-light) 50%, white);
+    color: var(--ide-link);
   }
 
   .ide :global(svg[data-icon='markdown']) {
-    color: color-mix(in oklch, var(--accent-2-light) 35%, var(--ide-fg));
+    color: color-mix(in srgb, var(--ide-link) 45%, var(--ide-fg));
   }
 
   .ide :global(svg[data-icon='text']),
@@ -1363,7 +1397,7 @@
     padding: 0 0.45rem;
     color: var(--ide-fg-strong);
     background: var(--ide-bg);
-    border: 1px solid var(--accent-2);
+    border: 1px solid var(--ide-accent);
     border-radius: var(--radius-xs);
     outline: none;
     font: 0.875rem/1 var(--ide-mono);
@@ -1381,7 +1415,7 @@
     background: var(--ide-raised);
     border: 1px solid var(--ide-rule);
     border-radius: var(--radius);
-    box-shadow: 0 0.75rem 2rem oklch(0% 0 0 / 0.45);
+    box-shadow: 0 0.75rem 2rem var(--ide-shadow);
   }
 
   .ide :global(.tree-menu button) {
@@ -1483,7 +1517,7 @@
     right: var(--radius-sm);
     height: 2px;
     content: '';
-    background: var(--accent-2);
+    background: var(--ide-accent);
   }
 
   /* With several groups, only the focused group's tab keeps the blue rule. */
@@ -1646,7 +1680,7 @@
   }
 
   .ide-render__stage:global([data-state='unsupported']) .ide-empty-title {
-    color: var(--accent-3);
+    color: var(--ide-warn);
   }
 
   .ide-render__stage :global(canvas) {
@@ -1673,7 +1707,7 @@
   .ide-render__stage:global([data-state='drawing']):has(
       :global(canvas:focus)
     )::after {
-    box-shadow: inset 0 0 0 1px var(--accent-2);
+    box-shadow: inset 0 0 0 1px var(--ide-accent);
   }
 
   /* The shared loader covers the body only, so close and retry stay usable. */
@@ -1847,7 +1881,8 @@
       display: none;
       width: 0.45rem;
       height: 0.45rem;
-      background: var(--accent-3);
+      border-radius: 50%;
+      background: var(--ide-accent);
     }
 
     .ide[data-output-unread='true'] .ide-tab-dot {
@@ -1967,7 +2002,7 @@
     .ide .ide-divider[role='separator']:hover,
     .ide .ide-divider:focus-visible,
     .ide .ide-divider.active {
-      background: var(--accent-2);
+      background: var(--ide-accent);
       outline: none;
     }
 
@@ -1996,9 +2031,9 @@
       z-index: 40;
       pointer-events: none;
       border-radius: var(--radius-sm);
-      background: color-mix(in oklch, var(--accent-2) 20%, transparent);
+      background: color-mix(in oklch, var(--ide-accent) 20%, transparent);
       box-shadow: inset 0 0 0 1px
-        color-mix(in oklch, var(--accent-2) 65%, transparent);
+        color-mix(in oklch, var(--ide-accent) 65%, transparent);
       transition:
         left 80ms ease,
         top 80ms ease,
@@ -2011,7 +2046,7 @@
     }
 
     .ide .ide-drop[data-insert] {
-      background: var(--accent-2);
+      background: var(--ide-accent);
       box-shadow: none;
       transition: none;
     }
@@ -2028,7 +2063,7 @@
       background: var(--ide-raised);
       border: 1px solid var(--ide-rule);
       border-radius: var(--radius-sm);
-      box-shadow: 0 0.5rem 1.5rem oklch(0% 0 0 / 0.4);
+      box-shadow: 0 0.5rem 1.5rem var(--ide-shadow);
       font: 0.78rem/1.2 var(--ide-mono);
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -2083,7 +2118,11 @@
     }
   }
 
-  /* The confirmation dialog (workspace-actions.ts) is created in the panel at runtime. */
+  /*
+   * The confirmation dialog (workspace-actions.ts) is created in the panel at
+   * runtime, so it inherits the tokens and colour scheme; it looks like the
+   * docs' menus: a surface card with a hairline border and a soft shadow.
+   */
   :global(.ide-confirm) {
     /* The global reset zeroes the UA's `margin: auto`, so centre it explicitly. */
     position: fixed;
@@ -2093,15 +2132,13 @@
     grid-template-columns: auto 1fr;
     column-gap: 1rem;
     width: min(27rem, calc(100vw - 2rem));
-    padding: 1.35rem 1.4rem 1.2rem;
-    color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
-    background: var(--ide-raised, oklch(25.5% 0.008 270));
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: var(--radius-lg);
-    box-shadow:
-      0 0.5rem 1.25rem oklch(0% 0 0 / 0.3),
-      0 1.75rem 4rem oklch(0% 0 0 / 0.45);
-    font-family: var(--font-sans);
+    padding: 1.25rem 1.35rem 1.1rem;
+    color: var(--ide-fg);
+    background: var(--ide-raised);
+    border: 1px solid var(--ide-rule);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px var(--ide-shadow);
+    font-family: var(--ide-sans);
     transform: translate(-50%, -50%);
   }
 
@@ -2114,8 +2151,8 @@
   }
 
   :global(.ide-confirm)::backdrop {
-    background: oklch(0% 0 0 / 0.4);
-    backdrop-filter: blur(0.3rem);
+    background: rgb(24 24 27 / 0.3);
+    backdrop-filter: blur(2px);
     animation: ide-confirm-fade-in 200ms ease-out both;
   }
 
@@ -2128,9 +2165,9 @@
     place-items: center;
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: var(--radius);
-    color: var(--accent-1-on);
-    background: var(--accent-1);
+    border-radius: 8px;
+    color: var(--ide-error);
+    background: var(--ide-error-bg);
   }
 
   :global(.ide-confirm__body) {
@@ -2138,17 +2175,19 @@
   }
 
   :global(.ide-confirm h2) {
-    margin: 0.3rem 0 0.45rem;
-    font-size: 1.05rem;
-    font-weight: 800;
+    margin: 0.3rem 0 0.4rem;
+    color: var(--ide-fg-strong);
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
     line-height: 1.3;
   }
 
   :global(.ide-confirm p) {
     margin: 0;
-    color: var(--ide-fg, oklch(90% 0.016 91));
-    font-size: 0.875rem;
-    line-height: 1.55;
+    color: var(--ide-fg2);
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   :global(.ide-confirm__actions) {
@@ -2156,44 +2195,44 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid oklch(100% 0 0 / 0.08);
+    margin-top: 1.1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--ide-hair);
   }
 
+  /* The docs' `.btn`. */
   :global(.ide-confirm button) {
-    padding: 0.5rem 0.95rem;
-    font: 700 0.82rem var(--font-sans);
-    color: var(--ide-fg-strong, oklch(97.598% 0.02449 91.61));
-    background: transparent;
-    border: 1px solid oklch(100% 0 0 / 0.22);
-    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+    font: 500 13px/1.5 var(--ide-sans);
+    color: var(--ide-fg2);
+    background: var(--ide-raised);
+    border: 1px solid var(--ide-rule);
+    border-radius: 6px;
     cursor: pointer;
     transition:
       background-color 120ms ease,
-      border-color 120ms ease,
-      filter 120ms ease;
+      border-color 120ms ease;
   }
 
   :global(.ide-confirm button:hover) {
-    background: oklch(100% 0 0 / 0.07);
-    border-color: oklch(100% 0 0 / 0.32);
+    color: var(--ide-fg);
+    border-color: color-mix(in srgb, var(--ide-rule), var(--ide-fg) 20%);
   }
 
   :global(.ide-confirm .ide-confirm__danger) {
-    color: var(--accent-1-on);
-    background: var(--accent-1);
-    border-color: var(--accent-1);
+    color: var(--ide-error);
+    background: var(--ide-error-bg);
+    border-color: transparent;
+    font-weight: 600;
   }
 
   :global(.ide-confirm .ide-confirm__danger:hover) {
-    background: var(--accent-1);
-    border-color: var(--accent-1);
-    filter: brightness(1.08);
+    color: var(--ide-error);
+    border-color: color-mix(in srgb, var(--ide-error) 45%, transparent);
   }
 
   :global(.ide-confirm button:focus-visible) {
-    outline: 2px solid var(--accent-3);
+    outline: 2px solid var(--ide-link);
     outline-offset: 2px;
   }
 

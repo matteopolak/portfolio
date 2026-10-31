@@ -59,19 +59,23 @@ function resolveColor(value: string, vars: Map<string, string>): string {
   return text.startsWith('#') ? text : formatOklch(toOklch(text));
 }
 
-/** The editor theme's own variables (the `.ide { ... }` block). */
-function editorVariables() {
+/**
+ * The editor theme's own variables (the `.ide { ... }` block), with each
+ * `light-dark(light, dark)` pair resolved to one side.
+ */
+function editorVariables(scheme: 'light' | 'dark') {
   const vars = new Map<string, string>();
   const body = /\.ide \{[^}]*\}/u.exec(workspace)?.[0] ?? '';
-  for (const match of body.matchAll(/(--[\w-]+):\s*([^;]+);/gu))
-    vars.set(
-      match[1],
-      match[2]
-        .replace(/\s+/gu, ' ')
-        .replace(/\( /gu, '(')
-        .replace(/ \)/gu, ')')
-        .trim()
-    );
+  for (const match of body.matchAll(/(--[\w-]+):\s*([^;]+);/gu)) {
+    let value = match[2]
+      .replace(/\s+/gu, ' ')
+      .replace(/\( /gu, '(')
+      .replace(/ \)/gu, ')')
+      .trim();
+    const pair = /^light-dark\((#[\da-f]+), (#[\da-f]+)\)$/iu.exec(value);
+    if (pair) value = scheme === 'light' ? pair[1] : pair[2];
+    vars.set(match[1], value);
+  }
   return vars;
 }
 
@@ -125,21 +129,29 @@ function pairsFor(themeId: string): Pair[] {
     'var(--paper)',
     'large'
   );
-  // The dark editor is built from the theme's accents (mixed with white).
-  const editor = editorVariables();
-  for (const [name, value] of site) editor.set(name, value);
-  const names = [...editor.keys()].filter((name) =>
-    /^--ide-(fg|fg-strong|muted|faint|syntax-[\w-]+|error)$/u.test(name)
-  );
-  for (const name of names)
-    for (const surface of ['--ide-bg', '--ide-raised'])
-      pairs.push({
-        theme: theme.name,
-        name: `editor ${name} on ${surface}`,
-        foreground: resolveColor(`var(${name})`, editor),
-        background: resolveColor(`var(${surface})`, editor),
-        kind: 'text',
-      });
+  return pairs;
+}
+
+/** The editor follows the docs' palette, not the site theme: light and dark. */
+function editorPairs(): Pair[] {
+  const pairs: Pair[] = [];
+  for (const scheme of ['light', 'dark'] as const) {
+    const editor = editorVariables(scheme);
+    const names = [...editor.keys()].filter((name) =>
+      /^--ide-(fg|fg-strong|fg2|muted|faint|link|ok|warn|syntax-[\w-]+|error)$/u.test(
+        name
+      )
+    );
+    for (const name of names)
+      for (const surface of ['--ide-bg', '--ide-raised', '--ide-sunken'])
+        pairs.push({
+          theme: `editor ${scheme}`,
+          name: `editor ${name} on ${surface}`,
+          foreground: resolveColor(`var(${name})`, editor),
+          background: resolveColor(`var(${surface})`, editor),
+          kind: 'text',
+        });
+  }
   return pairs;
 }
 
@@ -147,8 +159,11 @@ test('every theme meets WCAG AA and reports AAA for each pair', () => {
   const rows: Record<string, string>[] = [];
   const failures: string[] = [];
   const warnings: string[] = [];
-  for (const theme of themes) {
-    for (const pair of pairsFor(theme.id)) {
+  for (const pairs of [
+    ...themes.map((theme) => pairsFor(theme.id)),
+    editorPairs(),
+  ]) {
+    for (const pair of pairs) {
       const ratio = contrastBetween(pair.foreground, pair.background);
       const aa = pair.kind === 'text' ? 4.5 : 3;
       const aaa = pair.kind === 'text' ? 7 : 4.5;
