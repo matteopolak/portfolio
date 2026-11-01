@@ -771,7 +771,7 @@
   }
 
   /*
-   * The Jacket docs' palette (/docs/jacket, site.css in matteopolak/jacket).
+   * The Jacket docs' palette (jacket.matteopolak.com, site.css in matteopolak/jacket).
    * Each token is `light-dark(light, dark)`: the workspace follows the system
    * colour scheme, and `<html data-ide-theme="light|dark">` pins one. Text tokens clear 4.5:1 on their
    * surfaces in both schemes.

@@ -6,3 +6,7 @@
 # (#code=…, #lib/math.jai) survive the redirect.
 /docs/jacket/playground /playground/jacket 301
 /docs/jacket/playground.html /playground/jacket 301
+# The API docs moved to their own site; the rest of the path is kept. These
+# come after the playground lines because the first match wins.
+/docs/jacket https://jacket.matteopolak.com/ 301
+/docs/jacket/* https://jacket.matteopolak.com/:splat 301

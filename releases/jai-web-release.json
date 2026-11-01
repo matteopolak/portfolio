@@ -7,7 +7,5 @@
   "manifestAsset": "jai-playground.manifest.json",
   "manifestSha256": "4683a12cae05560dd080f2bf6893bb0f9e364c061ce78fecd8f94d3ba43e3ddf",
   "bundleAsset": "jai-playground.zip",
-  "sha256": "d34ed6b7e5ac2501ac6705c4c8a1ca24bcef7e7e988c719a714ae27fa9099d36",
-  "docsAsset": "jacket-docs.tar.gz",
-  "docsSha256": "3b72281e921d419a5722297817a868787c4c245e4ba9304f7f5998a7f61a66aa"
+  "sha256": "d34ed6b7e5ac2501ac6705c4c8a1ca24bcef7e7e988c719a714ae27fa9099d36"
 }

@@ -8,7 +8,7 @@ from it in the shared code editor modal.
 
 ## How it works
 
-The portfolio's `jacket-web.yml` workflow ("Publish Jacket web") builds one full, immutable compiler commit and pins the release's API docs with it.
+The portfolio's `jacket-web.yml` workflow ("Publish Jacket web") builds one full, immutable compiler commit and pins it. The API docs live on their own site, https://jacket.matteopolak.com (see [API docs](#api-docs)).
 The portfolio owns the entire interface: `CodeWorkspace.astro` renders the shared
 header, file tree, CodeMirror editor and output pane described in
 [Shared code workspace](code-workspace.md). There is no embedded release page,
@@ -160,7 +160,7 @@ Inside a format string, `%`, `%0`, `%N` and `%00` are `formatSpecifier` tokens a
 ## Configuration
 
 `releases/jai-web-release.json` records the repository, immutable tag, revision, manifest and
-archive digests, and from Jacket 0.31.0 the API docs (`docsAsset`, `docsSha256`). A disabled pointer keeps the project visible with an honest
+archive digests. Older pins may still carry `docsAsset`/`docsSha256`; they are ignored. A disabled pointer keeps the project visible with an honest
 unavailable-playground message until its first verified release exists.
 
 ### Bumping the compiler
@@ -211,15 +211,13 @@ overwrites an existing release. A pointer commit created by `GITHUB_TOKEN` needs
 a separate portfolio CI dispatch. Check Cloudflare and anonymous live assets
 against that pointer before claiming deployment.
 
-### API docs (`/docs/jacket`)
+### API docs
 
-Each Jacket release from 0.31.0 attaches `jacket-docs-<version>.tar.gz`: the standard library's API reference as a static site (about 7.4k files), built by `jacket doc --base-url /docs/jacket/` with the browser compiler for its Run buttons. The portfolio serves it at `/docs/jacket/`. Nothing generated is committed.
+The standard library's API reference is built and published by the Jacket repo (`docs-pages.yml` and its release workflow) to GitHub Pages at https://jacket.matteopolak.com. The portfolio no longer builds, pins or serves it: carrying its ~30k files pushed the Cloudflare deploy past its file-count cap.
 
-- **Publish (`jacket-web.yml`).** After building the playground bundle, "Fetch and check the API docs" reads the version from the compiler's `Cargo.toml` and looks for the asset on release `v<version>`. That tag must resolve to the pinned commit, and the download must match GitHub's `sha256` digest for the asset. `scripts/stage-jacket-docs.py` then checks the inventory. The tarball is re-published as `jacket-docs.tar.gz` on the immutable `jai-web-<sha>` release, and its digest goes into the pin. A release without the asset (before 0.31.0) publishes without docs. Re-running for a release published before docs existed uploads the docs to it once; otherwise the existing bytes must match.
-- **Build (`sync-jai-web.ts`, in `prebuild`).** When the pin has `docsAsset`, it downloads the tarball from the `jai-web-<sha>` release (64 MiB cap), checks the pinned digest, and runs `stage-jacket-docs.py --out public/docs/jacket`. That script rejects anything but regular files and directories with plain relative paths, more than 12,000 files, any file over 25 MiB (the Cloudflare Pages limit) or 256 MiB in total, and a site without `index.html`. It drops the tarball's `runtime/` copy of the compiler and rewrites `runtime.json` to `{"engine": "/jai/<sha>/engine.mjs", "wasm": "/jai/<sha>/jai_wasm.wasm"}`, the playground's copy, which the docs' run worker loads. A pin without docs removes `public/docs/jacket`. `public/docs/` is gitignored, and `check:seo` skips `dist/docs`, because the generated pages carry their own metadata.
-- The docs' "Open in playground" button links to `/playground/jacket#code=…` (see [Program links](#program-links)). Their header links back to the playground.
-- Cloudflare Pages serves `/docs/jacket/` from `index.html` (and redirects `/docs/jacket` there). The site headers (COOP/COEP) apply to it too, so it must load only same-origin assets, as it does.
-- Tests: `tests/jai/test_jacket_docs.py` (staging, `runtime.json`, refusals).
+- `public/_redirects` sends `/docs/jacket` and `/docs/jacket/*` to `https://jacket.matteopolak.com/:splat` (301), keeping the rest of the path. The `/docs/jacket/playground` lines sit above them, because the first match wins and that old URL still goes to `/playground/jacket`.
+- The docs' "Open in playground" button links to `https://matteopolak.com/playground/jacket#code=…` (see [Program links](#program-links)), so the playground stays here.
+- To move the docs again, change the two redirect lines; nothing else in the portfolio refers to them.
 
 ## Dependencies
 

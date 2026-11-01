@@ -22,9 +22,6 @@ interface ReleasePointer {
   manifestSha256: string;
   bundleAsset: string;
   sha256: string;
-  /** The Jacket API docs site (releases from 0.31.0), served at /docs/jacket. */
-  docsAsset?: string;
-  docsSha256?: string;
 }
 
 const pointer: ReleasePointer = JSON.parse(
@@ -41,15 +38,11 @@ if (
   pointer.manifestAsset !== 'jai-playground.manifest.json' ||
   pointer.bundleAsset !== 'jai-playground.zip' ||
   !/^[a-f0-9]{64}$/.test(pointer.manifestSha256) ||
-  !/^[a-f0-9]{64}$/.test(pointer.sha256) ||
-  (pointer.docsAsset !== undefined &&
-    (pointer.docsAsset !== 'jacket-docs.tar.gz' ||
-      !/^[a-f0-9]{64}$/.test(pointer.docsSha256 ?? '')))
+  !/^[a-f0-9]{64}$/.test(pointer.sha256)
 ) {
   throw new Error('Invalid immutable Jai release pointer.');
 }
 const destination = join(root, 'public/jai', pointer.revision);
-const docsDestination = join(root, 'public/docs/jacket');
 
 /** Runs a Python check from scripts/, failing with `what` on a non-zero exit. */
 function python(script: string, args: string[], what: string) {
@@ -143,8 +136,6 @@ try {
     [pointer.manifestAsset, pointer.manifestSha256, 2 * 1024 * 1024],
     [pointer.bundleAsset, pointer.sha256, 64 * 1024 * 1024],
   ];
-  if (pointer.docsAsset)
-    assets.push([pointer.docsAsset, pointer.docsSha256!, 64 * 1024 * 1024]);
   for (const [name, digest, limit] of assets) {
     const response = await fetch(`${base}/${name}`);
     if (!response.ok || !response.body)
@@ -171,21 +162,6 @@ try {
   await rm(destination, { recursive: true, force: true });
   await rename(join(temp, 'verified'), destination);
   console.log(`Staged verified Jai ${pointer.revision}.`);
-  // The API docs run their examples with the compiler staged above.
-  if (pointer.docsAsset)
-    await python(
-      'stage-jacket-docs.py',
-      [
-        join(temp, pointer.docsAsset),
-        pointer.revision,
-        '--sha256',
-        pointer.docsSha256!,
-        '--out',
-        docsDestination,
-      ],
-      'Jacket docs staging'
-    );
-  else await rm(docsDestination, { recursive: true, force: true });
 } finally {
   await rm(temp, { recursive: true, force: true });
 }
