@@ -833,7 +833,7 @@
       Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
       sans-serif;
     /* Panel spacing and corner radii. */
-    --ide-gap: 6px;
+    --ide-gap: 3px;
     --ide-r: 12px;
     --ide-r-sm: 8px;
     --ide-head: 2.5rem;
@@ -2009,8 +2009,9 @@
       background-size: 2px 0;
     }
 
+    /* The gap is thin, so the grab area reaches over the card edges. */
     .ide .ide-divider--col::after {
-      inset: 0 -2px;
+      inset: 0 -3px;
     }
 
     .ide .ide-divider--row {
@@ -2020,7 +2021,7 @@
     }
 
     .ide .ide-divider--row::after {
-      inset: -2px 0;
+      inset: -3px 0;
     }
 
     .ide .ide-divider[role='separator']:hover,

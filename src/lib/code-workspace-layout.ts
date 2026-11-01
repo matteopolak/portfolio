@@ -787,8 +787,12 @@ function examplesSplit(
       current: () => examples.getBoundingClientRect().height,
       sign: -1,
       minimum: EXAMPLES_MIN,
-      // The divider is the frame gap (6px); leave the tree its minimum.
-      maximum: () => files.getBoundingClientRect().height - 6 - TREE_MIN,
+      // The divider is the frame gap; leave the tree its minimum.
+      maximum: () =>
+        files.getBoundingClientRect().height -
+        (parseFloat(getComputedStyle(examples).getPropertyValue('--ide-gap')) ||
+          0) -
+        TREE_MIN,
       set: apply,
       done: () => {
         try {
