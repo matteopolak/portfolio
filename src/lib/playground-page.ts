@@ -1,3 +1,4 @@
+import { programFromSearch } from './jai/program-link';
 import { registerRunTarget } from './run-target';
 import {
   codeDemos,
@@ -21,9 +22,13 @@ export function initializePlaygroundPage() {
   const { signal } = controller;
   const panel = root.querySelector<HTMLElement>('[data-code-workspace]');
   // `#code=<base64url>` starts with that program (the Jacket docs' "Open in
-  // playground"); `#lib/math.jai` opens that workspace file (jai only; other
-  // demos have one file).
-  if (location.hash.startsWith('#code=')) {
+  // playground"); `?code=<raw text>` does the same for chat tools (Zulip);
+  // `#lib/math.jai` opens that workspace file (jai only; other demos have one
+  // file).
+  const raw = programFromSearch(location.search);
+  if (raw !== undefined && panel) {
+    panel.dataset.codeProgramText = raw;
+  } else if (location.hash.startsWith('#code=')) {
     if (panel) panel.dataset.codeProgram = location.hash.slice(1);
   } else {
     const file = decodeURIComponent(location.hash.slice(1));

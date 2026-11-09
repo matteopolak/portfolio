@@ -46,6 +46,8 @@ Fallbacks: releases before `examples.json` (Jacket 0.29) shipped the language to
 
 ### Program links
 
+`/playground/jacket?code=<text>` does the same with the raw program, URL-encoded as a query parameter. Chat tools build these: the Jacket Zulip's code playground for `jai` and `jacket` blocks uses `https://matteopolak.com/playground/jacket?code={code}`. `programFromSearch` reads it (empty or over 1 MiB is ignored) and `playground-page.ts` hands it to the panel as `data-code-program-text`; a `?code=` wins over a `#code=`.
+
 `/playground/jacket#code=<base64url>` opens the playground with that program as `main.jai` (plus the default `jacket.toml`) instead of the first example. The Jacket API docs' "Open in playground" button builds these links. The fragment is the program's UTF-8 bytes in unpadded base64url:
 
 ```js

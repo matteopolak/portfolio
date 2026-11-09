@@ -23,6 +23,18 @@ export function programFromHash(hash: string): string | undefined {
   }
 }
 
+/**
+ * The program in a `?code=<raw text>` query (Zulip's code playgrounds and
+ * other chat tools pass the code URL-encoded, not base64), or undefined when
+ * there is none, it is empty or it is too large.
+ */
+export function programFromSearch(search: string): string | undefined {
+  const code = new URLSearchParams(search).get('code');
+  if (!code || new TextEncoder().encode(code).length > MAX_LINKED_BYTES)
+    return undefined;
+  return code;
+}
+
 /** A workspace holding just `code` as main.jai, with the default jacket.toml. */
 export const programStarter = (code: string): Starter => ({
   files: { 'main.jai': code, [PROJECT_CONFIG_PATH]: projectConfigStarter },

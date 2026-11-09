@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   programFromHash,
+  programFromSearch,
   programStarter,
 } from '../../src/lib/jai/program-link.ts';
 
@@ -39,4 +40,15 @@ test('a linked program opens as main.jai with the default jacket.toml', () => {
   assert.deepEqual(starter.open, ['main.jai']);
   assert.equal(starter.files['main.jai'], 'x :: 1;\n');
   assert.ok('jacket.toml' in starter.files);
+});
+
+test('a ?code= query carries the raw program, URL-encoded', () => {
+  const code = 'main :: () { print("hi & bye\n"); } // ✓ 100%\n';
+  assert.equal(programFromSearch('?code=' + encodeURIComponent(code)), code);
+  assert.equal(programFromSearch('?x=1&code=a%2Bb'), 'a+b');
+});
+
+test('a missing or empty ?code= query is ignored', () => {
+  for (const search of ['', '?', '?code=', '?other=1'])
+    assert.equal(programFromSearch(search), undefined, search);
 });

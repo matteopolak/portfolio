@@ -38,10 +38,13 @@ export function initializeJaiPlayground(
   let ready = false;
   let generation = 0;
   // Set by Import folder / Reset: the next session starts from it, not the
-  // release's first example. A `#code=` link sets the first one; a bad one is
+  // release's first example. A `#code=` or `?code=` link sets the first one; a bad one is
   // ignored.
-  const linked = programFromHash(`#${panel.dataset.codeProgram ?? ''}`);
+  const linked =
+    panel.dataset.codeProgramText ??
+    programFromHash(`#${panel.dataset.codeProgram ?? ''}`);
   delete panel.dataset.codeProgram;
+  delete panel.dataset.codeProgramText;
   let nextStarter: Starter | undefined =
     linked === undefined ? undefined : programStarter(linked);
   // The workspace is a Svelte island: its dock layout moves server-rendered
